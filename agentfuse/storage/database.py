@@ -405,12 +405,39 @@ class Database:
     # connections
     # ------------------------------------------------------------------
     def _connect(self) -> sqlite3.Connection:
+        """Open a configured connection.
+
+        WAL mode is preferred because it allows a reader to work while the
+        writer commits.  Some file systems do not support it - a Windows drive
+        that is mounted inside WSL2 for example cannot provide the shared
+        memory mapping that WAL requires and answers with a disk I/O error.
+        In that case the runtime falls back to the rollback journal mode.
+        """
+
+        try:
+            return self._open(journal_mode="WAL")
+        except sqlite3.OperationalError as wal_error:
+            try:
+                return self._open(journal_mode="TRUNCATE")
+            except sqlite3.OperationalError:
+                raise sqlite3.OperationalError(
+                    f"cannot open the AgentFuse database at {self.path}: {wal_error}. "
+                    "Another AgentFuse instance may be using the same home directory "
+                    "(for example the local web server) - stop it or point "
+                    "AGENTFUSE_HOME / --home to a different directory."
+                ) from wal_error
+
+    def _open(self, journal_mode: str) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=30.0, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        conn.execute("PRAGMA busy_timeout=30000")
+        try:
+            conn.row_factory = sqlite3.Row
+            conn.execute(f"PRAGMA journal_mode={journal_mode}")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.execute("PRAGMA busy_timeout=30000")
+        except Exception:
+            conn.close()
+            raise
         return conn
 
     def _read_conn(self) -> sqlite3.Connection:

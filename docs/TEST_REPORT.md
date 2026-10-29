@@ -93,7 +93,9 @@ python scripts/acceptance_check.py
 
 ## 4. 跨平台验证发现并修复的真实缺陷
 
-WSL2 实测（而非仅修改文档）暴露了一个 **Linux 专属资源泄漏**：
+WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属问题**：
+
+### 4.1 未回收的 worker 进程（僵尸进程）
 
 * **症状**：`test_no_worker_processes_are_leaked` 在 Linux 上失败 —— 一个 worker
   进程在调用完成后仍然存活。
@@ -103,6 +105,20 @@ WSL2 实测（而非仅修改文档）暴露了一个 **Linux 专属资源泄漏
 * **修复**：`runtime/coordinator.py::_reader_loop` 在读到 EOF 后调用
   `process.wait(timeout=5)` 回收子进程。
 * **验证**：修复后 Windows 124 passed / WSL2 125 passed，两个平台都通过。
+
+### 4.2 跨操作系统的 SQLite WAL 锁
+
+* **症状**：在 WSL2 里运行 CLI 时报 `sqlite3.OperationalError: disk I/O error`。
+* **根因**：**同一个 home 目录被两个 AgentFuse 实例同时使用**（Windows 上运行着
+  Web 服务端，WSL2 里跑 CLI）。SQLite 的 WAL 需要 `-shm` 共享内存索引与字节范围锁，
+  这在跨操作系统的挂载盘上无法共享，第二个实例拿不到锁。
+* **修复**：
+  1. `Database._connect()` 在 WAL 失败时回退到回滚日志模式（`TRUNCATE`），
+     以适配本身不支持 WAL 的文件系统；
+  2. 两种模式都失败时抛出**明确的诊断信息**（指出可能是另一个实例占用了
+     同一 home 目录，并给出 `AGENTFUSE_HOME` / `--home` 的解决建议），
+     而不是把晦涩的 `disk I/O error` 直接抛给用户。
+* **验证**：停止并发实例后，WSL2 CLI 与验收自检均通过（18/18）。
 
 ## 5. 验收项与对应测试
 

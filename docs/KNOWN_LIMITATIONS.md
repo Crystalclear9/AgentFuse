@@ -131,6 +131,10 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 * **不实现** GPU KV Cache 管理、**不实现** GPU 调度、**不实现**分布式执行、
   **不实现**多节点调度。
 * 只在 **Windows 11** 与 **WSL2 / Ubuntu-22.04** 上实测通过；**macOS 未验证**。
+* **同一个 home 目录不能同时被两个 AgentFuse 实例使用**（例如一边跑 Web 服务、
+  一边在 WSL2 里跑 CLI）：SQLite 的 WAL 锁在跨操作系统的挂载盘上无法共享，
+  第二个实例会收到 `disk I/O error`。此时 Runtime 会给出明确提示，请停止另一个
+  实例或用 `AGENTFUSE_HOME` / `--home` 指向不同目录。
 * WSL2 需要 Python 3.11+（Ubuntu-22.04 自带的是 3.10），推荐用 `uv` 在项目目录内
   创建虚拟环境（见 README §4）。
 * **不实现**跨会话持久化结果缓存（P2）。
