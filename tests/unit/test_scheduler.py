@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 
-from agentfuse.runtime.scheduler import ResourceScheduler
+from agentfuse.runtime.scheduler import LocalResourceController
 
 
 async def test_the_worker_limit_is_enforced():
-    scheduler = ResourceScheduler(max_workers=1, max_memory_budget_mb=1024)
+    scheduler = LocalResourceController(max_workers=1, max_memory_budget_mb=1024)
     await scheduler.acquire("exec-1", 64)
     pending = asyncio.create_task(scheduler.acquire("exec-2", 64))
     await asyncio.sleep(0.05)
@@ -20,7 +20,7 @@ async def test_the_worker_limit_is_enforced():
 
 
 async def test_the_memory_budget_blocks_new_executions():
-    scheduler = ResourceScheduler(max_workers=4, max_memory_budget_mb=128)
+    scheduler = LocalResourceController(max_workers=4, max_memory_budget_mb=128)
     await scheduler.acquire("exec-1", 100)
     pending = asyncio.create_task(scheduler.acquire("exec-2", 100))
     await asyncio.sleep(0.05)
@@ -32,13 +32,13 @@ async def test_the_memory_budget_blocks_new_executions():
 async def test_a_single_oversized_execution_is_allowed():
     """The scheduler must never deadlock on an oversized tool."""
 
-    scheduler = ResourceScheduler(max_workers=2, max_memory_budget_mb=16)
+    scheduler = LocalResourceController(max_workers=2, max_memory_budget_mb=16)
     reason = await scheduler.acquire("exec-1", 512)
     assert "deadlock" in reason or "budget" in reason
 
 
 async def test_the_queue_is_fifo():
-    scheduler = ResourceScheduler(max_workers=1, max_memory_budget_mb=1024)
+    scheduler = LocalResourceController(max_workers=1, max_memory_budget_mb=1024)
     order: list[str] = []
 
     async def worker(name: str):
@@ -56,7 +56,7 @@ async def test_the_queue_is_fifo():
 
 
 async def test_the_snapshot_reports_the_usage():
-    scheduler = ResourceScheduler(max_workers=3, max_memory_budget_mb=256)
+    scheduler = LocalResourceController(max_workers=3, max_memory_budget_mb=256)
     await scheduler.acquire("exec-1", 32)
     scheduler.record_rss("exec-1", 64 * 1024 * 1024)
     snapshot = scheduler.snapshot()
@@ -67,7 +67,7 @@ async def test_the_snapshot_reports_the_usage():
 
 
 async def test_the_fifo_strategy_admits_the_oldest_request():
-    scheduler = ResourceScheduler(max_workers=1, max_memory_budget_mb=1024, strategy="fifo")
+    scheduler = LocalResourceController(max_workers=1, max_memory_budget_mb=1024, strategy="fifo")
     await scheduler.acquire("exec-1", 8)
     first = asyncio.create_task(scheduler.acquire("exec-old", 8, estimated_cpu_seconds=100.0))
     await asyncio.sleep(0.05)
@@ -81,7 +81,7 @@ async def test_the_fifo_strategy_admits_the_oldest_request():
 
 
 async def test_the_sjf_strategy_admits_the_shortest_job_first():
-    scheduler = ResourceScheduler(max_workers=1, max_memory_budget_mb=1024, strategy="sjf")
+    scheduler = LocalResourceController(max_workers=1, max_memory_budget_mb=1024, strategy="sjf")
     await scheduler.acquire("exec-1", 8)
     long_task = asyncio.create_task(scheduler.acquire("exec-long", 8, estimated_cpu_seconds=100.0))
     await asyncio.sleep(0.05)
@@ -102,3 +102,15 @@ async def test_an_unknown_strategy_falls_back_to_fifo():
     assert build_strategy("does-not-exist").name == "fifo"
     assert build_strategy(None).name == "fifo"
     assert build_strategy("sjf").name == "sjf"
+
+
+async def test_the_controller_keeps_its_specification_name():
+    """The specification names the resource controller ``LocalResourceController``."""
+
+    from agentfuse.runtime import LocalResourceController as exported
+    from agentfuse.runtime.scheduler import ResourceScheduler as alias
+
+    assert exported.__name__ == "LocalResourceController"
+    assert alias is exported
+    scheduler = LocalResourceController(max_workers=1)
+    assert scheduler.snapshot()["max_workers"] == 1

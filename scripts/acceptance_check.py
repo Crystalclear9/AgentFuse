@@ -133,6 +133,24 @@ def main() -> int:
     asyncio.run(api_checks())
     asyncio.run(api_app.state.runtime.close())
 
+    # --- requirement audit -----------------------------------------------
+    audit = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "audit_requirements.py"), "--json"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        cwd=str(ROOT),
+    )
+    try:
+        report = json.loads(audit.stdout)
+        broken = [item for item in report["checks"] if not item["ok"]]
+        check(
+            "需求条款审计全部通过",
+            not broken,
+            f"{report['total'] - report['failed']}/{report['total']} 项通过"
+            + (f"; 未通过: {[b['clause'] for b in broken]}" if broken else ""),
+        )
+    except Exception as exc:
+        check("需求条款审计全部通过", False, str(exc))
+
     # --- offline check ---------------------------------------------------
     sources = list((ROOT / "agentfuse").rglob("*.py"))
     remote = [

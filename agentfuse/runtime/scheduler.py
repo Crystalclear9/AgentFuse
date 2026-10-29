@@ -59,8 +59,15 @@ class _Slot:
         )
 
 
-class ResourceScheduler:
-    """FIFO scheduler with a concurrency limit and a memory admission budget."""
+class LocalResourceController:
+    """The local resource controller.
+
+    It owns the worker pool, the admission budget (worker limit + memory
+    budget + measured RSS), the wait queue with its blocking reasons and the
+    cancellation of running executions.
+
+    The admission policy itself is pluggable (see :mod:`agentfuse.runtime.strategy`).
+    """
 
     def __init__(
         self,
@@ -276,3 +283,8 @@ class ResourceScheduler:
                 "strategy": self.strategy.name,
                 "pending": pending,
             }
+
+
+#: Backward compatible alias - the specification names this component
+#: ``LocalResourceController``.
+ResourceScheduler = LocalResourceController

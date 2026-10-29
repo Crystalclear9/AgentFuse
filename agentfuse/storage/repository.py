@@ -257,26 +257,27 @@ class Repository:
     def save_share_group(self, record: ShareGroupRecord) -> None:
         self.db.write(
             """
-            INSERT OR REPLACE INTO share_groups
-            (share_group_id, workflow_id, candidate_key, leader_execution_id,
-             leader_logical_call_id, creation_time, closed_time, status,
-             participant_count, mode, tool_name, tool_version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                record.share_group_id,
-                record.workflow_id,
-                record.candidate_key,
-                record.leader_execution_id,
-                record.leader_logical_call_id,
-                record.creation_time,
-                record.closed_time,
-                record.status,
-                record.participant_count,
-                record.mode,
-                record.tool_name,
-                record.tool_version,
-            ),
+                INSERT OR REPLACE INTO share_groups
+                (share_group_id, workflow_id, candidate_key, leader_execution_id,
+                 leader_logical_call_id, creation_time, closed_time, status,
+                 participant_count, participant_calls, mode, tool_name, tool_version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record.share_group_id,
+                    record.workflow_id,
+                    record.candidate_key,
+                    record.leader_execution_id,
+                    record.leader_logical_call_id,
+                    record.creation_time,
+                    record.closed_time,
+                    record.status,
+                    record.participant_count,
+                    json.dumps(list(record.participant_calls), ensure_ascii=False),
+                    record.mode,
+                    record.tool_name,
+                    record.tool_version,
+                ),
         )
 
     def list_share_groups(self, workflow_id: str) -> list[dict[str, Any]]:

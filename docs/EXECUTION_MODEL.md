@@ -123,7 +123,7 @@ python -m agentfuse.runtime.worker_child
 * 依赖事件在**读取发生的瞬间**产生，因此协调者可以在线验证；
 * 工具读取必须经过 `WorkspaceReader`，绕过的工具一律禁止共享。
 
-## 7. Resource Scheduling
+## 7. Resource Scheduling（LocalResourceController）
 
 首版采用简单稳定的 FIFO 物理执行调度。
 

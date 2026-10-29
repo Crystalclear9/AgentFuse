@@ -73,6 +73,22 @@ CandidateKey = SHA256(
 
 ## 3. ShareGroup
 
+共享组的字段：
+
+| 字段 | 含义 |
+|---|---|
+| `share_group_id` | 共享组标识 |
+| `candidate_key` | 候选共享键 |
+| `leader_execution_id` | Leader 的物理执行 |
+| `leader_logical_call_id` | Leader 的逻辑调用 |
+| `creation_time` / `closed_time` | 生命周期 |
+| `status` | `CREATED` / `EXECUTING` / `VALIDATING` / `COMPLETED` / `FAILED` / `CLOSED` |
+| `participant_count` | 参与者数量 |
+| `participant_calls` | 参与者的**逻辑调用 id 列表**（落库为 JSON） |
+| `mode` | 该组运行在 `baseline` / `online` / `deferred` 哪种模式下 |
+
+参与者的完整状态（验证前缀、分离原因、等待时长）在 `share_participants` 表中。
+
 ```text
 CREATED ──► EXECUTING ──► VALIDATING ──► COMPLETED ──► CLOSED
     │            │              │
@@ -113,7 +129,7 @@ validation_status         # MATCH / MISMATCH / UNKNOWN / PENDING
 
 ---
 
-## 5. 加入共享组
+## 5. 加入共享组（Late Join 验证）
 
 新调用到达时：
 
@@ -125,7 +141,7 @@ validation_status         # MATCH / MISMATCH / UNKNOWN / PENDING
    * 出现 `UNKNOWN`（无法在快照中求值）→ 保守处理，继续尝试下一个组；
 4. 没有可加入的组 → 创建新组，当前调用成为 Leader。
 
-**中途加入的参与者必须先验证已有全部记录，再订阅后续依赖事件** —— 上面的
+**Late Join（中途加入）：参与者必须先验证已有全部记录，再订阅后续依赖事件** —— 上面的
 "已有前缀"校验正是为此。
 
 ---

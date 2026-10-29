@@ -133,6 +133,7 @@ class ShareGroupRecord:
     leader_logical_call_id: str | None = None
     closed_time: float | None = None
     participant_count: int = 0
+    participant_calls: list[str] = field(default_factory=list)
     mode: str | None = None
     tool_name: str | None = None
     tool_version: str | None = None

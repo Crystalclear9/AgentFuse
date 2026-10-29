@@ -158,6 +158,12 @@ class ShareGroup:
             )
         self.participants[participant.logical_call_id] = participant
 
+    @property
+    def participant_calls(self) -> list[str]:
+        """The logical calls that belong to this share group."""
+
+        return list(self.participants)
+
     def active_participants(self) -> list[Participant]:
         return [
             participant

@@ -65,6 +65,30 @@ def test_an_old_database_is_migrated(tmp_path):
     db.close()
 
 
+def test_a_v2_database_is_migrated_to_v3(tmp_path):
+    """The share group table gains the participant_calls column."""
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+
+    conn = sqlite3.connect(db.path)
+    try:
+        conn.execute("ALTER TABLE share_groups DROP COLUMN participant_calls")
+        conn.execute("PRAGMA user_version = 2")
+        conn.commit()
+    except sqlite3.OperationalError as exc:  # pragma: no cover - old sqlite
+        conn.close()
+        db.close()
+        pytest.skip(f"the sqlite build cannot drop columns: {exc}")
+    finally:
+        conn.close()
+
+    db.initialize()
+    assert db.schema_version() == 3
+    assert "participant_calls" in _columns(db, "share_groups")
+    db.close()
+
+
 def test_the_migration_creates_a_backup(tmp_path):
     db = Database(tmp_path / "db" / "agentfuse.sqlite3")
     db.initialize()

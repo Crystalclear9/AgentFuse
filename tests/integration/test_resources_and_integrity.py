@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from agentfuse.runtime.scheduler import ResourceScheduler
+from agentfuse.runtime.scheduler import LocalResourceController
 from agentfuse.scenarios.common import DEMO_FILES, create_branch
 
 
@@ -12,7 +12,7 @@ from agentfuse.scenarios.common import DEMO_FILES, create_branch
 # resource admission
 # ----------------------------------------------------------------------
 async def test_the_rss_soft_limit_blocks_new_admissions():
-    scheduler = ResourceScheduler(max_workers=4, max_memory_budget_mb=1024)
+    scheduler = LocalResourceController(max_workers=4, max_memory_budget_mb=1024)
     await scheduler.acquire("exec-1", 8)
     scheduler.record_rss("exec-1", 900 * 1024 * 1024)
 
@@ -30,7 +30,7 @@ async def test_the_rss_soft_limit_blocks_new_admissions():
 
 
 async def test_the_pending_queue_explains_the_waiting_reason():
-    scheduler = ResourceScheduler(max_workers=1, max_memory_budget_mb=1024)
+    scheduler = LocalResourceController(max_workers=1, max_memory_budget_mb=1024)
     await scheduler.acquire("exec-1", 8)
     task = asyncio.create_task(scheduler.acquire("exec-2", 8))
     await asyncio.sleep(0.05)
@@ -46,7 +46,7 @@ async def test_the_pending_queue_explains_the_waiting_reason():
 
 
 async def test_the_resource_snapshot_exposes_the_limits():
-    scheduler = ResourceScheduler(max_workers=3, max_memory_budget_mb=256)
+    scheduler = LocalResourceController(max_workers=3, max_memory_budget_mb=256)
     snapshot = scheduler.snapshot()
     assert snapshot["max_workers"] == 3
     assert snapshot["max_memory_budget_mb"] == 256

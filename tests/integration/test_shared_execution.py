@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 import pytest
 
@@ -192,3 +193,33 @@ async def test_two_scripted_agents_produce_a_real_execution_graph(app, snapshot)
     edge_kinds = {edge["kind"] for edge in payload["edges"]}
     assert "CALLS_TOOL" in edge_kinds
     assert "SHARES_EXECUTION_WITH" in edge_kinds
+
+
+async def test_the_share_group_records_its_participants(app, snapshot):
+    """The share group stores the logical calls that belong to it."""
+
+    workflow = app.create_workflow("test-participant-calls")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES)}
+    await asyncio.gather(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="ast_analyzer",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="ast_analyzer",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+    )
+
+    groups = app.repository.list_share_groups(workflow.workflow_id)
+    assert len(groups) == 1
+    calls = {call["logical_call_id"] for call in app.repository.list_logical_calls(workflow.workflow_id)}
+    assert set(json.loads(groups[0]["participant_calls"])) == calls
+    assert groups[0]["participant_count"] == len(calls)

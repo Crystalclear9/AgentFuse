@@ -40,6 +40,9 @@ jobs:
       - name: Delivery acceptance check
         run: python scripts/acceptance_check.py
 
+      - name: Requirement audit
+        run: python scripts/audit_requirements.py
+
       - name: Performance regression guard
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
         continue-on-error: true

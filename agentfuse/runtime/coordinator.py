@@ -63,7 +63,7 @@ from .protocol import (
 from .cancellation import CancellationReason, terminate_execution, terminate_worker
 from .pool import WorkerHandle, start_worker
 from .execution import ExecutionOutcome, PhysicalExecution
-from .scheduler import ResourceScheduler
+from .scheduler import LocalResourceController
 
 try:  # pragma: no cover
     import psutil
@@ -149,7 +149,7 @@ class RuntimeCoordinator:
         snapshots: SnapshotStore,
         event_bus: EventBus,
         result_store: ResultStore,
-        scheduler: ResourceScheduler,
+        scheduler: LocalResourceController,
         mode: RuntimeMode = RuntimeMode.ONLINE,
         default_timeout_seconds: int = 60,
         result_cache_entries: int = 64,
@@ -632,6 +632,7 @@ class RuntimeCoordinator:
         call.shared = True
         self._persist_call(call)
         self._persist_participant(group, participant)
+        self._persist_group(group)
         self.event_bus.publish(
             EventType.TOOL_CALL_WAITING,
             workflow_id=call.workflow_id,
@@ -1472,6 +1473,7 @@ class RuntimeCoordinator:
             else participant.validation_status
         )
         self._persist_participant(group, participant)
+        self._persist_group(group)
         self.event_bus.publish(
             EventType.SHARE_PARTICIPANT_DETACHED,
             workflow_id=group.workflow_id,
@@ -1680,6 +1682,7 @@ class RuntimeCoordinator:
                 closed_time=group.closed_time,
                 status=str(group.status),
                 participant_count=len(group.participants),
+                participant_calls=list(group.participant_calls),
                 mode=group.mode,
                 tool_name=group.tool_name,
                 tool_version=group.tool_version,

@@ -62,7 +62,7 @@
 | `adapters/scripted_adapter.py` | 离线 Scripted Agent 的适配器与执行上下文 | LLM 能力 |
 | `runtime/coordinator.py` | 共享状态的唯一权威；物理执行生命周期；取消与失败处理 | 具体工具实现 |
 | `runtime/worker.py` / `worker_child.py` | 独立进程执行工具、流式上报依赖 | 共享决策 |
-| `runtime/scheduler.py` | FIFO / SJF 准入、Worker 上限、内存准入、资源快照 | 硬性资源限制 |
+| `runtime/scheduler.py` | **LocalResourceController**：FIFO / SJF 准入、Worker 上限、内存准入、资源快照 | 硬性资源限制 |
 | `runtime/strategy.py` | 调度策略接口与实现（`fifo` / `sjf`） | 业务策略 |
 | `runtime/pool.py` | Worker 句柄与预热池 | 任务分发 |
 | `runtime/execution.py` | 物理执行与执行结果的数据模型 | 共享决策 |
@@ -188,7 +188,7 @@ SQLite（`agentfuse/storage/database.py`），schema 版本记录在 `PRAGMA use
 | `agent_invocations` | 调用记录与父子关系 |
 | `logical_tool_calls` | 逻辑调用、状态、绑定的物理执行、结果哈希 |
 | `physical_executions` | 物理执行、worker pid、CPU 时间、峰值 RSS、退出状态 |
-| `share_groups` | 共享组与 Leader |
+| `share_groups` | 共享组、Leader、`participant_count` 与 `participant_calls`（组内的逻辑调用列表） |
 | `share_participants` | 参与者状态、已验证前缀、分离原因、等待时长 |
 | `workspace_snapshots` | 快照元数据与 manifest 哈希 |
 | `dependency_records` | 每个物理执行的依赖账本 |

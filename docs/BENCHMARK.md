@@ -56,6 +56,22 @@ python scripts/check_regression.py
 | `multi-agent` | Supervisor → A/B/C → Aggregator | A 与 B 共享，C 与 Aggregator 独立 |
 | `cancel-failure` | 取消 / 超时 / 崩溃 / 共享失败 | 不产生错误结果、不永久等待、不泄漏资源 |
 
+## 3.1 工作负载（Workload）
+
+每个场景的工作负载完全相同，两种模式使用的输入与调用序列完全一致：
+
+| 场景 | 工具 | 输入文件 | CPU 负载 | 分支变更 |
+|---|---|---|---|---|
+| `shared` | `ast_analyzer` | 5 个 `src/*.py` | 无（仅 AST 解析） | 无 |
+| `shared-heavy` | `content_digest` | 5 个 `src/*.py` | `rounds=1500`（每文件 1500 轮 SHA-256） | 无 |
+| `different-workspace` | `ast_analyzer` | 5 个 `src/*.py` | 无 | 分支 A 修改 `README.md` |
+| `divergent` | `content_digest` | 5 个 `src/*.py` | `rounds=1500` | 分支 B 修改 `src/zeta_variant.py` |
+| `multi-agent` | `ast_analyzer` × 2 / `dependency_analyzer` / `source_index` | 同上 | 无 | 无 |
+
+`content_digest` 的 CPU 负载是**真实的 SHA-256 运算**（对每个文件的内容派生的 32 KiB 工作缓冲做 `rounds` 轮哈希），
+**不是 `sleep()`**。另一个工作负载参数是分支变更点：
+`src/zeta_variant.py` 按排序位于最后，因此冲突总是在其它依赖之后才被发现。
+
 ## 4. 公平性原则
 
 所有模式保持完全一致：
