@@ -170,6 +170,11 @@ class RuntimeCoordinator:
         self._pool_lock = threading.Lock()
         self._idle_workers: list[WorkerHandle] = []
         self._worker_handles: set[WorkerHandle] = set()
+        #: set once the pool warm up finished (or failed)
+        self._pool_warmup_done = threading.Event()
+        #: set when the runtime shuts down - stops the warm up thread
+        self._pool_stopped = threading.Event()
+        self._pool_warmup_thread: threading.Thread | None = None
         self._resource_monitor = ResourceMonitor(repository=repository, interval=0.05)
 
         self._lock = asyncio.Lock()
@@ -207,13 +212,22 @@ class RuntimeCoordinator:
         """Terminate every running worker and release the resources."""
 
         self._closing = True
+        # Stop the background warm up first: a worker that is created after
+        # this point would never be terminated and would leak.
+        self._pool_stopped.set()
+        thread = self._pool_warmup_thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=5)
+        self._pool_warmup_thread = None
+
         for execution in list(self._executions.values()):
             if execution.status is ExecutionStatus.RUNNING:
                 await self._terminate_execution(execution, "runtime shutdown")
         with self._pool_lock:
-            idle = list(self._idle_workers)
+            handles = list(self._worker_handles)
             self._idle_workers.clear()
-        for handle in idle:
+            self._worker_handles.clear()
+        for handle in handles:
             handle.terminate()
         for task in list(self._tasks):
             task.cancel()
@@ -766,8 +780,15 @@ class RuntimeCoordinator:
     # worker pool
     # ------------------------------------------------------------------
     def _acquire_worker(self) -> WorkerHandle:
-        """Take an idle worker from the pool or start a new one."""
+        """Take an idle worker from the pool or start a new one.
 
+        The pool warm up runs in the background.  A worker is only started
+        outside of the pool when the warm up did not deliver one yet - waiting
+        for the warm up keeps the reuse of the workers deterministic.
+        """
+
+        self._wait_for_pool_warmup()
+        self._trim_idle_pool()
         with self._pool_lock:
             while self._idle_workers:
                 handle = self._idle_workers.pop()
@@ -781,6 +802,35 @@ class RuntimeCoordinator:
         self._start_worker_threads(handle)
         return handle
 
+    def _trim_idle_pool(self) -> None:
+        """Terminate the idle workers that exceed the current pool size.
+
+        The pool size can be changed at runtime (for example by the
+        benchmark API).  Workers that were started for a larger pool must not
+        survive that change.
+        """
+
+        evicted: list[WorkerHandle] = []
+        with self._pool_lock:
+            limit = max(0, self.worker_pool_size)
+            while len(self._idle_workers) > limit:
+                handle = self._idle_workers.pop(0)
+                self._worker_handles.discard(handle)
+                evicted.append(handle)
+        for handle in evicted:
+            handle.terminate()
+
+    def _wait_for_pool_warmup(self, timeout: float = 30.0) -> None:
+        """Wait until the background warm up finished (bounded)."""
+
+        if not self.worker_pool_size:
+            return
+        if self._pool_warmup_done.is_set():
+            return
+        # The wait happens outside of the pool lock on purpose: the warm up
+        # thread needs that lock to publish its workers.
+        self._pool_warmup_done.wait(timeout)
+
     def _release_worker(self, handle: WorkerHandle | None, reusable: bool = True) -> None:
         """Return a worker to the pool or terminate it."""
 
@@ -792,13 +842,20 @@ class RuntimeCoordinator:
             with self._pool_lock:
                 self._worker_handles.discard(handle)
             return
+        evicted: WorkerHandle | None = None
         with self._pool_lock:
-            if self.worker_pool_size and len(self._idle_workers) < self.worker_pool_size:
+            if self.worker_pool_size:
                 self._idle_workers.append(handle)
-                return
-        handle.terminate()
-        with self._pool_lock:
-            self._worker_handles.discard(handle)
+                if len(self._idle_workers) > self.worker_pool_size:
+                    # The pool is full: the *oldest* idle worker is evicted so
+                    # that the worker which just finished a job stays warm.
+                    evicted = self._idle_workers.pop(0)
+            else:
+                evicted = handle
+        if evicted is not None:
+            evicted.terminate()
+            with self._pool_lock:
+                self._worker_handles.discard(evicted)
 
     def prewarm_workers(self) -> None:
         """Start the pool workers in the background.
@@ -808,30 +865,49 @@ class RuntimeCoordinator:
         """
 
         if not self.worker_pool_size:
+            self._pool_warmup_done.set()
             return
 
         def warm() -> None:
-            for _ in range(self.worker_pool_size):
-                try:
-                    handle = start_worker()
-                    with self._pool_lock:
-                        self._worker_handles.add(handle)
-                    self._start_worker_threads(handle)
-                    with self._pool_lock:
-                        if handle.is_alive():
-                            self._idle_workers.append(handle)
-                except Exception:  # pragma: no cover - defensive
-                    return
+            try:
+                for _ in range(self.worker_pool_size):
+                    if self._pool_stopped.is_set():
+                        return
+                    handle = None
+                    try:
+                        handle = start_worker()
+                        with self._pool_lock:
+                            self._worker_handles.add(handle)
+                        self._start_worker_threads(handle)
+                        if self._pool_stopped.is_set():
+                            # the runtime is shutting down - do not leak it
+                            handle.terminate()
+                            with self._pool_lock:
+                                self._worker_handles.discard(handle)
+                            return
+                        with self._pool_lock:
+                            if handle.is_alive():
+                                self._idle_workers.append(handle)
+                            else:
+                                handle.terminate()
+                                self._worker_handles.discard(handle)
+                    except Exception:  # pragma: no cover - defensive
+                        if handle is not None:
+                            handle.terminate()
+                        return
+            finally:
+                self._pool_warmup_done.set()
 
         thread = threading.Thread(target=warm, name="agentfuse-pool-warmup", daemon=True)
+        self._pool_warmup_thread = thread
         thread.start()
 
     def _start_worker_threads(self, handle: WorkerHandle) -> None:
         """Start the protocol threads of a worker (once per process)."""
 
-        if getattr(handle, "threads_started", False):
+        if handle.threads_started:
             return
-        handle.threads_started = True  # type: ignore[attr-defined]
+        handle.threads_started = True
         for target, name in (
             (self._reader_loop, "agentfuse-reader"),
             (self._stderr_loop, "agentfuse-stderr"),

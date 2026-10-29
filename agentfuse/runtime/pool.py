@@ -40,6 +40,8 @@ class WorkerHandle:
     jobs_served: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
     stderr_output: str = ""
+    threads_started: bool = False
+    terminated: bool = False
 
     # ------------------------------------------------------------------
     def assign(self, execution_id: str) -> None:
@@ -72,10 +74,18 @@ class WorkerHandle:
             return False
 
     def terminate(self) -> None:
-        """Kill the worker (and its children) and reap it."""
+        """Kill the worker (and its children) and reap it.
+
+        The call is idempotent: terminating an already terminated worker is a
+        no-op, which keeps the shutdown path simple.
+        """
 
         from .cancellation import terminate_worker
 
+        if self.terminated:
+            return
+        self.terminated = True
+        self.reusable = False
         try:
             stdin = self.process.stdin
             if stdin is not None:
@@ -83,7 +93,6 @@ class WorkerHandle:
         except Exception:  # pragma: no cover - defensive
             pass
         terminate_worker(self.process, getattr(self.process, "pid", None))
-        self.reusable = False
 
 
 def build_command() -> list[str]:
