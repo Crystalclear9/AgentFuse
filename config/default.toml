@@ -1,0 +1,51 @@
+# AgentFuse default runtime configuration.
+# All paths are resolved relative to the AgentFuse home directory unless absolute.
+
+[runtime]
+# Maximum number of tool worker processes running concurrently.
+max_workers = 2
+# Admission budget for expected worker memory (MiB). This is an admission
+# estimate, NOT an operating-system hard limit.
+max_memory_budget_mb = 1024
+# Soft limit for the *observed* RSS of the running workers (MiB). 0 disables
+# the separate limit (the admission budget is then used as the soft limit).
+# Exceeding it blocks new admissions and raises a RESOURCE_LIMIT_WARNING.
+max_rss_soft_limit_mb = 0
+# Default per-execution timeout in seconds.
+default_timeout_seconds = 60
+# Sampling interval for worker RSS / CPU monitoring.
+resource_sample_interval_ms = 50
+# Coalescing window (ms) applied before a brand new physical execution is
+# started. 0 disables the window (used for fair baseline comparisons).
+share_coalesce_window_ms = 0
+
+[workspace]
+# Hard limits applied when materialising a snapshot.
+max_files = 5000
+max_total_bytes = 67108864
+exclude = [
+    ".git",
+    ".hg",
+    ".svn",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "node_modules",
+    ".pytest_cache",
+    ".mypy_cache",
+    "*.pyc",
+    "*.pyo",
+    "*.so",
+    "*.dll",
+    "*.exe",
+    "*.pdb",
+]
+
+[api]
+host = "127.0.0.1"
+port = 8765
+log_level = "info"
+
+[database]
+# Path is relative to the AgentFuse home directory.
+filename = "db/agentfuse.sqlite3"

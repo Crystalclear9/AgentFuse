@@ -1,0 +1,125 @@
+"""Shared helpers for the offline demo scenarios."""
+
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+from typing import Any, Callable
+
+from ..core.events import EventBus
+from ..core.state import EventType
+from ..resources import sample_repository_path
+from ..workspace.snapshots import SnapshotInfo
+
+#: The files that the demo scenarios analyse.
+DEMO_FILES: list[str] = [
+    "src/alpha.py",
+    "src/beta.py",
+    "src/gamma.py",
+    "src/pkg/helper.py",
+    "src/zeta_variant.py",
+]
+
+#: The file that the divergent scenario mutates in one branch.
+DIVERGENT_FILE = "src/zeta_variant.py"
+
+
+def default_source_repository() -> Path:
+    """Return the path of the packaged sample repository."""
+
+    return sample_repository_path()
+
+
+def prepare_base_snapshot(app: Any, source: Path | None = None) -> SnapshotInfo:
+    """Create the first immutable snapshot of the sample repository."""
+
+    source = source or default_source_repository()
+    return app.snapshots.create_workspace(
+        source_dir=source,
+        source_reference=f"sample-repository:{source.name}",
+        metadata={"kind": "base"},
+    )
+
+
+def create_branch(
+    app: Any,
+    base: SnapshotInfo,
+    mutate: Callable[[Path], None] | None = None,
+    label: str = "branch",
+) -> SnapshotInfo:
+    """Fork a snapshot, apply an edit in a writable copy and snapshot the result.
+
+    The edit never touches the immutable snapshot itself - the mutation is
+    applied to a temporary working directory which is then turned into a new
+    immutable snapshot.
+    """
+
+    working = app.settings.home / "branches" / f"{base.snapshot_id}-{label}"
+    if working.exists():
+        shutil.rmtree(working)
+    app.snapshots.materialise(base.snapshot_id, working)
+    if mutate is not None:
+        mutate(working)
+    snapshot = app.snapshots.create_snapshot(
+        workspace_id=base.workspace_id,
+        source_dir=working,
+        parent_snapshot_id=base.snapshot_id,
+        source_reference=f"branch:{label}",
+        metadata={"kind": "branch", "label": label},
+    )
+    shutil.rmtree(working, ignore_errors=True)
+    return snapshot
+
+
+def mutate_readme(working: Path) -> None:
+    """Branch A of the 'different workspace' scenario touches the README only."""
+
+    readme = working / "README.md"
+    readme.write_text(
+        readme.read_text(encoding="utf-8")
+        + "\nBranch A added this note; the analysed sources are untouched.\n",
+        encoding="utf-8",
+    )
+
+
+def mutate_variant_source(working: Path) -> None:
+    """Branch B of the divergent scenario changes the content of one module."""
+
+    target = working / DIVERGENT_FILE
+    source = target.read_text(encoding="utf-8")
+    target.write_text(
+        source.replace(
+            "return add(left, right) + 0",
+            "return add(left, right) + 1  # branch specific behaviour",
+        ),
+        encoding="utf-8",
+    )
+
+
+async def wait_for_event(
+    event_bus: EventBus,
+    event_type: str,
+    workflow_id: str | None = None,
+    timeout: float = 30.0,
+    predicate: Callable[[Any], bool] | None = None,
+) -> Any:
+    """Wait for a real runtime event (used to build deterministic rendezvous)."""
+
+    def matcher(event: Any) -> bool:
+        if event.event_type != event_type:
+            return False
+        if workflow_id is not None and event.workflow_id != workflow_id:
+            return False
+        if predicate is not None and not predicate(event):
+            return False
+        return True
+
+    return await event_bus.wait_for(matcher, timeout=timeout)
+
+
+async def wait_for_first_dependency(
+    event_bus: EventBus, workflow_id: str, timeout: float = 30.0
+) -> Any:
+    return await wait_for_event(
+        event_bus, EventType.TOOL_READ_OBSERVED, workflow_id=workflow_id, timeout=timeout
+    )

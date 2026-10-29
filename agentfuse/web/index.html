@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AgentFuse 管理界面</title>
+<link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">AF</span>
+    <div>
+      <h1>AgentFuse</h1>
+      <p>面向多智能体工作流的共享执行与资源管理 Runtime</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span id="mode-badge" class="badge">模式: -</span>
+    <span id="health-badge" class="badge muted">状态: -</span>
+    <button id="refresh-btn" class="btn">刷新</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="overview">总览</button>
+  <button class="tab" data-tab="workflow">工作流详情</button>
+  <button class="tab" data-tab="dependency">依赖检查器</button>
+  <button class="tab" data-tab="benchmark">基准测试</button>
+  <button class="tab" data-tab="tools">工具注册表</button>
+</nav>
+
+<main>
+  <!-- 总览 -->
+  <section id="tab-overview" class="tab-panel active">
+    <div class="cards" id="overview-cards"></div>
+    <div class="split">
+      <div class="panel">
+        <h2>运行中的 Workflow</h2>
+        <div class="table-wrap">
+          <table id="workflow-table">
+            <thead>
+              <tr><th>workflow</th><th>场景</th><th>模式</th><th>状态</th><th>耗时(s)</th><th>调用</th><th>执行</th><th>共享</th><th>分离</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>资源占用</h2>
+        <div id="resource-panel" class="resource-panel"></div>
+      </div>
+    </div>
+    <div class="split">
+      <div class="panel">
+        <h2>最近事件</h2>
+        <div class="table-wrap">
+          <table id="event-table">
+            <thead><tr><th>时间</th><th>事件</th><th>对象</th><th>详情</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>最近共享 / 分离事件</h2>
+        <div class="table-wrap">
+          <table id="share-table">
+            <thead><tr><th>时间</th><th>事件</th><th>详情</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 工作流详情 -->
+  <section id="tab-workflow" class="tab-panel">
+    <div class="panel">
+      <h2>选择 Workflow</h2>
+      <select id="workflow-select"></select>
+      <div id="workflow-summary" class="summary-grid"></div>
+    </div>
+    <div class="panel">
+      <h2>执行关系图 <small>(由真实事件重建)</small></h2>
+      <div id="graph-container" class="graph-container"></div>
+      <div id="graph-legend" class="legend"></div>
+    </div>
+    <div class="panel">
+      <h2>逻辑调用 → 物理执行</h2>
+      <div class="table-wrap">
+        <table id="call-table">
+          <thead><tr><th>逻辑调用</th><th>工具</th><th>状态</th><th>物理执行</th><th>快照</th><th>结果哈希</th><th>说明</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>执行时间线</h2>
+      <div id="timeline-container" class="timeline-container"></div>
+    </div>
+  </section>
+
+  <!-- 依赖检查器 -->
+  <section id="tab-dependency" class="tab-panel">
+    <div class="panel">
+      <h2>选择物理执行</h2>
+      <select id="execution-select"></select>
+      <div id="execution-summary" class="summary-grid"></div>
+    </div>
+    <div class="panel">
+      <h2>依赖账本与验证结果</h2>
+      <div class="table-wrap">
+        <table id="dependency-table">
+          <thead>
+            <tr><th>#</th><th>类型</th><th>路径</th><th>Leader 指纹</th><th>Follower 验证</th><th>原因</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>共享组参与者</h2>
+      <div class="table-wrap">
+        <table id="participant-table">
+          <thead><tr><th>逻辑调用</th><th>角色</th><th>状态</th><th>已验证前缀</th><th>等待时长(s)</th><th>分离原因</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 基准测试 -->
+  <section id="tab-benchmark" class="tab-panel">
+    <div class="panel">
+      <h2>运行对比实验</h2>
+      <div class="form-row">
+        <label>场景
+          <select id="bench-scenario"></select>
+        </label>
+        <label>模式
+          <select id="bench-modes" multiple size="3">
+            <option value="baseline" selected>baseline</option>
+            <option value="online" selected>online</option>
+            <option value="deferred">deferred</option>
+          </select>
+        </label>
+        <label>重复次数 <input id="bench-repeat" type="number" value="3" min="1" max="20" /></label>
+        <label>Worker 数 <input id="bench-workers" type="number" value="2" min="1" max="16" /></label>
+        <label>内存预算(MiB) <input id="bench-memory" type="number" value="1024" min="64" step="64" /></label>
+        <button id="bench-run" class="btn primary">启动运行</button>
+      </div>
+      <p id="bench-hint" class="status-line"></p>
+      <div id="bench-status" class="status-line"></div>
+    </div>
+    <div class="panel">
+      <h2>结果对比</h2>
+      <div id="bench-result"></div>
+    </div>
+    <div class="panel">
+      <h2>历史运行</h2>
+      <div class="table-wrap">
+        <table id="bench-history">
+          <thead><tr><th>场景</th><th>模式</th><th>次数</th><th>耗时(s)</th><th>物理执行</th><th>CPU(s)</th><th>共享率</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 工具 -->
+  <section id="tab-tools" class="tab-panel">
+    <div class="panel">
+      <h2>已注册的可控工具</h2>
+      <div class="table-wrap">
+        <table id="tool-table">
+          <thead><tr><th>工具</th><th>版本</th><th>确定性</th><th>只读</th><th>可共享</th><th>预估内存</th><th>实现</th><th>说明</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="node-detail" class="drawer hidden">
+  <div class="drawer-head">
+    <h3 id="node-detail-title">节点详情</h3>
+    <button id="node-detail-close" class="btn small">关闭</button>
+  </div>
+  <pre id="node-detail-body"></pre>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

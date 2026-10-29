@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentfuse"
+version = "0.1.0"
+description = "AgentFuse - a shared execution and resource management runtime for multi-agent workflows"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+agentfuse = "agentfuse.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["agentfuse*"]
+
+[tool.setuptools.package-data]
+agentfuse = ["web/*", "resources/sample_repository/**/*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
+markers = [
+    "slow: marks tests as slow (process spawning)",
+]
