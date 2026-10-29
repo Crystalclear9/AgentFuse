@@ -4,10 +4,16 @@ The parent starts the worker with::
 
     python -m agentfuse.runtime.worker_child
 
-The payload is read from stdin (JSON), the protocol messages are written to
-stdout (newline delimited JSON).  Because the tool runs in a worker *thread*
-of this process, the dependency events can be streamed to the parent while the
-tool is still computing.
+The protocol is newline delimited JSON:
+
+* the parent writes one payload line (tool, arguments, snapshot root),
+* the worker answers with any number of ``dep`` messages (one per observed
+  dependency) and exactly one terminal message (``result`` or ``error``).
+
+The worker can serve **several** payloads in a row (the process stays alive and
+waits for the next line on stdin).  That is what makes the warm worker pool
+possible: the interpreter start up and the imports are paid once per worker
+instead of once per execution.
 """
 
 from __future__ import annotations
@@ -16,23 +22,18 @@ import json
 import queue
 import sys
 import threading
-from .protocol import ERROR_INTERNAL, error_message
+from typing import Any
+
+from .protocol import ERROR_INTERNAL, dependency_message, error_message
 from .worker import execute_tool
 
 
-def main(argv: list[str] | None = None) -> int:
-    raw = sys.stdin.read()
-    try:
-        payload = json.loads(raw)
-    except Exception as exc:  # pragma: no cover - defensive
-        sys.stderr.write(f"invalid worker payload: {exc}\n")
-        return 2
+def _serve(payload: dict[str, Any]) -> None:
+    """Run one tool and stream its messages to stdout."""
 
     messages: "queue.Queue[dict[str, Any]]" = queue.Queue()
 
     def reporter(dependency_type: str, relative_path: str, fingerprint: str) -> None:
-        from .protocol import dependency_message
-
         messages.put(
             dependency_message(dependency_type, relative_path, fingerprint, 0)
         )
@@ -54,15 +55,28 @@ def main(argv: list[str] | None = None) -> int:
     stdout = sys.stdout
     while True:
         message = messages.get()
-        try:
-            stdout.write(json.dumps(message, ensure_ascii=False, default=str) + "\n")
-            stdout.flush()
-        except BrokenPipeError:  # pragma: no cover - the parent vanished
-            return 1
+        stdout.write(json.dumps(message, ensure_ascii=False, default=str) + "\n")
+        stdout.flush()
         if message.get("t") in ("result", "error"):
             break
     thread.join(timeout=1.0)
-    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    stdin = sys.stdin
+    while True:
+        line = stdin.readline()
+        if not line:
+            return 0
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except ValueError as exc:  # pragma: no cover - defensive
+            sys.stderr.write(f"invalid worker payload: {exc}\n")
+            return 2
+        _serve(payload)
 
 
 if __name__ == "__main__":  # pragma: no cover - process entry point

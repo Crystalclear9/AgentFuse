@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -26,12 +27,22 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
     settings = settings or load_settings()
     runtime = AgentFuseApp(settings=settings)
 
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        # The runtime is created eagerly so that the routes can be served
+        # immediately; the lifespan only takes care of the shutdown.
+        try:
+            yield
+        finally:
+            await runtime.close()
+
     app = FastAPI(
         title="AgentFuse",
         description="面向多智能体工作流的共享执行与资源管理 Runtime - 本地管理界面",
         version="0.1.0",
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
+        lifespan=lifespan,
     )
     app.state.runtime = runtime
     app.state.benchmark_jobs: dict[str, dict[str, Any]] = {}
@@ -48,10 +59,6 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
         @app.get("/", include_in_schema=False)
         async def index() -> FileResponse:
             return FileResponse(str(WEB_ROOT / "index.html"))
-
-    @app.on_event("shutdown")
-    async def _shutdown() -> None:  # pragma: no cover - server lifecycle
-        await runtime.close()
 
     return app
 

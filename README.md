@@ -46,8 +46,9 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 | 受控工具接入 | Tool Registry（6 个真实工具）+ 受控 `WorkspaceReader`，读取即上报依赖 |
 | 工作区快照 | 不可变快照 + 分支 fork + SHA-256 manifest |
 | 共享执行 | CandidateKey → ShareGroup → In-flight Sharing → 增量在线验证 → 冲突分离 → 最终提交门禁 → 快照完整性校验 |
-| 资源管理 | FIFO 调度、Worker 并发上限、内存准入、实测 RSS、CPU 时间、超时、取消、故障回收 |
+| 资源管理 | FIFO / 最短作业优先调度、Worker 并发上限、内存准入、实测 RSS、CPU 时间、超时、取消、故障回收、**Worker 预热池** |
 | 持久化 | SQLite（13 张表，schema v2 + 迁移机制 + 崩溃回收，后台写入线程） |
+| 结果复用 | 会话内已完成结果复用（默认关闭，需完整依赖校验才命中） |
 | 本地 Web 界面 | Dashboard / 执行图 / 时间线 / 依赖检查器 / 基准测试，127.0.0.1:8765，无 CDN |
 | 命令行 | `init / serve / demo / compare / trace / inspect / tools` |
 | 离线演示 | 5 个真实多智能体场景，完全不需要外部模型 |
@@ -65,7 +66,7 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 | 数据存储 | SQLite（WAL，独立写入线程） |
 | 本地 API | FastAPI + Uvicorn |
 | 前端 | 原生 HTML / CSS / JavaScript（无框架、无构建链、无 CDN） |
-| 自动化测试 | pytest + pytest-asyncio + httpx |
+| 自动化测试 | pytest + pytest-asyncio + httpx（136 个用例） |
 | 配置 | TOML（`config/default.toml`） |
 | 命令行 | argparse |
 
@@ -102,8 +103,8 @@ uv pip install --python .agentfuse/wsl/venv/bin/python -e ".[dev]"
 .agentfuse/wsl/venv/bin/python scripts/acceptance_check.py
 ```
 
-实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 124 passed /
-WSL2 125 passed，两平台验收自检均 18/18）。
+实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 136 passed /
+WSL2 137 passed，两平台验收自检均 18/18）。
 
 > 跨平台实测发现并修复了一个 Linux 专属缺陷：父进程未 `wait()` 回收 worker
 > 导致僵尸进程堆积。详见 TEST_REPORT §4。
@@ -234,6 +235,9 @@ pytest tests/stress -q
 
 # 交付验收自检（检查目录结构、共享行为、CLI、API、离线依赖）
 python scripts/acceptance_check.py
+
+# 性能回归守卫（对比 benchmarks/baseline.json）
+python scripts/check_regression.py
 ```
 
 测试覆盖：图重建、共享正确性、动态验证、并发竞态、资源控制、快照隔离、
@@ -258,6 +262,15 @@ python scripts/acceptance_check.py
 
 ---
 
-## 11. 许可
+## 11. 可选特性（默认关闭）
+
+| 配置项 | 默认 | 说明 |
+|---|---|---|
+| `runtime.worker_pool_size` | 2 | 预热的 worker 进程数；设为 0 则每次执行新建进程 |
+| `runtime.result_cache_entries` | 0 | 会话内已完成结果复用；只有工具、参数、快照**内容**完全一致且依赖复验通过才命中 |
+| `runtime.scheduling_strategy` | `fifo` | 准入策略；`sjf` = 最短作业优先（吞吐更高、公平性更低） |
+| `runtime.max_rss_soft_limit_mb` | 0 | 实测 RSS 软限制；超出后阻止新准入并告警 |
+
+## 12. 许可
 
 MIT，见 [LICENSE](LICENSE)。

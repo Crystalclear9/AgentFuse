@@ -28,6 +28,13 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from .strategy import (
+    AdmissionDecision,
+    PendingRequest,
+    SchedulingStrategy,
+    build_strategy,
+)
+
 try:  # pragma: no cover - psutil is a hard dependency of the runtime
     import psutil
 except Exception:  # pragma: no cover
@@ -41,6 +48,15 @@ class _Slot:
     future: asyncio.Future
     requested_at: float = field(default_factory=time.time)
     blocked_reason: str | None = None
+    estimated_cpu_seconds: float = 0.0
+
+    def to_request(self) -> PendingRequest:
+        return PendingRequest(
+            execution_id=self.execution_id,
+            requested_at=self.requested_at,
+            estimated_memory_mb=self.estimated_memory_mb,
+            estimated_cpu_seconds=self.estimated_cpu_seconds,
+        )
 
 
 class ResourceScheduler:
@@ -52,9 +68,13 @@ class ResourceScheduler:
         max_memory_budget_mb: int = 1024,
         max_rss_soft_limit_mb: int = 0,
         repository: Any = None,
+        strategy: SchedulingStrategy | str | None = None,
     ) -> None:
         self.max_workers = max(1, int(max_workers))
         self.max_memory_budget_mb = int(max_memory_budget_mb)
+        self.strategy = build_strategy(strategy) if isinstance(strategy, str) else (
+            strategy or build_strategy("fifo")
+        )
         #: soft limit for the *observed* RSS; 0 disables it (the admission
         #: budget is then used as the soft limit as well)
         self.max_rss_soft_limit_mb = int(max_rss_soft_limit_mb)
@@ -149,7 +169,12 @@ class ResourceScheduler:
                 )
             return True, "admitted"
 
-    async def acquire(self, execution_id: str, estimated_memory_mb: float) -> str:
+    async def acquire(
+        self,
+        execution_id: str,
+        estimated_memory_mb: float,
+        estimated_cpu_seconds: float = 0.0,
+    ) -> str:
         """Wait until the execution may start.  Returns the admission reason."""
 
         loop = asyncio.get_running_loop()
@@ -157,6 +182,7 @@ class ResourceScheduler:
         slot = _Slot(
             execution_id=execution_id,
             estimated_memory_mb=float(estimated_memory_mb),
+            estimated_cpu_seconds=float(estimated_cpu_seconds),
             future=future,
         )
         with self._lock:
@@ -171,22 +197,32 @@ class ResourceScheduler:
         self._pump()
 
     def _pump(self) -> None:
-        """Grant execution slots to the oldest waiting requests (FIFO)."""
+        """Grant execution slots according to the configured strategy."""
 
         while True:
             with self._lock:
                 if not self._pending:
                     return
-                slot = self._pending[0]
-                allowed, reason = self._admission_check_locked(slot.estimated_memory_mb)
-                if not allowed:
+                decision = self.strategy.select(
+                    pending=[slot.to_request() for slot in self._pending],
+                    running=len(self._running),
+                    max_workers=self.max_workers,
+                    reserved_mb=self.reserved_estimate_mb,
+                    observed_rss_mb=self.observed_rss_mb,
+                    budget_mb=self.max_memory_budget_mb,
+                    rss_limit_mb=self.effective_rss_limit_mb,
+                )
+                if not decision.allowed:
                     # The reason is kept so that the UI can explain *why* an
                     # execution is waiting (worker limit vs. memory budget).
-                    slot.blocked_reason = reason
+                    for slot in self._pending:
+                        slot.blocked_reason = decision.reason
                     return
-                self._pending.pop(0)
+                index = min(decision.index, len(self._pending) - 1)
+                slot = self._pending.pop(index)
                 self._running[slot.execution_id] = slot
                 self._total_admitted += 1
+                reason = decision.reason
             if not slot.future.done():
                 slot.future.set_result(reason)
 
@@ -237,5 +273,6 @@ class ResourceScheduler:
                 "peak_rss_mb": round(self._peak_rss_mb, 2),
                 "system_cpu_percent": round(self._system_cpu_percent, 2),
                 "admitted_total": self._total_admitted,
+                "strategy": self.strategy.name,
                 "pending": pending,
             }

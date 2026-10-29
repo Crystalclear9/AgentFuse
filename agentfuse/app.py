@@ -74,6 +74,7 @@ class AgentFuseApp:
             max_workers=self.settings.max_workers,
             max_memory_budget_mb=self.settings.max_memory_budget_mb,
             max_rss_soft_limit_mb=self.settings.max_rss_soft_limit_mb,
+            strategy=self.settings.scheduling_strategy,
             repository=self.repository,
         )
         self.scheduler.start()
@@ -86,8 +87,12 @@ class AgentFuseApp:
             scheduler=self.scheduler,
             mode=mode,
             default_timeout_seconds=self.settings.default_timeout_seconds,
+            result_cache_entries=self.settings.result_cache_entries,
+            worker_pool_size=self.settings.worker_pool_size,
         )
         self._workflows: list[WorkflowRuntime] = []
+        # Start the pool workers while the runtime is idle.
+        self.coordinator.prewarm_workers()
 
     # ------------------------------------------------------------------
     @property

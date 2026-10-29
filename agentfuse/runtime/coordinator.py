@@ -43,6 +43,7 @@ from ..core.state import (
 )
 from ..sharing.candidate import compute_candidate_key
 from ..sharing.dependency import DependencyLedger, DependencyRecord
+from ..sharing.result_cache import ResultCache
 from ..sharing.result_delivery import ResultStore
 from ..sharing.share_group import Participant, ShareGroup
 from ..monitoring.resource_monitor import ResourceMonitor
@@ -59,6 +60,9 @@ from .protocol import (
     MSG_EOF,
     MSG_RESULT,
 )
+from .cancellation import CancellationReason, terminate_execution, terminate_worker
+from .pool import WorkerHandle, start_worker
+from .execution import ExecutionOutcome, PhysicalExecution
 from .scheduler import ResourceScheduler
 
 try:  # pragma: no cover
@@ -134,54 +138,6 @@ class LogicalCall:
     shared: bool = False
 
 
-@dataclass
-class PhysicalExecution:
-    execution_id: str
-    workflow_id: str | None
-    tool_name: str
-    tool_version: str
-    arguments: dict[str, Any]
-    arguments_hash: str
-    candidate_key: str
-    snapshot_id: str
-    share_group_id: str | None = None
-    leader_call_id: str | None = None
-    status: ExecutionStatus = ExecutionStatus.CREATED
-    pid: int | None = None
-    start_time: float | None = None
-    finish_time: float | None = None
-    cpu_time: float = 0.0
-    peak_rss: int = 0
-    exit_status: str | None = None
-    result: Any = None
-    result_hash: str | None = None
-    error: str | None = None
-    timeout_seconds: float = 60.0
-    attempt: int = 1
-    ledger: DependencyLedger = field(default_factory=lambda: DependencyLedger(""))
-    outcome: asyncio.Future = field(default_factory=asyncio.Future, repr=False)
-    process: Any = field(default=None, repr=False)
-    timeout_task: asyncio.Task | None = field(default=None, repr=False)
-    terminated: bool = False
-    admission_reason: str | None = None
-    queued_time: float | None = None
-    resource_warning_emitted: bool = False
-    created_at: float = field(default_factory=time.time)
-    stderr_output: str = ""
-
-
-@dataclass
-class ExecutionOutcome:
-    ok: bool
-    kind: str | None = None
-    message: str = ""
-    payload: Any = None
-    result_hash: str | None = None
-    cpu_time: float = 0.0
-    exit_status: str = "0"
-    traceback: str | None = None
-
-
 class RuntimeCoordinator:
     """Executes tool calls, coordinates shared execution and owns the resources."""
 
@@ -196,6 +152,8 @@ class RuntimeCoordinator:
         scheduler: ResourceScheduler,
         mode: RuntimeMode = RuntimeMode.ONLINE,
         default_timeout_seconds: int = 60,
+        result_cache_entries: int = 64,
+        worker_pool_size: int = 0,
     ) -> None:
         self.repository = repository
         self.registry = registry
@@ -207,6 +165,11 @@ class RuntimeCoordinator:
         self.default_timeout_seconds = default_timeout_seconds
 
         self.validator = DependencyValidator(snapshots)
+        self.result_cache = ResultCache(max_entries=result_cache_entries)
+        self.worker_pool_size = max(0, int(worker_pool_size))
+        self._pool_lock = threading.Lock()
+        self._idle_workers: list[WorkerHandle] = []
+        self._worker_handles: set[WorkerHandle] = set()
         self._resource_monitor = ResourceMonitor(repository=repository, interval=0.05)
 
         self._lock = asyncio.Lock()
@@ -247,6 +210,11 @@ class RuntimeCoordinator:
         for execution in list(self._executions.values()):
             if execution.status is ExecutionStatus.RUNNING:
                 await self._terminate_execution(execution, "runtime shutdown")
+        with self._pool_lock:
+            idle = list(self._idle_workers)
+            self._idle_workers.clear()
+        for handle in idle:
+            handle.terminate()
         for task in list(self._tasks):
             task.cancel()
         if self._tasks:
@@ -309,6 +277,9 @@ class RuntimeCoordinator:
         mode = self.mode_for(workflow_id)
         sharing_enabled = mode is not RuntimeMode.BASELINE and spec.shareable
         if sharing_enabled:
+            served = await self._serve_from_cache(call)
+            if served:
+                return await call.future
             await self._enter_share_flow(call)
         else:
             async with self._lock:
@@ -455,6 +426,41 @@ class RuntimeCoordinator:
     # ------------------------------------------------------------------
     # share flow
     # ------------------------------------------------------------------
+    def _snapshot_content_hash(self, snapshot_id: str) -> str | None:
+        """The content hash of a snapshot (identical content -> identical hash)."""
+
+        try:
+            return self.snapshots.get(snapshot_id).manifest_hash
+        except Exception:
+            return None
+
+    async def _serve_from_cache(self, call: LogicalCall) -> bool:
+        """Serve a finished result from the session cache (fully validated)."""
+
+        snapshot_hash = self._snapshot_content_hash(call.snapshot_id)
+        if snapshot_hash is None:
+            return False
+        async with self._lock:
+            entry = self.result_cache.get(call.candidate_key, snapshot_hash)
+            if entry is None:
+                return False
+            # The cached result is only served when every dependency of the
+            # original execution still matches the caller's own snapshot.
+            status, reason, _matched = self.validator.validate_prefix(
+                call.snapshot_id, entry.dependencies
+            )
+            if status is not ValidationStatus.MATCH:
+                self.result_cache.invalidate(call.candidate_key)
+                return False
+            delivered = self._deliver_locked(
+                call,
+                entry.payload,
+                entry.result_hash,
+                entry.execution_id,
+                cached=True,
+            )
+            return delivered
+
     async def _enter_share_flow(self, call: LogicalCall) -> None:
         """Try to attach the call to a running share group, otherwise lead a new one."""
 
@@ -671,7 +677,11 @@ class RuntimeCoordinator:
     async def _run_execution(self, execution: PhysicalExecution) -> None:
         spec = self.registry.get(execution.tool_name, execution.tool_version)
         try:
-            reason = await self.scheduler.acquire(execution.execution_id, spec.estimated_memory_mb)
+            reason = await self.scheduler.acquire(
+                execution.execution_id,
+                spec.estimated_memory_mb,
+                spec.estimated_cpu_seconds,
+            )
             execution.admission_reason = reason
             execution.queued_time = round(max(0.0, time.time() - execution.created_at), 6)
             self._persist_execution(execution)
@@ -709,31 +719,16 @@ class RuntimeCoordinator:
             "snapshot_id": execution.snapshot_id,
         }
 
-        environment = dict(os.environ)
-        python_path = [entry for entry in sys.path if entry]
-        if python_path:
-            existing = environment.get("PYTHONPATH")
-            environment["PYTHONPATH"] = (
-                os.pathsep.join(python_path + [existing]) if existing else os.pathsep.join(python_path)
-            )
-
-        command = [sys.executable, "-u", "-m", "agentfuse.runtime.worker_child"]
+        self._loop = self._loop or asyncio.get_running_loop()
+        handle = self._acquire_worker()
+        execution.worker_handle = handle
+        execution.process = handle.process
+        execution.pid = handle.process.pid
+        handle.assign(execution.execution_id)
         try:
-            process = subprocess.Popen(  # noqa: S603 - fixed command, no shell
-                command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=environment,
-                cwd=os.getcwd(),
-                text=True,
-                encoding="utf-8",
-                bufsize=1,
-            )
-            assert process.stdin is not None
-            process.stdin.write(json.dumps(payload, ensure_ascii=False, default=str))
-            process.stdin.close()
+            handle.send(payload)
         except Exception as exc:
+            handle.terminate()
             if not execution.outcome.done():
                 execution.outcome.set_result(
                     ExecutionOutcome(
@@ -742,8 +737,6 @@ class RuntimeCoordinator:
                 )
             return
 
-        execution.process = process
-        execution.pid = process.pid
         execution.status = ExecutionStatus.RUNNING
         execution.start_time = time.time()
 
@@ -763,42 +756,103 @@ class RuntimeCoordinator:
                 "snapshot_id": execution.snapshot_id,
                 "share_group_id": execution.share_group_id,
                 "timeout_seconds": execution.timeout_seconds,
+                "pooled": handle.jobs_served > 1,
             },
         )
         self._persist_execution(execution)
-
-        self._loop = self._loop or asyncio.get_running_loop()
-        reader = threading.Thread(
-            target=self._reader_loop,
-            args=(execution, process),
-            name=f"agentfuse-reader-{execution.execution_id}",
-            daemon=True,
-        )
-        reader.start()
-        stderr_reader = threading.Thread(
-            target=self._stderr_loop,
-            args=(execution, process),
-            name=f"agentfuse-stderr-{execution.execution_id}",
-            daemon=True,
-        )
-        stderr_reader.start()
-        monitor = threading.Thread(
-            target=self._monitor_loop,
-            args=(execution,),
-            name=f"agentfuse-monitor-{execution.execution_id}",
-            daemon=True,
-        )
-        monitor.start()
         execution.timeout_task = asyncio.create_task(self._timeout_watch(execution))
+
+    # ------------------------------------------------------------------
+    # worker pool
+    # ------------------------------------------------------------------
+    def _acquire_worker(self) -> WorkerHandle:
+        """Take an idle worker from the pool or start a new one."""
+
+        with self._pool_lock:
+            while self._idle_workers:
+                handle = self._idle_workers.pop()
+                if handle.is_alive():
+                    return handle
+                handle.terminate()
+                self._worker_handles.discard(handle)
+        handle = start_worker()
+        with self._pool_lock:
+            self._worker_handles.add(handle)
+        self._start_worker_threads(handle)
+        return handle
+
+    def _release_worker(self, handle: WorkerHandle | None, reusable: bool = True) -> None:
+        """Return a worker to the pool or terminate it."""
+
+        if handle is None:
+            return
+        handle.release()
+        if not reusable or not handle.is_alive():
+            handle.terminate()
+            with self._pool_lock:
+                self._worker_handles.discard(handle)
+            return
+        with self._pool_lock:
+            if self.worker_pool_size and len(self._idle_workers) < self.worker_pool_size:
+                self._idle_workers.append(handle)
+                return
+        handle.terminate()
+        with self._pool_lock:
+            self._worker_handles.discard(handle)
+
+    def prewarm_workers(self) -> None:
+        """Start the pool workers in the background.
+
+        The interpreter start up of a worker is paid while the runtime is idle
+        instead of blocking the first tool call.
+        """
+
+        if not self.worker_pool_size:
+            return
+
+        def warm() -> None:
+            for _ in range(self.worker_pool_size):
+                try:
+                    handle = start_worker()
+                    with self._pool_lock:
+                        self._worker_handles.add(handle)
+                    self._start_worker_threads(handle)
+                    with self._pool_lock:
+                        if handle.is_alive():
+                            self._idle_workers.append(handle)
+                except Exception:  # pragma: no cover - defensive
+                    return
+
+        thread = threading.Thread(target=warm, name="agentfuse-pool-warmup", daemon=True)
+        thread.start()
+
+    def _start_worker_threads(self, handle: WorkerHandle) -> None:
+        """Start the protocol threads of a worker (once per process)."""
+
+        if getattr(handle, "threads_started", False):
+            return
+        handle.threads_started = True  # type: ignore[attr-defined]
+        for target, name in (
+            (self._reader_loop, "agentfuse-reader"),
+            (self._stderr_loop, "agentfuse-stderr"),
+            (self._monitor_loop, "agentfuse-monitor"),
+        ):
+            threading.Thread(
+                target=target,
+                args=(handle,),
+                name=f"{name}-{handle.process.pid}",
+                daemon=True,
+            ).start()
 
     # ------------------------------------------------------------------
     # worker plumbing
     # ------------------------------------------------------------------
-    def _reader_loop(self, execution: PhysicalExecution, process: Any) -> None:
+    def _reader_loop(self, handle: WorkerHandle) -> None:
         """Read the protocol messages of one worker process."""
 
-        saw_result = False
+        process = handle.process
         stdout = getattr(process, "stdout", None)
+        saw_result = False
         try:
             if stdout is not None:
                 while True:
@@ -816,23 +870,28 @@ class RuntimeCoordinator:
                         continue
                     if message.get("t") in (MSG_RESULT, MSG_ERROR):
                         saw_result = True
-                    self._dispatch(execution.execution_id, message)
+                    execution_id = handle.current_execution_id
+                    if execution_id:
+                        self._dispatch(execution_id, message)
         except Exception:  # pragma: no cover - defensive
             pass
         finally:
-            # Reap the worker process.  On POSIX systems an unreaped child
-            # stays a zombie and consumes a process slot until the runtime
-            # exits - this is what keeps the process table clean.
+            handle.reusable = False
+            # Close the pipe explicitly: a leaked file handle per execution
+            # would exhaust the process handle limit on a long running runtime.
             try:
-                process.wait(timeout=5)
+                if stdout is not None:
+                    stdout.close()
             except Exception:  # pragma: no cover - defensive
                 pass
-            self._dispatch(execution.execution_id, {"t": MSG_EOF, "saw_result": saw_result})
+            execution_id = handle.current_execution_id
+            if execution_id:
+                self._dispatch(execution_id, {"t": MSG_EOF, "saw_result": saw_result})
 
-    def _stderr_loop(self, execution: PhysicalExecution, process: Any) -> None:
-        """Collect the stderr output of the worker (diagnostics only)."""
+    def _stderr_loop(self, handle: WorkerHandle) -> None:
+        """Collect the stderr output of a worker (diagnostics only)."""
 
-        stderr = getattr(process, "stderr", None)
+        stderr = getattr(handle.process, "stderr", None)
         if stderr is None:
             return
         chunks: list[str] = []
@@ -844,27 +903,53 @@ class RuntimeCoordinator:
         except Exception:  # pragma: no cover - defensive
             pass
         finally:
-            execution.stderr_output = "".join(chunks)[-8000:]
+            try:
+                stderr.close()
+            except Exception:  # pragma: no cover - defensive
+                pass
+            handle.stderr_output = "".join(chunks)[-8000:]
 
-    def _monitor_loop(self, execution: PhysicalExecution) -> None:
-        """Sample the memory of the worker until it finishes."""
+    def _monitor_loop(self, handle: WorkerHandle) -> None:
+        """Sample the memory of a worker while it serves executions."""
 
-        if psutil is None or execution.pid is None:
+        if psutil is None or handle.process.pid is None:
             return
         while not self._closing:
-            rss = self._resource_monitor.sample(execution.pid)
+            rss = self._resource_monitor.sample(handle.process.pid)
             if rss is None:
                 break
-            if rss > execution.peak_rss:
-                execution.peak_rss = rss
-            self.scheduler.record_rss(execution.execution_id, rss)
-            self._resource_monitor.record(
-                execution.workflow_id, execution.execution_id, rss
-            )
-            self._warn_about_resource_limit(execution, rss)
-            if execution.status is not ExecutionStatus.RUNNING:
+            execution_id = handle.current_execution_id
+            execution = self._executions.get(execution_id) if execution_id else None
+            if execution is not None:
+                if rss > execution.peak_rss:
+                    execution.peak_rss = rss
+                self.scheduler.record_rss(execution.execution_id, rss)
+                self._resource_monitor.record(
+                    execution.workflow_id, execution.execution_id, rss
+                )
+                self._warn_about_resource_limit(execution, rss)
+            if execution is None and not handle.is_alive():
                 break
             time.sleep(self._resource_monitor.interval)
+
+    def _sample_final_rss(self, execution: PhysicalExecution) -> None:
+        """Read the memory of the worker once more when the execution ends.
+
+        Short executions can finish between two samples of the monitor thread.
+        The worker is still alive at this point, therefore the final reading
+        gives the real peak of the tool process.
+        """
+
+        handle = execution.worker_handle
+        if handle is None or not handle.is_alive():
+            return
+        rss = self._resource_monitor.sample(handle.process.pid)
+        if not rss:
+            return
+        if rss > execution.peak_rss:
+            execution.peak_rss = rss
+        self.scheduler.record_rss(execution.execution_id, rss)
+        self._resource_monitor.record(execution.workflow_id, execution.execution_id, rss)
 
     def _warn_about_resource_limit(self, execution: PhysicalExecution, rss: int) -> None:
         """Raise a warning when the observed memory exceeds the soft limit."""
@@ -1064,33 +1149,9 @@ class RuntimeCoordinator:
         )
 
     async def _terminate_execution(self, execution: PhysicalExecution, reason: str) -> None:
-        execution.terminated = True
-        process = execution.process
-        if process is not None:
-            try:
-                if psutil is not None and execution.pid:
-                    try:
-                        parent = psutil.Process(execution.pid)
-                        for child in parent.children(recursive=True):
-                            try:
-                                child.kill()
-                            except Exception:
-                                pass
-                        parent.kill()
-                    except Exception:
-                        pass
-                if process.poll() is None:
-                    process.kill()
-                    try:
-                        process.wait(timeout=5)
-                    except Exception:  # pragma: no cover
-                        pass
-            except Exception:  # pragma: no cover
-                pass
-        if not execution.outcome.done():
-            execution.outcome.set_result(
-                ExecutionOutcome(ok=False, kind=ERROR_TIMEOUT, message=reason, exit_status="timeout")
-            )
+        """Terminate a running worker (used by timeout, cancellation and shutdown)."""
+
+        await terminate_execution(execution, reason)
 
     # ------------------------------------------------------------------
     # finalisation
@@ -1122,6 +1183,11 @@ class RuntimeCoordinator:
                 execution.error = outcome.message
 
             self._persist_execution(execution)
+            self._sample_final_rss(execution)
+            self._release_worker(
+                execution.worker_handle, reusable=execution.worker_handle is not None
+                and getattr(execution.worker_handle, "reusable", False)
+            )
             self.event_bus.publish(
                 EventType.TOOL_EXECUTION_FINISHED,
                 workflow_id=execution.workflow_id,
@@ -1232,6 +1298,25 @@ class RuntimeCoordinator:
         group.transition(ShareGroupStatus.COMPLETED)
         group.closed_time = time.time()
         self._persist_group(group)
+        self._cache_result(group, execution, outcome)
+
+    def _cache_result(
+        self, group: ShareGroup, execution: PhysicalExecution, outcome: ExecutionOutcome
+    ) -> None:
+        """Remember a finished result for a later, identical request."""
+
+        snapshot_hash = self._snapshot_content_hash(execution.snapshot_id)
+        if snapshot_hash is None:
+            return
+        self.result_cache.put(
+            candidate_key=execution.candidate_key,
+            snapshot_hash=snapshot_hash,
+            payload=outcome.payload,
+            result_hash=outcome.result_hash or "",
+            execution_id=execution.execution_id,
+            dependencies=execution.ledger.records(),
+            created_at=time.time(),
+        )
 
     def _commit_failure_locked(
         self,
@@ -1373,6 +1458,7 @@ class RuntimeCoordinator:
         payload: Any,
         result_hash: str | None,
         execution_id: str,
+        cached: bool = False,
     ) -> bool:
         if call.status in (
             LogicalCallStatus.COMPLETED,
@@ -1405,6 +1491,7 @@ class RuntimeCoordinator:
                 "result_hash": call.result_hash,
                 "result_reference": stored.payload_path,
                 "shared": call.shared,
+                "cached": cached,
                 "tool_name": call.tool_name,
                 "wait_duration": call.completed_time - call.request_time,
             },

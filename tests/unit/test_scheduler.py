@@ -64,3 +64,41 @@ async def test_the_snapshot_reports_the_usage():
     assert snapshot["reserved_estimate_mb"] == 32
     assert snapshot["observed_rss_mb"] == 64
     assert snapshot["peak_rss_mb"] == 64
+
+
+async def test_the_fifo_strategy_admits_the_oldest_request():
+    scheduler = ResourceScheduler(max_workers=1, max_memory_budget_mb=1024, strategy="fifo")
+    await scheduler.acquire("exec-1", 8)
+    first = asyncio.create_task(scheduler.acquire("exec-old", 8, estimated_cpu_seconds=100.0))
+    await asyncio.sleep(0.05)
+    second = asyncio.create_task(scheduler.acquire("exec-new", 8, estimated_cpu_seconds=1.0))
+    await asyncio.sleep(0.05)
+    scheduler.release("exec-1")
+    await asyncio.wait_for(first, timeout=1.0)
+    scheduler.release("exec-old")
+    await asyncio.wait_for(second, timeout=1.0)
+    assert scheduler.snapshot()["strategy"] == "fifo"
+
+
+async def test_the_sjf_strategy_admits_the_shortest_job_first():
+    scheduler = ResourceScheduler(max_workers=1, max_memory_budget_mb=1024, strategy="sjf")
+    await scheduler.acquire("exec-1", 8)
+    long_task = asyncio.create_task(scheduler.acquire("exec-long", 8, estimated_cpu_seconds=100.0))
+    await asyncio.sleep(0.05)
+    short_task = asyncio.create_task(scheduler.acquire("exec-short", 8, estimated_cpu_seconds=1.0))
+    await asyncio.sleep(0.05)
+    scheduler.release("exec-1")
+    # the short job is admitted first
+    await asyncio.wait_for(short_task, timeout=1.0)
+    assert not long_task.done()
+    scheduler.release("exec-short")
+    await asyncio.wait_for(long_task, timeout=1.0)
+    assert scheduler.snapshot()["strategy"] == "sjf"
+
+
+async def test_an_unknown_strategy_falls_back_to_fifo():
+    from agentfuse.runtime.strategy import build_strategy
+
+    assert build_strategy("does-not-exist").name == "fifo"
+    assert build_strategy(None).name == "fifo"
+    assert build_strategy("sjf").name == "sjf"

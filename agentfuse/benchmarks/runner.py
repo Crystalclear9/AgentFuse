@@ -157,6 +157,7 @@ def _aggregate(values: Iterable[float]) -> dict[str, float]:
         return {"mean": 0.0, "min": 0.0, "max": 0.0, "stdev": 0.0, "samples": 0}
     return {
         "mean": round(statistics.fmean(data), 6),
+        "median": round(statistics.median(data), 6),
         "min": round(min(data), 6),
         "max": round(max(data), 6),
         "stdev": round(statistics.pstdev(data), 6) if len(data) > 1 else 0.0,

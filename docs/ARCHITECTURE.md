@@ -62,7 +62,12 @@
 | `adapters/scripted_adapter.py` | 离线 Scripted Agent 的适配器与执行上下文 | LLM 能力 |
 | `runtime/coordinator.py` | 共享状态的唯一权威；物理执行生命周期；取消与失败处理 | 具体工具实现 |
 | `runtime/worker.py` / `worker_child.py` | 独立进程执行工具、流式上报依赖 | 共享决策 |
-| `runtime/scheduler.py` | FIFO 调度、Worker 上限、内存准入、资源快照 | 硬性资源限制 |
+| `runtime/scheduler.py` | FIFO / SJF 准入、Worker 上限、内存准入、资源快照 | 硬性资源限制 |
+| `runtime/strategy.py` | 调度策略接口与实现（`fifo` / `sjf`） | 业务策略 |
+| `runtime/pool.py` | Worker 句柄与预热池 | 任务分发 |
+| `runtime/execution.py` | 物理执行与执行结果的数据模型 | 共享决策 |
+| `runtime/cancellation.py` | 取消 / 超时 / 关闭时的进程终止与回收 | 状态转换 |
+| `sharing/result_cache.py` | 会话内已完成结果复用（默认关闭） | 跨会话缓存 |
 | `sharing/candidate.py` | CandidateKey 计算 | 证明结果等价 |
 | `sharing/share_group.py` | 共享组与参与者状态机（含非法转换检查） | 具体验证逻辑 |
 | `sharing/dependency.py` | 只增依赖账本 | 依赖语义解释 |
@@ -219,16 +224,35 @@ Runtime 启动时 `Repository.recover_interrupted_workflows()` 会把
         │
         v
   worker 进程  python -m agentfuse.runtime.worker_child
-        ├─ 读取 payload (JSON, stdin)
+        ├─ 读取 payload (JSON 行, stdin)
         ├─ 工具线程 ──> 依赖事件 ──> 队列 ──> stdout (JSON 行)
-        └─ 结果 / 错误消息 ──> stdout
+        ├─ 结果 / 错误消息 ──> stdout
+        └─ 等待下一条 payload（预热池模式：进程被复用）
 ```
 
 worker 以普通子进程方式启动（而非 `multiprocessing`），因此：
 
 * worker 不会重新导入宿主进程的 `__main__` 模块（对库使用者更安全）；
 * 协议是人类可读的 JSON 行，便于调试；
-* 进程树可以被可靠地终止（psutil 递归 kill 子进程）。
+* 进程树可以被可靠地终止（psutil 递归 kill 子进程）并被回收（`wait()`）。
+
+### 8.1 Worker 预热池
+
+`runtime.worker_pool_size`（默认 2）控制预启动的 worker 进程数量。
+Runtime 启动时在后台线程里把它们拉起来（`RuntimeCoordinator.prewarm_workers`），
+因此解释器启动与包导入发生在**空闲期**而不是任何一次调用的关键路径上。
+
+实测：worker 冷启动 225 ms → 99 ms（惰性包导出），
+4 次顺序执行 712 ms → 167 ms（预热池）。
+
+worker 本身是"多任务"进程：它按行读取 payload，执行完一个任务后继续等待下一个。
+`runtime/pool.py` 的 `WorkerHandle` 负责把协议流里的消息归属到**当前**任务。
+
+### 8.2 惰性包导出
+
+`agentfuse.core`、`agentfuse.workspace`、`agentfuse.runtime` 三个包使用
+:pep:`562` 的 `__getattr__` 惰性导出。worker 只需要标识与指纹工具，
+不应该为此付出 `asyncio`（~55 ms）、`sqlite3` 与整个协调器的导入代价。
 
 ## 8. 与现有多智能体中间层的关系
 

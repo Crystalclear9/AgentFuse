@@ -31,13 +31,13 @@ python scripts/acceptance_check.py
 ### 3.1 Windows 11
 
 ```text
-124 passed, 1 skipped in 35.10s
+136 passed, 1 skipped in 37.07s
 ```
 
 ### 3.2 WSL2 / Ubuntu-22.04
 
 ```text
-125 passed in 85.01s
+137 passed
 ```
 
 **两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
@@ -54,8 +54,8 @@ python scripts/acceptance_check.py
 
 | 目录 | 数量 | 结果 |
 |---|---|---|
-| `tests/unit` | 65 passed, 1 skipped（Windows）/ 66 passed（Linux） | 全部通过 |
-| `tests/integration` | 41 passed | 全部通过 |
+| `tests/unit` | 70 passed, 1 skipped（Windows）/ 71 passed（Linux） | 全部通过 |
+| `tests/integration` | 63 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 
 ### 3.5 单元测试覆盖
@@ -70,6 +70,7 @@ python scripts/acceptance_check.py
 | `test_tools.py` | 工具注册、可共享性、6 个工具的真实输出、确定性、schema 校验 |
 | `test_scheduler.py` | Worker 上限、内存预算阻塞、死锁避免、FIFO、快照数据 |
 | `test_database.py` | 新建库 schema、v1→v2 迁移、迁移前备份、孤儿 workflow 回收、已完成记录不被回收 |
+| `test_scheduler.py`（扩展） | FIFO 与 SJF 策略的准入顺序、未知策略回退、等待原因、资源快照 |
 
 ### 3.6 集成测试覆盖
 
@@ -81,6 +82,8 @@ python scripts/acceptance_check.py
 | `test_events.py` | `SHARE_CANDIDATE_FOUND` 被发布、交付事件只出现一次、适配器边界不重复权威事件、重试用独立事件、乱序事件不产生错误边 |
 | `test_concurrency.py` | 10 个并发相同调用只产生 1 次执行、无重复交付、Follower 取消不影响 Leader、Leader 取消不影响 Follower、全部取消终止执行、共享失败释放所有参与者、崩溃检测、超时终止、无 worker 进程泄漏 |
 | `test_resources_and_integrity.py` | RSS 软限制阻止准入、等待队列给出等待原因、资源快照字段、被篡改的快照不参与共享、完整快照通过校验 |
+| `test_result_cache.py` | 相同输入命中缓存、不同输入状态不复用、缓存有上限、缓存不跨会话 |
+| `test_worker_pool.py` | 预热 worker 被复用、并发下结果正确、失败的工具不污染池、默认启用、可显式关闭 |
 | `test_scenarios.py` | 5 个演示场景的期望指标、聚合器必须在 worker 之后启动、失败/取消场景覆盖全部 5 种情况 |
 | `test_api.py` | 健康检查、静态资源、总览、工具列表、workflow/graph/timeline/events、execution/dependencies、404、基准测试端到端 |
 | `test_benchmark.py` | 执行次数真实下降、结果与 baseline 一致、divergent 场景两侧结果正确、deferred 验证次数更少、跨运行哈希稳定、正确性检查能发现差异 |
@@ -149,6 +152,14 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 | Web UI 可查看运行图与依赖 | `test_api.py`（graph / timeline / dependencies 端点） |
 | 可运行 Benchmark 并对比 | `test_the_benchmark_endpoint_runs_a_comparison` |
 
+## 5.1 自动化检查
+
+| 工具 | 命令 | 作用 |
+|---|---|---|
+| 交付验收自检 | `python scripts/acceptance_check.py` | 18 项：目录结构、共享行为、CLI、API、离线依赖 |
+| 性能回归守卫 | `python scripts/check_regression.py` | 对比 `benchmarks/baseline.json`，超出容差即失败 |
+| CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 |
+
 ## 6. 尚未验证的功能
 
 以下内容**没有**被自动化测试覆盖，如实记录：
@@ -161,7 +172,8 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
    未做并发写入压力测试。
 4. **磁盘故障 / 断电时的数据一致性**：SQLite 事务 + WAL 保证普通异常下的完整性，
    但未做断电模拟。迁移前的自动备份只覆盖 schema 升级，不覆盖数据损坏。
-5. **macOS**：只验证了 Windows 11 与 WSL2/Ubuntu 两个平台。
+5. **macOS**：只验证了 Windows 11 与 WSL2/Ubuntu 两个平台；CI 矩阵包含 macOS，
+   但本仓库没有 macOS 机器可以执行该验证。
 6. **符号链接逃逸在 Windows 上未执行**（需要管理员权限创建符号链接）。
 
 ## 7. 性能数据

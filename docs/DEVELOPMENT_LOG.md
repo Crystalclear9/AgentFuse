@@ -270,12 +270,70 @@ Windows: 124 passed, 1 skipped（符号链接需管理员权限）
 
 ---
 
-## 下一阶段建议（P2）
+## 阶段 15 — 复核后的遗留项收口
 
-1. 跨会话持久化结果缓存（带完整依赖验证）。
-2. Worker 启动开销优化：预热池 / 常驻 worker 复用（当前 120–200 ms 主导轻负载场景）。
-3. 调度策略可插拔：把 FIFO 抽成策略接口，预留 SLO-Aware / Goodput-Aware 实现位。
+对照原始需求逐条复核后补齐的三项：
+
+| # | 任务 | 结果 |
+|---|---|---|
+| R1 | FastAPI `lifespan` | `on_event("shutdown")` 已弃用（复现出 190 条警告），改为 lifespan 上下文管理器，警告清零 |
+| R2 | `runtime/execution.py` + `runtime/cancellation.py` | 把物理执行模型与取消/终止语义从 coordinator 中拆出，目录结构与 §20 建议对齐 |
+| R3 | 未知节点的 UNKNOWN 占位 | 乱序事件不再产生指向不存在节点的边（§11.3） |
+
+顺带修复：worker 的 stdout/stderr/stdin 管道未显式关闭 → 每次执行泄漏一个文件句柄
+（复现出 86 条 ResourceWarning），现在全部关闭，警告清零。
+
+## 阶段 16 — P2 能力补齐
+
+| # | 任务 | 结果 |
+|---|---|---|
+| P2-1 | **可插拔调度策略** | `runtime/strategy.py`：`fifo`（默认，公平）与 `sjf`（最短作业优先，吞吐更高）；由 `runtime.scheduling_strategy` 选择，配置 `scheduling_strategy` |
+| P2-2 | **会话内已完成结果复用** | `sharing/result_cache.py`：CandidateKey 相同 + 快照**内容**相同 + 依赖复验通过才命中；默认关闭（`result_cache_entries = 0`），因为它会改变工作流的���观测行为 |
+| P2-3 | **Worker 预热池** | `runtime/pool.py`：worker 变成"多任务"进程（按行读取 payload），池在 Runtime 空闲时预启动；`runtime.worker_pool_size`（默认 2） |
+| P2-4 | **性能基线与回归守卫** | `benchmarks/baseline.json` + `scripts/check_regression.py`（容差同时考虑百分比、3 倍标准差与 50 ms 绝对噪声底线） |
+| P2-5 | **CI 工作流** | `.github/workflows/ci.yml`：Windows / Ubuntu / macOS × Python 3.11–3.13，跑 pytest + 验收自检 + 性能守卫 |
+
+### 16.1 性能优化：把进程启动移出关键路径
+
+| 改动 | 效果 |
+|---|---|
+| `core` / `workspace` / `runtime` 三个包改为 :pep:`562` 惰性导出 | worker 导入 115 ms → 49 ms |
+| Worker 冷启动（执行开始 → 第一个依赖） | **225 ms → 99 ms** |
+| Worker 预热池 | 4 次顺序执行 **712 ms → 167 ms**（4.3x 吞吐） |
+| 执行结束时补采一次 RSS | 短执行不再漏采峰值内存 |
+
+## 阶段 17 — 最终基准（7 次重复，双 worker 配置）
+
+| 场景 | baseline (w=2) | online (w=2) | baseline (w=1) | online (w=1) | 物理执行 | 正确性 |
+|---|---|---|---|---|---|---|
+| shared | 0.068 s | 0.053 s (1.27x) | 0.081 s | 0.063 s (1.29x) | 2 → 1 | 7/7 一致 |
+| shared-heavy | 0.322 s | 0.307 s (1.05x) | 0.511 s | **0.269 s (1.90x)** | 2 → 1 | 7/7 一致 |
+| different-workspace | 0.069 s | 0.065 s (1.06x) | 0.069 s | 0.063 s (1.09x) | 2 → 1 | 7/7 一致 |
+| multi-agent | 0.137 s | 0.122 s (1.12x) | 0.157 s | 0.130 s (1.20x) | 4 → 3 | 7/7 一致 |
+| divergent | **0.188 s** | 0.274 s (0.69x) | 0.293 s | 0.287 s (1.02x) | 2 → 2 | 7/7 一致 |
+
+**结论（真实、不修饰）**
+
+1. 共享执行确实减少了真实计算：物理执行 2→1 / 4→3，`shared-heavy` 的
+   **总 CPU 时间直接减半**（0.480 s → 0.237 s）。
+2. **worker=2（资源充裕）时墙钟时间只缩短 5%–27%** —— 两次计算本来就能并行；
+   **worker=1（资源受限）时最多 1.90x** —— baseline 必须串行算两次。
+   共享执行对资源管理器的价值恰好体现在资源紧张时。
+3. `divergent` 没有收益（0.69x）：输入不同、无工作可省，只剩验证与协调开销；
+   该场景为了让"在线分离"可确定性复现，Follower 会等待 Leader 的第一条依赖，
+   这段等待是**演示成本**，不是运行时缺陷。
+4. 预热池把轻负载场景的 makespan 压到 20–80 ms，此时**测量噪声与效应同量级**，
+   轻负载场景应看物理执行数与 CPU 时间，而不是 makespan。
+5. 正确性在所有场景 / 模式 / worker 配置下均与 baseline 完全一致（70 次比对，0 次不一致）。
+
+---
+
+## 下一阶段建议（P3）
+
+1. 跨会话持久化结果缓存（需要持久化依赖账本 + 快照内容寻址）。
+2. 抢占式调度：长任务在等待队列过长时让出槽位。
+3. worker 进程内的工具沙箱（只读挂载 / seccomp），把 `KNOWN_LIMITATIONS` 里的
+   "不提供操作系统级隔离"往前推进一步。
 4. 对接一个真实的第三方 Agent 框架，验证适配器契约的通用性。
-5. macOS 平台实测。
-6. CI：GitHub Actions（Windows + Ubuntu 矩阵，pytest + 验收自检）。
-7. 长时间运行稳定性测试（数小时不残留进程 / 内存）。
+5. 在 macOS 上执行一次完整验证（CI 矩阵已包含）。
+6. 长时间（数小时）运行稳定性与内存增长观测。

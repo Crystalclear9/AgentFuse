@@ -51,6 +51,9 @@ class RuntimeSettings:
     max_workers: int
     max_memory_budget_mb: int
     max_rss_soft_limit_mb: int
+    scheduling_strategy: str
+    result_cache_entries: int
+    worker_pool_size: int
     default_timeout_seconds: int
     resource_sample_interval_ms: int
     share_coalesce_window_ms: int
@@ -89,6 +92,9 @@ class RuntimeSettings:
             "max_workers": self.max_workers,
             "max_memory_budget_mb": self.max_memory_budget_mb,
             "max_rss_soft_limit_mb": self.max_rss_soft_limit_mb,
+            "scheduling_strategy": self.scheduling_strategy,
+            "result_cache_entries": self.result_cache_entries,
+            "worker_pool_size": self.worker_pool_size,
             "default_timeout_seconds": self.default_timeout_seconds,
             "resource_sample_interval_ms": self.resource_sample_interval_ms,
             "share_coalesce_window_ms": self.share_coalesce_window_ms,
@@ -155,6 +161,9 @@ def load_settings(
         max_workers=int(runtime.get("max_workers", 2)),
         max_memory_budget_mb=int(runtime.get("max_memory_budget_mb", 1024)),
         max_rss_soft_limit_mb=int(runtime.get("max_rss_soft_limit_mb", 0)),
+        scheduling_strategy=str(runtime.get("scheduling_strategy", "fifo")),
+        result_cache_entries=int(runtime.get("result_cache_entries", 0)),
+        worker_pool_size=int(runtime.get("worker_pool_size", 0)),
         default_timeout_seconds=int(runtime.get("default_timeout_seconds", 60)),
         resource_sample_interval_ms=int(runtime.get("resource_sample_interval_ms", 50)),
         share_coalesce_window_ms=int(runtime.get("share_coalesce_window_ms", 0)),

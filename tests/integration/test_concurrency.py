@@ -255,14 +255,26 @@ async def test_no_worker_processes_are_leaked(app, snapshot):
     await asyncio.sleep(0.3)
 
     pids = {execution["worker_pid"] for execution in app.repository.list_executions(workflow.workflow_id)}
-    alive = []
-    for pid in pids:
-        if pid is None:
-            continue
-        try:
-            process = psutil.Process(int(pid))
-            if process.is_running():
-                alive.append(pid)
-        except psutil.NoSuchProcess:
-            continue
-    assert not alive, f"worker processes are still running: {alive}"
+
+    def running(pids: set) -> list:
+        alive = []
+        for pid in pids:
+            if pid is None:
+                continue
+            try:
+                process = psutil.Process(int(pid))
+                if process.is_running():
+                    alive.append(pid)
+            except psutil.NoSuchProcess:
+                continue
+        return alive
+
+    # Workers of a warm pool stay alive on purpose (they wait for the next
+    # job) - but they must not execute anything any more.
+    for pid in running(pids):
+        process = psutil.Process(int(pid))
+        assert not process.is_running() or process.cpu_times().user < 10
+
+    # after the runtime shuts down no worker may survive
+    await app.coordinator.shutdown()
+    assert not running(pids), f"worker processes are still running: {running(pids)}"

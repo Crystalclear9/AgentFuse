@@ -11,6 +11,21 @@ max_memory_budget_mb = 1024
 # the separate limit (the admission budget is then used as the soft limit).
 # Exceeding it blocks new admissions and raises a RESOURCE_LIMIT_WARNING.
 max_rss_soft_limit_mb = 0
+# Admission policy of the worker pool: fifo (fair, default) or sjf
+# (shortest declared CPU cost first - higher goodput, less fairness).
+scheduling_strategy = "fifo"
+# Session scoped reuse of finished results (0 = disabled).
+# The cache only serves a result when the tool, the arguments and the
+# *content* of the workspace snapshot are identical and every observed
+# dependency is validated again.  It is opt in because it changes the
+# observable behaviour of a workflow (a repeated request no longer
+# starts a new physical execution).
+result_cache_entries = 0
+# Number of pre-started tool workers that are reused across executions
+# (0 = one process per execution).  A warm worker removes the interpreter
+# start up (~90 ms) from the critical path of every call.  The workers are
+# started while the runtime is idle.
+worker_pool_size = 2
 # Default per-execution timeout in seconds.
 default_timeout_seconds = 60
 # Sampling interval for worker RSS / CPU monitoring.
