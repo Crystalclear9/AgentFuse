@@ -328,6 +328,66 @@ Windows: 124 passed, 1 skipped（符号链接需管理员权限）
 
 ---
 
+## 阶段 18 — CI 暴露的预热池竞态（P0）
+
+CI 在 Windows runner 上报出两个失败，本地无法复现：
+
+| 失败 | 现象 |
+|---|---|
+| `test_a_pooled_worker_is_reused` | 两次执行的 `worker_pid` 不同 |
+| `test_no_worker_processes_are_leaked` | `shutdown()` 之后仍有 worker 进程残留 |
+
+**根因（同源）**：预热线程与首个执行的竞态。
+
+```
+t0  预热线程尚未完成，池为空
+t1  exec1 → _acquire_worker() → 自建 W0（不是池里的 worker）
+t2  预热线程把 W1、W2 放进池 → 池 = [W1, W2]
+t3  exec1 结束 → 池已满 → W0 被丢弃
+t4  exec2 从池里取 W2 → worker_pid 不同 → 断言失败
+```
+
+`shutdown()` 只清理了 `_idle_workers`，而预热线程**未被停止** ——
+shutdown 之后新建的 worker 永远不会被回收 → 进程泄漏。
+
+CI 机器更慢，预热耗时超过首个执行，因此只在 CI 暴露。
+
+**修复（F1）**
+
+| # | 改动 | 作用 |
+|---|---|---|
+| F1-1 | `_acquire_worker()` 等待预热完成（有界，在池锁之外） | 池状态确定化，复用不再依赖机器速度 |
+| F1-2 | 池满时淘汰**最旧**的空闲 worker（而不是丢弃刚释放的） | 刚完成任务的 worker 保持热身 |
+| F1-3 | 运行时改变池大小时裁剪超额的空闲 worker | `worker_pool_size = 0` 时预热的 worker 也要回收 |
+| F1-4 | `shutdown()` 停止并 join 预热线程，然后回收**全部**句柄而不只是空闲的 | 泄漏消失 |
+| F1-5 | `WorkerHandle.threads_started` 显式声明；`terminate()` 幂等 | 幂等性 |
+| F1-6 | 新增 6 个用例（含**主动制造竞态**） | 防回归 |
+
+## 阶段 19 — 需求条款对齐与自动守卫（P0/P1）
+
+复核发现的两处**按名称**未落实的条款，以及一个缺口：没有自动化守卫。
+
+| # | 任务 | 结果 |
+|---|---|---|
+| F2-1 | 资源控制器按规范命名为 **`LocalResourceController`**（保留 `ResourceScheduler` 别名） | §9.1 逐字命中 |
+| F2-2 | ShareGroup 新增 **`participant_calls`** （逻辑调用列表）+ schema **v3 迁移** | §4.8 逐字命中 |
+| F3-1 | SHARING_PROTOCOL 显式使用 `Late Join` 术语 | §22 章节 8/8 |
+| F3-2 | BENCHMARK 新增「工作负载」小节 | §22 章节 6/6 |
+| F3-3 | KNOWN_LIMITATIONS 用词对齐规范列举项 | §22 章节 8/8 |
+| F4-1 | 新增 `scripts/audit_requirements.py`：把 25 章的核对表**代码化** | **139 条款项全部通过** |
+| F4-2 | 审计纳入验收自检（18 → **19** 项）与 CI | 回归即红 |
+
+**验证门禁（四项）**
+
+```
+pytest tests -q                       145 passed, 1 skipped
+python scripts/acceptance_check.py    19/19
+python scripts/audit_requirements.py  139/139
+python scripts/check_regression.py    no performance regression detected
+```
+
+---
+
 ## 下一阶段建议（P3）
 
 1. 跨会话持久化结果缓存（需要持久化依赖账本 + 快照内容寻址）。

@@ -31,13 +31,13 @@ python scripts/acceptance_check.py
 ### 3.1 Windows 11
 
 ```text
-136 passed, 1 skipped in 37.07s
+145 passed, 1 skipped in 37.82s
 ```
 
 ### 3.2 WSL2 / Ubuntu-22.04
 
 ```text
-137 passed
+146 passed
 ```
 
 **两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
@@ -54,8 +54,8 @@ python scripts/acceptance_check.py
 
 | 目录 | 数量 | 结果 |
 |---|---|---|
-| `tests/unit` | 70 passed, 1 skipped（Windows）/ 71 passed（Linux） | 全部通过 |
-| `tests/integration` | 63 passed | 全部通过 |
+| `tests/unit` | 76 passed, 1 skipped（Windows）/ 77 passed（Linux） | 全部通过 |
+| `tests/integration` | 67 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 
 ### 3.5 单元测试覆盖
@@ -83,7 +83,7 @@ python scripts/acceptance_check.py
 | `test_concurrency.py` | 10 个并发相同调用只产生 1 次执行、无重复交付、Follower 取消不影响 Leader、Leader 取消不影响 Follower、全部取消终止执行、共享失败释放所有参与者、崩溃检测、超时终止、无 worker 进程泄漏 |
 | `test_resources_and_integrity.py` | RSS 软限制阻止准入、等待队列给出等待原因、资源快照字段、被篡改的快照不参与共享、完整快照通过校验 |
 | `test_result_cache.py` | 相同输入命中缓存、不同输入状态不复用、缓存有上限、缓存不跨会话 |
-| `test_worker_pool.py` | 预热 worker 被复用、并发下结果正确、失败的工具不污染池、默认启用、可显式关闭 |
+| `test_worker_pool.py` | 预热 worker 被复用、**主动制造预热竞态**、并发下结果正确、失败的工具不污染池、shutdown 后零残留、空闲池不超过上限、默认启用、可显式关闭、0/1/2 三种配置 |
 | `test_scenarios.py` | 5 个演示场景的期望指标、聚合器必须在 worker 之后启动、失败/取消场景覆盖全部 5 种情况 |
 | `test_api.py` | 健康检查、静态资源、总览、工具列表、workflow/graph/timeline/events、execution/dependencies、404、基准测试端到端 |
 | `test_benchmark.py` | 执行次数真实下降、结果与 baseline 一致、divergent 场景两侧结果正确、deferred 验证次数更少、跨运行哈希稳定、正确性检查能发现差异 |
@@ -156,7 +156,8 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 
 | 工具 | 命令 | 作用 |
 |---|---|---|
-| 交付验收自检 | `python scripts/acceptance_check.py` | 18 项：目录结构、共享行为、CLI、API、离线依赖 |
+| 交付验收自检 | `python scripts/acceptance_check.py` | **19 项**：目录结构、共享行为、CLI、API、离线依赖、需求条款审计 |
+| 需求条款审计 | `python scripts/audit_requirements.py` | **139 条款项**逐条对照源码核对（25 章） |
 | 性能回归守卫 | `python scripts/check_regression.py` | 对比 `benchmarks/baseline.json`，超出容差即失败 |
 | CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 |
 
