@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
+MSG_HELLO = "hello"
 MSG_DEPENDENCY = "dep"
 MSG_RESULT = "result"
 MSG_ERROR = "error"

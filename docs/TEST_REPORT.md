@@ -31,14 +31,26 @@ python scripts/acceptance_check.py
 ### 3.1 Windows 11
 
 ```text
-145 passed, 1 skipped in 37.82s
+153 passed, 1 skipped
 ```
 
 ### 3.2 WSL2 / Ubuntu-22.04
 
 ```text
-146 passed
+154 passed
 ```
+
+### 3.3 Worker pool / worker limit matrix
+
+The whole suite runs with every combination of the warm pool size and the
+worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
+`AGENTFUSE_TEST_WORKERS`, the CI matrix uses them):
+
+| pool \ workers | 1 | 2 |
+|---|---|---|
+| 0 | 153 passed | 153 passed |
+| 1 | 153 passed | 153 passed |
+| 2 | 153 passed | 153 passed |
 
 **两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
 权限才能创建符号链接，因此被跳过；在 Linux 上它**真实执行并通过**。
@@ -55,7 +67,7 @@ python scripts/acceptance_check.py
 | 目录 | 数量 | 结果 |
 |---|---|---|
 | `tests/unit` | 76 passed, 1 skipped（Windows）/ 77 passed（Linux） | 全部通过 |
-| `tests/integration` | 67 passed | 全部通过 |
+| `tests/integration` | 75 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 
 ### 3.5 单元测试覆盖
@@ -83,6 +95,7 @@ python scripts/acceptance_check.py
 | `test_concurrency.py` | 10 个并发相同调用只产生 1 次执行、无重复交付、Follower 取消不影响 Leader、Leader 取消不影响 Follower、全部取消终止执行、共享失败释放所有参与者、崩溃检测、超时终止、无 worker 进程泄漏 |
 | `test_resources_and_integrity.py` | RSS 软限制阻止准入、等待队列给出等待原因、资源快照字段、被篡改的快照不参与共享、完整快照通过校验 |
 | `test_result_cache.py` | 相同输入命中缓存、不同输入状态不复用、缓存有上限、缓存不跨会话 |
+| `test_worker_lifecycle.py` | 关闭与启动重叠时的 worker 不泄漏、shutdown 幂等、terminate 重试、真实 worker 进程被终止、hello 报告真实 pid、运行时不变量 |
 | `test_worker_pool.py` | 预热 worker 被复用、**主动制造预热竞态**、并发下结果正确、失败的工具不污染池、shutdown 后零残留、空闲池不超过上限、默认启用、可显式关闭、0/1/2 三种配置 |
 | `test_scenarios.py` | 5 个演示场景的期望指标、聚合器必须在 worker 之后启动、失败/取消场景覆盖全部 5 种情况 |
 | `test_api.py` | 健康检查、静态资源、总览、工具列表、workflow/graph/timeline/events、execution/dependencies、404、基准测试端到端 |
@@ -109,7 +122,17 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
   `process.wait(timeout=5)` 回收子进程。
 * **验证**：修复后 Windows 124 passed / WSL2 125 passed，两个平台都通过。
 
-### 4.2 跨操作系统的 SQLite WAL 锁
+### 4.2 worker 进程泄漏（两个独立缺陷）
+
+* **缺陷 A**：池外新建的 worker 与 `shutdown()` 的清扫竞态 → worker 注册得太晚，永远不被终止。
+  修复：引入 **pool epoch**，旧世代创建的 worker 在新世代注册时会被立即终止。
+* **缺陷 B**：Windows 的 venv 使用 launcher 打手，`Popen.pid` 是 launcher，真正执行工具的是其**子进程**；
+  杀掉 launcher 不会停止正在计算的 worker（它不再读 stdin）→ 孤儿进程泄漏。
+  修复：worker 通过 `hello` 消息报告自己的真实 pid，终止时按真实 pid → 子进程 → launcher 的顺序执行，并验证确实死了。
+* **幂等性修正**：`terminate()` 只在确认进程真的消失时才置位幂等标志，失败时允许后续重试。
+* **副作用**：峰值 RSS 之前采到的是 launcher（4.4 MiB），现在采到真实 worker（18.8 MiB）。
+
+### 4.3 跨操作系统的 SQLite WAL 锁
 
 * **症状**：在 WSL2 里运行 CLI 时报 `sqlite3.OperationalError: disk I/O error`。
 * **根因**：**同一个 home 目录被两个 AgentFuse 实例同时使用**（Windows 上运行着
@@ -151,6 +174,18 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 | 提供共享/冲突/并发/失败演示 | `test_scenarios.py`（5 个场景全部断言） |
 | Web UI 可查看运行图与依赖 | `test_api.py`（graph / timeline / dependencies 端点） |
 | 可运行 Benchmark 并对比 | `test_the_benchmark_endpoint_runs_a_comparison` |
+
+## 4.4 长稳观察
+
+`scripts/soak.py` 连续运行工作流并观察 worker 进程数与 RSS：
+
+```text
+  iterations           : 18
+  physical executions  : 18
+  errors               : 0
+  worker growth        : 0
+  worker rss growth    : 0.0 MiB
+```
 
 ## 5.1 自动化检查
 

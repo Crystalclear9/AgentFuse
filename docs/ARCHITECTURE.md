@@ -224,6 +224,7 @@ Runtime 启动时 `Repository.recover_interrupted_workflows()` 会把
         │
         v
   worker 进程  python -m agentfuse.runtime.worker_child
+        ├─ 报告 hello（自己的真实 pid）
         ├─ 读取 payload (JSON 行, stdin)
         ├─ 工具线程 ──> 依赖事件 ──> 队列 ──> stdout (JSON 行)
         ├─ 结果 / 错误消息 ──> stdout
@@ -248,7 +249,18 @@ Runtime 启动时在后台线程里把它们拉起来（`RuntimeCoordinator.prew
 worker 本身是"多任务"进程：它按行读取 payload，执行完一个任务后继续等待下一个。
 `runtime/pool.py` 的 `WorkerHandle` 负责把协议流里的消息归属到**当前**任务。
 
-### 8.2 惰性包导出
+### 8.2 进程标识（launcher vs. 真实 worker）
+
+Windows 的 venv 使用 launcher 打手：`Popen.pid` 是 launcher，真正执行工具的是它的子进程。
+杀掉 launcher 并不会停止一个正在计算的 worker（它不再读 stdin）。
+
+因此 worker 进程启动后的**第一句话**是 `hello`，它报告自己的真实 pid；
+Runtime 同时在启动时用 `psutil` 发现 launcher 的子进程。终止时按
+**真实 pid → 子进程 → launcher** 的顺序执行，并验证进程确实消失。
+
+数据库中保存两个 pid：`worker_pid`（launcher）与 `worker_root_pid`（真实 worker）。
+
+### 8.3 惰性包导出
 
 `agentfuse.core`、`agentfuse.workspace`、`agentfuse.runtime` 三个包使用
 :pep:`562` 的 `__getattr__` 惰性导出。worker 只需要标识与指纹工具，

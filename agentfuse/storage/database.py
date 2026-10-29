@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _SCHEMA: tuple[str, ...] = (
     """
@@ -112,7 +112,9 @@ _SCHEMA: tuple[str, ...] = (
         share_group_id    TEXT,
         attempt           INTEGER DEFAULT 1,
         admission_reason  TEXT,
-        queued_time       REAL
+        queued_time       REAL,
+        worker_root_pid   INTEGER,
+        worker_command    TEXT
     )
     """,
     """
@@ -287,6 +289,13 @@ _MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         3,
         (
             "ALTER TABLE share_groups ADD COLUMN participant_calls TEXT",
+        ),
+    ),
+    (
+        4,
+        (
+            "ALTER TABLE physical_executions ADD COLUMN worker_root_pid INTEGER",
+            "ALTER TABLE physical_executions ADD COLUMN worker_command TEXT",
         ),
     ),
 )

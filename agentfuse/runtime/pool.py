@@ -28,6 +28,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+try:  # pragma: no cover - psutil is a hard dependency
+    import psutil
+except Exception:  # pragma: no cover
+    psutil = None  # type: ignore[assignment]
+
 
 @dataclass(eq=False)
 class WorkerHandle:
@@ -42,6 +47,13 @@ class WorkerHandle:
     stderr_output: str = ""
     threads_started: bool = False
     terminated: bool = False
+    confirmed_gone: bool = False
+    #: the pid of the process that really executes the tool.  It can differ
+    #: from ``process.pid``: a virtual environment on Windows starts the
+    #: interpreter through a launcher stub.
+    worker_pid: int | None = None
+    #: the pids of the processes the launcher started (the real worker)
+    child_pids: list[int] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     def assign(self, execution_id: str) -> None:
@@ -73,26 +85,33 @@ class WorkerHandle:
         except Exception:  # pragma: no cover - defensive
             return False
 
-    def terminate(self) -> None:
+    def terminate(self) -> bool:
         """Kill the worker (and its children) and reap it.
 
-        The call is idempotent: terminating an already terminated worker is a
-        no-op, which keeps the shutdown path simple.
+        The call is idempotent **only when the process is really gone**: if the
+        termination failed, a later call retries it.  Returns ``True`` when the
+        worker process is gone.
         """
 
         from .cancellation import terminate_worker
 
-        if self.terminated:
-            return
-        self.terminated = True
+        if self.process is None:
+            self.terminated = True
+            self.confirmed_gone = True
+            return True
+        if self.confirmed_gone:
+            return True
+        gone = terminate_worker(
+            self.process,
+            getattr(self.process, "pid", None),
+            worker_pid=self.worker_pid,
+            child_pids=list(self.child_pids),
+        )
         self.reusable = False
-        try:
-            stdin = self.process.stdin
-            if stdin is not None:
-                stdin.close()
-        except Exception:  # pragma: no cover - defensive
-            pass
-        terminate_worker(self.process, getattr(self.process, "pid", None))
+        if gone:
+            self.terminated = True
+            self.confirmed_gone = True
+        return gone
 
 
 def build_command() -> list[str]:
@@ -116,6 +135,32 @@ def build_environment() -> dict[str, str]:
     return environment
 
 
+def discover_children(pid: int | None, timeout: float = 1.0) -> list[int]:
+    """Find the processes that the started process launched.
+
+    A virtual environment on Windows starts the real interpreter through a
+    launcher stub.  The launcher waits for its child, so killing the launcher
+    does **not** stop a worker that is busy computing - it never reads stdin
+    again.  The child pids are therefore collected right after the start.
+    """
+
+    if psutil is None or not pid:
+        return []
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            parent = psutil.Process(int(pid))
+            children = [child.pid for child in parent.children(recursive=True)]
+        except psutil.NoSuchProcess:
+            return []
+        except Exception:  # pragma: no cover - defensive
+            children = []
+        if children:
+            return children
+        time.sleep(0.01)
+    return []
+
+
 def start_worker() -> WorkerHandle:
     """Start one worker process."""
 
@@ -130,7 +175,9 @@ def start_worker() -> WorkerHandle:
         encoding="utf-8",
         bufsize=1,
     )
-    return WorkerHandle(process=process)
+    handle = WorkerHandle(process=process)
+    handle.child_pids = discover_children(process.pid)
+    return handle
 
 
 def spawn_pool(size: int, on_ready: Callable[[WorkerHandle], None] | None = None) -> list[WorkerHandle]:

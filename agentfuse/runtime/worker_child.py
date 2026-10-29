@@ -19,6 +19,7 @@ instead of once per execution.
 from __future__ import annotations
 
 import json
+import os
 import queue
 import sys
 import threading
@@ -63,6 +64,16 @@ def _serve(payload: dict[str, Any]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # The first message tells the parent which process really executes the
+    # tool.  On some installations (a virtual environment on Windows) the
+    # process that is started is a launcher that spawns the real interpreter
+    # as a child - the parent has to know the real pid in order to terminate
+    # the worker reliably.
+    sys.stdout.write(
+        json.dumps({"t": "hello", "pid": os.getpid()}, ensure_ascii=False) + "\n"
+    )
+    sys.stdout.flush()
+
     stdin = sys.stdin
     while True:
         line = stdin.readline()

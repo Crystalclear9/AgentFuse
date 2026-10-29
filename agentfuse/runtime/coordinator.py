@@ -52,12 +52,14 @@ from ..tools.registry import ToolRegistry
 from ..workspace.fingerprint import canonical_json, hash_arguments
 from ..workspace.snapshots import SnapshotStore
 from .protocol import (
+    ERROR_CANCELLED,
     ERROR_CRASH,
     ERROR_TIMEOUT,
     ERROR_TOOL,
     MSG_DEPENDENCY,
     MSG_ERROR,
     MSG_EOF,
+    MSG_HELLO,
     MSG_RESULT,
 )
 from .cancellation import CancellationReason, terminate_execution, terminate_worker
@@ -138,6 +140,18 @@ class LogicalCall:
     shared: bool = False
 
 
+def _worker_command(handle: Any) -> str | None:
+    """The command line of the process that really executes the tool."""
+
+    try:
+        process = getattr(handle, "process", None)
+        if process is None:
+            return None
+        return " ".join(process.args[:4])
+    except Exception:  # pragma: no cover - defensive
+        return None
+
+
 class RuntimeCoordinator:
     """Executes tool calls, coordinates shared execution and owns the resources."""
 
@@ -174,7 +188,12 @@ class RuntimeCoordinator:
         self._pool_warmup_done = threading.Event()
         #: set when the runtime shuts down - stops the warm up thread
         self._pool_stopped = threading.Event()
+        #: incremented on every shutdown.  A worker that was created under an
+        #: older epoch and registers itself afterwards is terminated at once -
+        #: otherwise it would survive the shutdown of the runtime.
+        self._pool_epoch = 0
         self._pool_warmup_thread: threading.Thread | None = None
+        self._shutdown_done = False
         self._resource_monitor = ResourceMonitor(repository=repository, interval=0.05)
 
         self._lock = asyncio.Lock()
@@ -211,29 +230,60 @@ class RuntimeCoordinator:
     async def shutdown(self) -> None:
         """Terminate every running worker and release the resources."""
 
+        if self._shutdown_done:
+            return
+        self._shutdown_done = True
         self._closing = True
-        # Stop the background warm up first: a worker that is created after
-        # this point would never be terminated and would leak.
-        self._pool_stopped.set()
+        # Stop the background warm up first and invalidate the workers that are
+        # created at this moment: a worker that registers itself after the
+        # sweep would survive the shutdown.
+        with self._pool_lock:
+            self._pool_epoch += 1
+            self._pool_stopped.set()
         thread = self._pool_warmup_thread
         if thread is not None and thread.is_alive():
-            thread.join(timeout=5)
+            thread.join(timeout=10)
         self._pool_warmup_thread = None
 
         for execution in list(self._executions.values()):
             if execution.status is ExecutionStatus.RUNNING:
                 await self._terminate_execution(execution, "runtime shutdown")
-        with self._pool_lock:
-            handles = list(self._worker_handles)
-            self._idle_workers.clear()
-            self._worker_handles.clear()
-        for handle in handles:
-            handle.terminate()
+
+        # Two sweeps: the second one catches the workers that were registered
+        # while the first sweep was running.
+        for _ in range(2):
+            with self._pool_lock:
+                handles = list(self._worker_handles)
+                self._idle_workers.clear()
+                self._worker_handles.clear()
+            for handle in handles:
+                handle.terminate()
+
+        survivors = [pid for pid in self.worker_pids() if pid]
+        if survivors:
+            self.event_bus.publish(
+                EventType.RESOURCE_LEAK_WARNING,
+                metadata={
+                    "surviving_workers": survivors,
+                    "scope": "worker processes that survived the runtime shutdown",
+                },
+            )
+
         for task in list(self._tasks):
             task.cancel()
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()
+
+    def worker_pids(self) -> list[int]:
+        """The pids of the workers the runtime currently owns."""
+
+        with self._pool_lock:
+            return [
+                handle.process.pid
+                for handle in self._worker_handles
+                if handle.process is not None and handle.process.pid
+            ]
 
     # ------------------------------------------------------------------
     # public API
@@ -736,9 +786,24 @@ class RuntimeCoordinator:
 
         self._loop = self._loop or asyncio.get_running_loop()
         handle = self._acquire_worker()
+        if handle is None:
+            # The runtime is shutting down - no computation must be started.
+            if not execution.outcome.done():
+                execution.outcome.set_result(
+                    ExecutionOutcome(
+                        ok=False,
+                        kind=ERROR_CANCELLED,
+                        message="the runtime is shutting down",
+                    )
+                )
+            return
         execution.worker_handle = handle
         execution.process = handle.process
         execution.pid = handle.process.pid
+        # The launcher and the process that really executes the tool can have
+        # different pids - the real one is reported by the worker itself.
+        execution.worker_root_pid = handle.worker_pid or handle.process.pid
+        execution.worker_command = _worker_command(handle)
         handle.assign(execution.execution_id)
         try:
             handle.send(payload)
@@ -780,26 +845,41 @@ class RuntimeCoordinator:
     # ------------------------------------------------------------------
     # worker pool
     # ------------------------------------------------------------------
-    def _acquire_worker(self) -> WorkerHandle:
+    def _acquire_worker(self) -> WorkerHandle | None:
         """Take an idle worker from the pool or start a new one.
 
         The pool warm up runs in the background.  A worker is only started
         outside of the pool when the warm up did not deliver one yet - waiting
         for the warm up keeps the reuse of the workers deterministic.
+
+        Returns ``None`` when the runtime is shutting down: the caller must not
+        start a computation then.
         """
 
         self._wait_for_pool_warmup()
         self._trim_idle_pool()
         with self._pool_lock:
+            if self._pool_stopped.is_set():
+                return None
+            epoch = self._pool_epoch
             while self._idle_workers:
                 handle = self._idle_workers.pop()
                 if handle.is_alive():
                     return handle
                 handle.terminate()
                 self._worker_handles.discard(handle)
+
         handle = start_worker()
         with self._pool_lock:
-            self._worker_handles.add(handle)
+            # The worker was created while the runtime could have been shut
+            # down in the meantime.  The epoch check makes sure that such a
+            # worker is terminated instead of surviving the shutdown.
+            stale = self._pool_stopped.is_set() or self._pool_epoch != epoch
+            if not stale:
+                self._worker_handles.add(handle)
+        if stale:
+            handle.terminate()
+            return None
         self._start_worker_threads(handle)
         return handle
 
@@ -872,22 +952,32 @@ class RuntimeCoordinator:
         def warm() -> None:
             try:
                 for _ in range(self.worker_pool_size):
-                    if self._pool_stopped.is_set():
-                        return
+                    with self._pool_lock:
+                        if self._pool_stopped.is_set():
+                            return
+                        epoch = self._pool_epoch
                     handle = None
                     try:
                         handle = start_worker()
                         with self._pool_lock:
-                            self._worker_handles.add(handle)
-                        self._start_worker_threads(handle)
-                        if self._pool_stopped.is_set():
+                            stale = (
+                                self._pool_stopped.is_set() or self._pool_epoch != epoch
+                            )
+                            if not stale:
+                                self._worker_handles.add(handle)
+                        if stale:
                             # the runtime is shutting down - do not leak it
                             handle.terminate()
-                            with self._pool_lock:
-                                self._worker_handles.discard(handle)
                             return
+                        self._start_worker_threads(handle)
                         with self._pool_lock:
-                            if handle.is_alive():
+                            # the pool size can be changed while the warm up
+                            # runs - the idle list must respect the limit
+                            if (
+                                handle.is_alive()
+                                and not self._pool_stopped.is_set()
+                                and len(self._idle_workers) < self.worker_pool_size
+                            ):
                                 self._idle_workers.append(handle)
                             else:
                                 handle.terminate()
@@ -945,6 +1035,17 @@ class RuntimeCoordinator:
                         continue
                     if not isinstance(message, dict):
                         continue
+                    if message.get("t") == MSG_HELLO:
+                        # The worker tells us which process really executes
+                        # the tool - it can differ from the launcher pid.
+                        real_pid = int(message.get("pid") or 0) or None
+                        handle.worker_pid = real_pid
+                        execution_id = handle.current_execution_id
+                        execution = self._executions.get(execution_id) if execution_id else None
+                        if execution is not None and real_pid:
+                            execution.worker_root_pid = real_pid
+                            self._persist_execution(execution)
+                        continue
                     if message.get("t") in (MSG_RESULT, MSG_ERROR):
                         saw_result = True
                     execution_id = handle.current_execution_id
@@ -992,7 +1093,7 @@ class RuntimeCoordinator:
         if psutil is None or handle.process.pid is None:
             return
         while not self._closing:
-            rss = self._resource_monitor.sample(handle.process.pid)
+            rss = self._resource_monitor.sample(self._worker_pid(handle))
             if rss is None:
                 break
             execution_id = handle.current_execution_id
@@ -1020,13 +1121,23 @@ class RuntimeCoordinator:
         handle = execution.worker_handle
         if handle is None or not handle.is_alive():
             return
-        rss = self._resource_monitor.sample(handle.process.pid)
+        rss = self._resource_monitor.sample(self._worker_pid(handle))
         if not rss:
             return
         if rss > execution.peak_rss:
             execution.peak_rss = rss
         self.scheduler.record_rss(execution.execution_id, rss)
         self._resource_monitor.record(execution.workflow_id, execution.execution_id, rss)
+
+    @staticmethod
+    def _worker_pid(handle: Any) -> int | None:
+        """The pid of the process that really executes the tool."""
+
+        if handle is None:
+            return None
+        return getattr(handle, "worker_pid", None) or getattr(
+            handle.process, "pid", None
+        )
 
     def _warn_about_resource_limit(self, execution: PhysicalExecution, rss: int) -> None:
         """Raise a warning when the observed memory exceeds the soft limit."""
@@ -1665,6 +1776,8 @@ class RuntimeCoordinator:
                 attempt=execution.attempt,
                 admission_reason=execution.admission_reason,
                 queued_time=execution.queued_time,
+                worker_root_pid=execution.worker_root_pid,
+                worker_command=execution.worker_command,
             )
         )
 

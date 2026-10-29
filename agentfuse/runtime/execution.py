@@ -68,6 +68,10 @@ class PhysicalExecution:
     terminated: bool = False
     admission_reason: str | None = None
     queued_time: float | None = None
+    #: the pid of the process that really executes the tool (it can differ
+    #: from ``pid`` when the interpreter runs behind a launcher stub)
+    worker_root_pid: int | None = None
+    worker_command: str | None = None
     resource_warning_emitted: bool = False
     created_at: float = field(default_factory=time.time)
     stderr_output: str = ""
@@ -101,5 +105,7 @@ class PhysicalExecution:
             "error": self.error,
             "queued_time": self.queued_time,
             "admission_reason": self.admission_reason,
+            "worker_root_pid": self.worker_root_pid,
+            "worker_command": self.worker_command,
             "dependency_count": len(self.ledger),
         }

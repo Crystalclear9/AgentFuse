@@ -6,6 +6,7 @@ tests never touch the real database of the installation.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -27,9 +28,19 @@ def settings(tmp_path: Path) -> RuntimeSettings:
 
 @pytest.fixture()
 async def app(settings: RuntimeSettings):
-    """A running AgentFuse application."""
+    """A running AgentFuse application.
+
+    ``AGENTFUSE_TEST_POOL_SIZE`` and ``AGENTFUSE_TEST_WORKERS`` let the CI
+    matrix run the whole suite with different pool sizes and worker limits.
+    """
 
     application = AgentFuseApp(settings=settings, mode=RuntimeMode.ONLINE)
+    pool_size = os.environ.get("AGENTFUSE_TEST_POOL_SIZE")
+    workers = os.environ.get("AGENTFUSE_TEST_WORKERS")
+    if pool_size is not None:
+        application.coordinator.worker_pool_size = int(pool_size)
+    if workers is not None:
+        application.scheduler.max_workers = int(workers)
     try:
         yield application
     finally:

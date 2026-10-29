@@ -117,6 +117,10 @@ class PhysicalExecutionRecord:
     attempt: int = 1
     admission_reason: str | None = None
     queued_time: float | None = None
+    #: the pid of the process that really executes the tool.  It differs from
+    #: ``worker_pid`` when the interpreter runs behind a launcher stub.
+    worker_root_pid: int | None = None
+    worker_command: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

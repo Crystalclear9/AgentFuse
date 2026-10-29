@@ -84,8 +84,34 @@ def test_a_v2_database_is_migrated_to_v3(tmp_path):
         conn.close()
 
     db.initialize()
-    assert db.schema_version() == 3
+    assert db.schema_version() == SCHEMA_VERSION
     assert "participant_calls" in _columns(db, "share_groups")
+    db.close()
+
+
+def test_a_v3_database_is_migrated_to_v4(tmp_path):
+    """The physical execution table gains the real worker pid."""
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+
+    conn = sqlite3.connect(db.path)
+    try:
+        conn.execute("ALTER TABLE physical_executions DROP COLUMN worker_root_pid")
+        conn.execute("ALTER TABLE physical_executions DROP COLUMN worker_command")
+        conn.execute("PRAGMA user_version = 3")
+        conn.commit()
+    except sqlite3.OperationalError as exc:  # pragma: no cover - old sqlite
+        conn.close()
+        db.close()
+        pytest.skip(f"the sqlite build cannot drop columns: {exc}")
+    finally:
+        conn.close()
+
+    db.initialize()
+    assert db.schema_version() == SCHEMA_VERSION
+    assert "worker_root_pid" in _columns(db, "physical_executions")
+    assert "worker_command" in _columns(db, "physical_executions")
     db.close()
 
 

@@ -209,8 +209,9 @@ class Repository:
             (execution_id, workflow_id, tool_name, tool_version, arguments_hash, candidate_key,
              source_snapshot_id, worker_pid, start_time, finish_time, execution_status,
              cpu_time, peak_rss, exit_status, result_hash, result_reference, error,
-             timeout_seconds, share_group_id, attempt, admission_reason, queued_time)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             timeout_seconds, share_group_id, attempt, admission_reason, queued_time,
+             worker_root_pid, worker_command)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 record.execution_id,
@@ -235,6 +236,8 @@ class Repository:
                 record.attempt,
                 record.admission_reason,
                 record.queued_time,
+                record.worker_root_pid,
+                record.worker_command,
             ),
         )
 

@@ -121,6 +121,16 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 
 ---
 
+### 4.6 Windows venv 使用 launcher 打手
+
+在 Windows 上，虚拟环境的 `python.exe` 是一个 **launcher**：它会再启动真正的解释器
+（子进程）。因此 `Popen.pid` 与真正执行工具的 pid 不同：
+
+* `physical_executions.worker_pid` 保存的是 launcher pid（启动器）；
+* `physical_executions.worker_root_pid` 保存的是**真实** worker pid（worker 通过 `hello` 消息上报）。
+
+两者都会被终止，但只看 `worker_pid` 很容易误判（launcher 可能已经退出）。
+
 ## 5. Agent 与模型
 
 * **Scripted Agent 不是 LLM Agent。** 它是按照真实结果动态选择下一步的本地程序，

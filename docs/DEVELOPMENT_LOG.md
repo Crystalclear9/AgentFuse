@@ -388,6 +388,57 @@ python scripts/check_regression.py    no performance regression detected
 
 ---
 
+## 阶段 20 — CI 泄漏的根治（P0）
+
+CI 上的 `test_no_worker_processes_are_leaked` 一直失败。本地无法复现，
+通过注入迟缓启动完成了根因定位，共发现两个独立缺陷：
+
+### 缺陷 A：池外新建 worker 与 shutdown 竞态
+
+```
+t0  _acquire_worker() 调用 start_worker()（阻塞 ~150ms，CI 上更慢）
+t1  shutdown() 扫过 _worker_handles → 此时 worker 尚未注册
+t2  start_worker() 返回，worker 注册进入 _worker_handles
+    → 但 shutdown 已扫完 → 这个 worker 永远不会被终止
+```
+
+**修复**：引入 **pool epoch（世代号）** —— shutdown 时递增，任何在旧世代创建、
+在新世代里注册的 worker 都会被立即终止。
+
+### 缺陷 B：真正干活的是 launcher 的**子进程**
+
+Windows 上的 venv 使用 **launcher 打手**：`Popen.pid` 是 launcher，真正执行工具的是它的**子进程**。
+杀掉 launcher 会关闭管道，但**正在计算的 worker 不会再读 stdin**→ 它成为孤儿并永生。
+
+这也解释了为什么**峰值 RSS 只有 4.4 MiB**（采到的是 launcher）而真实 worker 用 18 MiB。
+
+**修复**：
+* worker 进程启动后第一句话报告自己的真实 pid（`hello` 消息）；
+* `start_worker()` 同步发现 launcher 的子进程 pid（`discover_children`）；
+* `terminate_worker()` 按真实 pid → 子进程 → launcher 的顺序终止，并验证确实死了；
+* `terminate()` 只在**确认进程真的消失**时才置位幂等标志，失败则允许后续重试。
+
+### 验证
+
+| 场景 | 结果 |
+|---|---|
+| 慢 worker + 关闭与启动重叠（CI 模式） | **无泄漏** |
+| pool=0 / pool=2，workers=1 / workers=2（6 种组合） | **全部通过**（153 passed） |
+| 长稳观察 18 轮（scripts/soak.py） | worker 数量增长 **0**，RSS 增长 **0.0 MiB** |
+
+## 阶段 21 — 可观测性与平台覆盖（P1/P2）
+
+| # | 任务 | 结果 |
+|---|---|---|
+| G2-1 | `physical_executions` 新增 `worker_root_pid`（真实 worker）与 `worker_command` | schema **v4** 迁移 |
+| G2-2 | RSS 采样改为真实 worker 进程 | **峰值 RSS 从 4.4 MiB 修正为 18.8 MiB**（以前是采到 launcher） |
+| G2-3 | `RESOURCE_LEAK_WARNING` 事件 | shutdown 时仍有存活 worker 则发布 |
+| G3-1 | `scripts/soak.py` 长稳观察 | 输出 worker 数量 / RSS 增长曲线与 JSON 报告 |
+| G3-2 | CI 矩阵：pool 0/1/2 × workers 1/2（6 组合）+ soak job | 本地全部通过 |
+| G3-3 | 不变量测试：运行时持有的 handle 数 == 存活 worker 数 | 新增 |
+
+---
+
 ## 下一阶段建议（P3）
 
 1. 跨会话持久化结果缓存（需要持久化依赖账本 + 快照内容寻址）。
