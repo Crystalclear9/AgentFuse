@@ -503,14 +503,18 @@ async def test_a_detached_follower_never_gets_a_second_execution(app, snapshot):
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
 
-    arguments = {"files": list(DEMO_FILES), "rounds": 60000}
+    # The workload is chosen so that the conflict is found **before** the
+    # timeout of the leader fires: the follower reads the second file, the
+    # timeout is two seconds later.  The margin keeps the test independent of
+    # the speed of the machine.
+    arguments = {"files": list(DEMO_FILES), "rounds": 30000}
     leader = asyncio.create_task(
         app.coordinator.submit_tool_call(
             workflow_id=workflow.workflow_id,
             tool_name="content_digest",
             arguments=arguments,
             snapshot_id=snapshot.snapshot_id,
-            timeout_seconds=1.0,
+            timeout_seconds=2.0,
         )
     )
     # the follower joins while the leader is reading
