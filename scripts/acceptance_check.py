@@ -16,6 +16,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from agentfuse.console import configure_console  # noqa: E402
+
+configure_console()
+
 RESULTS: list[tuple[str, bool, str]] = []
 
 

@@ -21,6 +21,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from agentfuse.console import configure_console  # noqa: E402
+
+configure_console()
+
 import psutil  # noqa: E402
 
 from agentfuse.app import AgentFuseApp  # noqa: E402

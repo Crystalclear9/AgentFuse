@@ -24,6 +24,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from agentfuse.console import configure_console  # noqa: E402
+
+configure_console()
+
 from agentfuse.app import AgentFuseApp  # noqa: E402
 from agentfuse.benchmarks.runner import compare  # noqa: E402
 from agentfuse.core.state import RuntimeMode  # noqa: E402

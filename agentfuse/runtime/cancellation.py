@@ -14,6 +14,7 @@ zombie process is left behind.
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 from ..core.state import ExecutionStatus
@@ -33,6 +34,29 @@ class CancellationReason:
     TIMEOUT = "execution timed out"
     SHUTDOWN = "runtime shutdown"
     WORKER_TERMINATED = "worker terminated"
+
+
+def _wait_until_gone(pid: int | None, timeout: float = 2.0) -> bool:
+    """Wait until a process is really gone.
+
+    Right after ``TerminateProcess`` the process can still report itself as
+    running for a short moment, therefore the check is retried instead of
+    producing a false alarm.
+    """
+
+    if psutil is None or not pid:
+        return True
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            if not psutil.Process(int(pid)).is_running():
+                return True
+        except psutil.NoSuchProcess:
+            return True
+        except Exception:  # pragma: no cover - defensive
+            return True
+        time.sleep(0.05)
+    return False
 
 
 def terminate_worker(
@@ -96,18 +120,12 @@ def terminate_worker(
     except Exception as exc:  # pragma: no cover - defensive
         errors.append(exc)
 
-    known = {pid, worker_pid, *(child_pids or ())}
     gone = True
-    for target in known:
-        if not target or psutil is None:
+    for target in (worker_pid, pid, *(child_pids or ())):
+        if not target:
             continue
-        try:
-            if psutil.Process(int(target)).is_running():
-                gone = False
-        except psutil.NoSuchProcess:
-            continue
-        except Exception as exc:  # pragma: no cover - defensive
-            errors.append(exc)
+        if not _wait_until_gone(target):
+            gone = False
     try:
         if process.poll() is None:
             gone = False
