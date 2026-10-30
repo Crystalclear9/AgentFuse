@@ -209,7 +209,19 @@ def aggregate_outcomes(outcomes: list[BenchmarkOutcome]) -> dict[str, Any]:
         "detach_lead_ms_max": _aggregate(
             [m.get("detach_lead_ms_max") or 0.0 for m in metrics]
         ),
+        "detach_lead_ms_median": _aggregate(
+            [m.get("detach_lead_ms_median") or 0.0 for m in metrics]
+        ),
         "online_detach_before_finish_rate": _aggregate(online_detach),
+        "saved_wait_ms_max": _aggregate(
+            [m.get("saved_wait_ms_max") or 0.0 for m in metrics]
+        ),
+        "saved_wait_ms_median": _aggregate(
+            [m.get("saved_wait_ms_median") or 0.0 for m in metrics]
+        ),
+        "rejected_candidates": _aggregate(
+            [m.get("rejected_candidates", 0) for m in metrics]
+        ),
         "detection_delay": _aggregate(
             [m.get("detection_delay") or 0.0 for m in metrics]
         ),

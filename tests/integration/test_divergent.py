@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import asyncio
 
-from agentfuse.core.state import EventType, RuntimeMode, ValidationStatus
-from agentfuse.scenarios.common import DEMO_FILES, create_branch, mutate_variant_source
+from agentfuse.core.state import EventType, ParticipantStatus, RuntimeMode, ValidationStatus
+from agentfuse.scenarios.common import (
+    DEMO_FILES,
+    create_branch,
+    mutate_variant_source,
+    wait_for_first_dependency,
+)
 from agentfuse.scenarios.definitions import scenario_divergent
 
 
@@ -91,7 +96,6 @@ async def test_the_detached_follower_uses_its_own_snapshot(app, snapshot):
     workflow = app.create_workflow("test-divergent-snapshot")
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
-
     arguments = {"files": list(DEMO_FILES), "rounds": 200}
     await asyncio.gather(
         app.coordinator.submit_tool_call(
@@ -130,8 +134,19 @@ async def test_the_divergent_scenario_reports_the_expected_numbers(app):
     assert metrics["validation_failures"] >= 1
     assert metrics["saved_executions"] == 0
     # the detection happened before the leader finished -> the follower could
-    # start its independent execution while the leader was still running
+    # start its independent execution while the leader was still running.
+    # The margin must be real, not zero: requirement 12.4 asks for the
+    # separation to happen while the leader still has work left.
     assert metrics["detach_lead_ms_max"] is not None
+    assert metrics["detach_lead_ms_max"] > 0, (
+        "the follower must be separated while the leader is still computing"
+    )
+    assert metrics["online_detach_before_finish"] is True
+    # the follower waited less than it would have waited for the leader
+    assert metrics["saved_wait_ms_max"] is not None
+    assert metrics["saved_wait_ms_max"] > 0
+    # a candidate that never joined is not a detachment
+    assert metrics["rejected_candidates"] == 0
 
 
 async def test_a_late_joiner_validates_the_existing_ledger(app, snapshot):
@@ -223,3 +238,105 @@ async def test_the_dependency_ledger_records_every_read(app, snapshot):
     assert paths == sorted(DEMO_FILES)
     assert all(dependency["dependency_type"] == "FILE_READ" for dependency in dependencies)
     assert all(dependency["fingerprint"] for dependency in dependencies)
+
+
+async def test_a_follower_that_fails_the_final_validation_gets_no_result(app, snapshot, monkeypatch):
+    """§8.7 - the final commit gate.
+
+    "Any logical call whose dependency validation is not complete must not be
+    exposed to the result of the shared execution."
+
+    The incremental online validation keeps the validated prefix in sync with
+    the dependency ledger, therefore the gate is a safety net for the case in
+    which the validation of the later dependencies did **not** reach the
+    participant before the leader finished.  The test simulates exactly that
+    race: the dependency is written to the ledger, but the participant's
+    validated prefix does not advance.
+    """
+
+    workflow = app.create_workflow("test-final-commit-gate")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    coordinator = app.coordinator
+    original = coordinator._handle_dependency
+
+    async def lagging_handle_dependency(execution_id, message):
+        await original(execution_id, message)
+        # the incremental validation of this dependency does not reach the
+        # participant -> its validated prefix falls behind the ledger
+        for group in coordinator._groups.values():
+            for participant in group.participants.values():
+                if participant.is_leader:
+                    continue
+                if participant.status is ParticipantStatus.SHARED_WAIT:
+                    participant.validated_prefix_length = max(
+                        0, participant.validated_prefix_length - 1
+                    )
+
+    monkeypatch.setattr(coordinator, "_handle_dependency", lagging_handle_dependency)
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 3000}
+    delivered: list[tuple[str, str | None]] = []
+
+    def observer(event):
+        if event.event_type == EventType.TOOL_RESULT_DELIVERED:
+            delivered.append(
+                (str(event.logical_call_id), event.physical_execution_id)
+            )
+
+    app.event_bus.subscribe(observer)
+
+    leader_task = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+
+    # the follower joins while the leader is still reading
+    await wait_for_first_dependency(app.event_bus, workflow.workflow_id)
+    follower = await app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="content_digest",
+        arguments=arguments,
+        snapshot_id=snapshot.snapshot_id,
+    )
+    leader = await leader_task
+
+    participants = app.repository.list_participants(workflow.workflow_id)
+    follower_rows = [
+        row for row in participants if not row["is_leader"]
+    ]
+    assert follower_rows, "the follower must have joined the share group"
+    follower_row = follower_rows[0]
+    assert follower_row["status"] == "DETACHED"
+    assert (
+        follower_row["detach_reason"]
+        == "dependency validation incomplete at commit time"
+    ), "the final commit gate must be the recorded reason"
+
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert len(executions) == 2, "the follower must run its own execution"
+    leader_execution = executions[0]["execution_id"]
+
+    # the follower must not have received the result of the leader
+    follower_deliveries = [
+        execution_id
+        for call_id, execution_id in delivered
+        if call_id == follower_row["logical_call_id"]
+    ]
+    assert leader_execution not in follower_deliveries, (
+        "a follower that failed the final validation must not receive the "
+        "result of the shared execution"
+    )
+    # the follower computed the result on its own - the deterministic tool
+    # produces the same hash for the same input, but on a *different*
+    # execution
+    assert follower.physical_execution_id != leader.physical_execution_id
+    assert follower.physical_execution_id in {
+        execution["execution_id"] for execution in executions
+    }
+    assert follower.result_hash == leader.result_hash

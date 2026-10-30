@@ -377,6 +377,52 @@ def audit_surface() -> None:
         record("14", "API 端点齐备", False, str(exc))
 
 
+def _final_gate_holds(app: Any, result: Any) -> bool:
+    """Check §8.7 - the final commit validation gate.
+
+    A participant that was detached must not have received the result of the
+    shared execution: the delivery event of the leader's physical execution
+    must not exist for the detached call.
+    """
+
+    repository = app.repository
+    calls = repository.list_logical_calls(result.workflow_id)
+    executions = repository.list_executions(result.workflow_id)
+    participants = repository.list_participants(result.workflow_id)
+    detached = [
+        participant for participant in participants if participant["status"] == "DETACHED"
+    ]
+    if not detached:
+        return False
+    all_execution_ids = {execution["execution_id"] for execution in executions}
+    events = repository.list_events(result.workflow_id)
+    delivered = {
+        (event["logical_call_id"], event["physical_execution_id"])
+        for event in events
+        if event["event_type"] == "TOOL_RESULT_DELIVERED"
+    }
+    for participant in detached:
+        call = next(
+            (
+                item
+                for item in calls
+                if item["logical_call_id"] == participant["logical_call_id"]
+            ),
+            None,
+        )
+        if call is None:
+            return False
+        own = call["physical_execution_id"]
+        if not own:
+            return False
+        # every other execution is a leader whose result must not have been
+        # delivered to the detached call
+        for leader_id in all_execution_ids - {own}:
+            if (call["logical_call_id"], leader_id) in delivered:
+                return False
+    return True
+
+
 # ----------------------------------------------------------------------
 # behavioural audit - the clauses that describe the runtime behaviour are
 # verified by *running* the runtime, not by reading the source
@@ -499,13 +545,10 @@ def audit_behaviour() -> None:
             record(
                 "8.7",
                 "最终提交验证门禁",
-                all(
-                    participant["validation_status"] in ("MATCH", "MISMATCH", "PENDING")
-                    for participant in participants
-                )
-                and all(
-                    call["physical_execution_id"] for call in divergent_calls
-                ),
+                _final_gate_holds(app, divergent),
+                "未完成验证的参与者没有收到共享结果"
+                if _final_gate_holds(app, divergent)
+                else "分离的参与者收到了共享结果",
             )
             record(
                 "21.4",

@@ -175,6 +175,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 f"{data['detach_count']['mean']:.1f}",
                 f"{data['validation_count']['mean']:.1f}",
                 f"{data['detach_lead_ms_max']['mean']:.1f}",
+                f"{data['saved_wait_ms_max']['mean']:.1f}",
                 f"{data['online_detach_before_finish_rate']['mean'] * 100:.0f}%",
             ]
         )
@@ -197,6 +198,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 "分离",
                 "验证",
                 "提前分离(ms)",
+                "节省等待(ms)",
                 "在线提前分离率",
             ],
         )

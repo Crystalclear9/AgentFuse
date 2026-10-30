@@ -88,11 +88,12 @@ def test_the_content_digest_is_deterministic(snapshot):
 
 
 def test_the_content_digest_depends_on_the_content(app, snapshot):
-    from agentfuse.scenarios.common import create_branch, mutate_variant_source
+    from agentfuse.scenarios.common import DIVERGENT_FILE, create_branch, mutate_variant_source
 
     branch = create_branch(app, snapshot, mutate_variant_source, "branch")
     registry = build_default_registry()
-    arguments = {"files": ["src/zeta_variant.py"], "rounds": 5}
+    # the digest must change when the content of the analysed file changes
+    arguments = {"files": [DIVERGENT_FILE], "rounds": 5}
     base = registry.execute(registry.get("content_digest"), arguments, WorkspaceReader(snapshot.tree_path))
     other = registry.execute(registry.get("content_digest"), arguments, WorkspaceReader(branch.tree_path))
     assert base["combined_digest"] != other["combined_digest"]

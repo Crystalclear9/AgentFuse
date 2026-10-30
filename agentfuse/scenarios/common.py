@@ -21,7 +21,16 @@ DEMO_FILES: list[str] = [
 ]
 
 #: The file that the divergent scenario mutates in one branch.
-DIVERGENT_FILE = "src/zeta_variant.py"
+#:
+#: It is the **second** file the digest tool reads (the files are processed in
+#: sorted order).  The conflict must be found while the leader still has work
+#: left - otherwise the separation would happen at the very end of the
+#: execution and the scenario would no longer prove what requirement 12.4
+#: asks for ("the follower is separated while the leader has not finished its
+#: computation").  The first file cannot be used: the follower joins after the
+#: first dependency was observed, so a conflict there would be found by the
+#: join time validation instead of the online one.
+DIVERGENT_FILE = "src/beta.py"
 
 
 def default_source_repository() -> Path:
@@ -87,13 +96,16 @@ def mutate_variant_source(working: Path) -> None:
 
     target = working / DIVERGENT_FILE
     source = target.read_text(encoding="utf-8")
-    target.write_text(
-        source.replace(
-            "return add(left, right) + 0",
-            "return add(left, right) + 1  # branch specific behaviour",
-        ),
-        encoding="utf-8",
+    # the mutation must change the content but keep the module valid
+    mutated = source.replace(
+        "return add(left, right) + 0",
+        "return add(left, right) + 1  # branch specific behaviour",
     )
+    if mutated == source:
+        # the sample module does not contain the expected expression - the
+        # content is changed in a way that does not depend on the sample
+        mutated = source + "\n# branch specific behaviour\n"
+    target.write_text(mutated, encoding="utf-8")
 
 
 async def wait_for_event(

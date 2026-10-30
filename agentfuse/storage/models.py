@@ -152,6 +152,7 @@ class ShareParticipantRecord:
     wait_duration: float | None = None
     wait_reason: str | None = None
     detach_reason: str | None = None
+    detach_kind: str | None = None
     is_leader: bool = False
 
     def to_dict(self) -> dict[str, Any]:

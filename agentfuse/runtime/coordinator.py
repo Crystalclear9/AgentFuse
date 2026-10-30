@@ -651,6 +651,8 @@ class RuntimeCoordinator:
         participant.transition(ParticipantStatus.DETACHED)
         participant.detached_time = time.time()
         participant.detach_reason = reason or "mismatch"
+        # the candidate never joined - the validation refused it right away
+        participant.detach_kind = "rejected_at_join"
         participant.validation_status = status
         group.add_participant(participant)
         self._persist_participant(group, participant)
@@ -1728,6 +1730,8 @@ class RuntimeCoordinator:
         participant.transition(ParticipantStatus.DETACHED)
         participant.detached_time = time.time()
         participant.detach_reason = reason
+        # the call was a participant of the group and is separated now
+        participant.detach_kind = "after_join"
         participant.validation_status = (
             ValidationStatus.MISMATCH
             if "differs" in reason
@@ -2001,6 +2005,7 @@ class RuntimeCoordinator:
                 wait_duration=participant.wait_duration,
                 wait_reason=participant.wait_reason,
                 detach_reason=participant.detach_reason,
+                detach_kind=participant.detach_kind,
                 is_leader=participant.is_leader,
             )
         )

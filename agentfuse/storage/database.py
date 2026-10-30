@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 _SCHEMA: tuple[str, ...] = (
     """
@@ -151,6 +151,7 @@ _SCHEMA: tuple[str, ...] = (
         wait_duration         REAL,
         wait_reason           TEXT,
         detach_reason         TEXT,
+        detach_kind           TEXT,
         is_leader             INTEGER DEFAULT 0,
         PRIMARY KEY (share_group_id, logical_call_id)
     )
@@ -413,6 +414,12 @@ _MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         6,
         (
             "ALTER TABLE share_participants ADD COLUMN wait_reason TEXT",
+        ),
+    ),
+    (
+        7,
+        (
+            "ALTER TABLE share_participants ADD COLUMN detach_kind TEXT",
         ),
     ),
 )

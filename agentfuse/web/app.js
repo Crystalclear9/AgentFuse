@@ -573,6 +573,7 @@ function renderBenchmark(report) {
       <td>${data.detach_count.mean.toFixed(1)}</td>
       <td>${data.validation_count.mean.toFixed(1)}</td>
       <td>${lead(data).toFixed(1)}</td>
+      <td>${(data.saved_wait_ms_max ? data.saved_wait_ms_max.mean : 0).toFixed(1)}</td>
       <td>${((data.online_detach_before_finish_rate ? data.online_detach_before_finish_rate.mean : 0) * 100).toFixed(0)}%</td>
       <td>${report.speedup && report.speedup[mode] !== undefined ? report.speedup[mode].toFixed(3) + "x" : "-"}</td>
     </tr>`;
@@ -607,7 +608,7 @@ function renderBenchmark(report) {
     <div class="table-wrap"><table>
       <thead><tr><th>模式</th><th>次数</th><th>耗时均值(s)</th><th>标准差</th><th>物理执行</th><th>逻辑调用</th>
       <th>节省执行</th><th>CPU(s)</th><th>峰值RSS(MiB)</th><th>共享成功率</th><th>分离</th><th>验证</th>
-      <th>提前分离(ms)</th><th>在线提前分离率</th><th>加速比</th></tr></thead>
+      <th>提前分离(ms)</th><th>节省等待(ms)</th><th>在线提前分离率</th><th>加速比</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <h2 style="margin-top:18px">工作流耗时对比</h2>
     <div class="bar-chart">${chart}</div>

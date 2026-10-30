@@ -91,6 +91,11 @@ class Participant:
     #: a waiting call can be explained without reading the event log
     wait_reason: str | None = None
     detach_reason: str | None = None
+    #: how the participant left the group.  ``after_join`` means the call was
+    #: a participant and was separated later; ``rejected_at_join`` means the
+    #: candidate never joined - the validation refused it right away.  The two
+    #: are counted separately: only a real separation is a detachment.
+    detach_kind: str | None = None
     is_leader: bool = False
 
     def transition(self, target: ParticipantStatus) -> None:
@@ -125,6 +130,7 @@ class Participant:
             "wait_duration": self.wait_duration,
             "wait_reason": self.wait_reason,
             "detach_reason": self.detach_reason,
+            "detach_kind": self.detach_kind,
             "is_leader": self.is_leader,
         }
 

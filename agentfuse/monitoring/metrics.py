@@ -8,6 +8,7 @@ execution counts.
 
 from __future__ import annotations
 
+import statistics
 import time
 from typing import Any
 
@@ -75,6 +76,10 @@ def collect_workflow_metrics(
     follower_independent_at: float | None = None
     calls_by_id = {call["logical_call_id"]: call for call in calls}
     for participant in detached:
+        # a candidate that was rejected at join time never belonged to the
+        # group - it is not a conflict that was observed *during* the run
+        if (participant["detach_kind"] or "after_join") == "rejected_at_join":
+            continue
         detached_time = participant["detached_time"]
         if detached_time is None:
             continue
@@ -101,21 +106,53 @@ def collect_workflow_metrics(
     eligible = len(eligible_calls)
     shared = len(shared_calls)
 
-    # How long before the leader finished was the detachment observed?
+    # A participant that was **rejected at join time** never belonged to the
+    # group - the validation refused it right away.  It is not a detachment:
+    # counting it would mix two different events in the same metric.
+    rejected = [
+        participant
+        for participant in participants
+        if participant["status"] == "DETACHED"
+        and (participant["detach_kind"] or "after_join") == "rejected_at_join"
+    ]
+    separated = [
+        participant
+        for participant in participants
+        if participant["status"] == "DETACHED"
+        and (participant["detach_kind"] or "after_join") != "rejected_at_join"
+    ]
+
+    # How much did the online check win?  Two numbers:
+    #
+    # * the **lead**: how long before the leader finished the conflict was
+    #   observed.  A positive value means the follower did not have to wait
+    #   for a result it must not use.
+    # * the **saved wait**: how much less the follower waited than it would
+    #   have waited for the leader's result.
     groups_by_id = {group["share_group_id"]: group for group in groups}
     executions_by_id = {execution["execution_id"]: execution for execution in executions}
     detach_lead_ms: list[float] = []
-    for participant in detached:
+    saved_wait_ms: list[float] = []
+    for participant in separated:
         group = groups_by_id.get(participant["share_group_id"])
         if group is None:
             continue
         leader = executions_by_id.get(group["leader_execution_id"])
         if leader is None or not leader["finish_time"] or not participant["detached_time"]:
             continue
+        detached_at = float(participant["detached_time"])
+        leader_finished = float(leader["finish_time"])
         # positive value -> the conflict was detected *before* the leader finished
-        detach_lead_ms.append(
-            (float(leader["finish_time"]) - float(participant["detached_time"])) * 1000.0
-        )
+        detach_lead_ms.append((leader_finished - detached_at) * 1000.0)
+        # how much less the follower waited than the leader's result would
+        # have cost it
+        attached_at = participant["attached_time"]
+        wait_duration = participant["wait_duration"]
+        if attached_at is not None and wait_duration is not None:
+            would_have_waited = max(0.0, leader_finished - float(attached_at))
+            saved_wait_ms.append(
+                (would_have_waited - float(wait_duration)) * 1000.0
+            )
 
     return {
         "workflow_id": workflow_id,
@@ -131,7 +168,8 @@ def collect_workflow_metrics(
         "total_cpu_time": round(total_cpu_time, 6),
         "peak_rss": peak_rss,
         "share_groups": len(groups),
-        "detach_count": len(detached),
+        "detach_count": len(separated),
+        "rejected_candidates": len(rejected),
         "failed_calls": len(failed_calls),
         "validation_count": len(group_validations),
         "validation_failures": len(validation_failures),
@@ -151,6 +189,13 @@ def collect_workflow_metrics(
             else None
         ),
         "detach_lead_ms_max": round(max(detach_lead_ms), 2) if detach_lead_ms else None,
+        "detach_lead_ms_median": (
+            round(statistics.median(detach_lead_ms), 2) if detach_lead_ms else None
+        ),
+        "saved_wait_ms_max": round(max(saved_wait_ms), 2) if saved_wait_ms else None,
+        "saved_wait_ms_median": (
+            round(statistics.median(saved_wait_ms), 2) if saved_wait_ms else None
+        ),
         "online_detach_before_finish": bool(detach_lead_ms) and max(detach_lead_ms) > 0,
         "collected_at": time.time(),
     }
