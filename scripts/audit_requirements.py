@@ -50,11 +50,11 @@ RESULTS: list[dict[str, Any]] = []
 #: acceptance check.  ``--coverage`` prints the list.
 COVERED_SECTIONS = (
     "2.2", "4", "4.8", "5.1", "5.2", "6.2", "7.1", "7.2", "7.3",
-    "8.1", "8.2", "8.5", "8.7", "8.8", "9.1", "9.2", "9.3", "9.4",
+    "7.4", "8.1", "8.2", "8.5", "8.7", "8.8", "9.1", "9.2", "9.3", "9.4",
     "10.1", "10.5", "11.3", "12", "12.4", "12.6", "13", "13.1", "13.2",
     "13.3", "13.4", "13.5", "14", "15", "16", "17.1", "17.2", "17.3",
-    "17.4", "17.5", "17.6", "17.7", "19", "20", "21.1", "21.2", "21.4",
-    "22",
+    "17.4", "17.5", "17.6", "17.7", "19", "20", "21.1", "21.2", "21.3",
+    "21.4", "21.5", "22",
 )
 
 
@@ -141,6 +141,29 @@ def audit_offline() -> None:
         )
     else:
         record("14", "前端脚本语法正确", True, "没有 node，跳过语法检查")
+
+    # §7.4 a shareable tool must not depend on the current time, the current
+    # random numbers, the environment or the absolute workspace path
+    import re as _re
+
+    forbidden = {
+        "time.time": "当前时间",
+        "time.monotonic": "当前时间",
+        "datetime.now": "当前时间",
+        "random.random": "当前随机数",
+        "os.environ": "未声明的环境变量",
+        "os.getcwd": "工作区的绝对路径",
+        "str(Path.cwd": "工作区的绝对路径",
+    }
+    offenders: list[str] = []
+    for path in sorted((ROOT / "agentfuse" / "tools").glob("*.py")):
+        if path.name in ("base.py", "fixtures.py", "fault_injector.py", "registry.py"):
+            continue
+        text = path.read_text(encoding="utf-8")
+        for marker, reason in forbidden.items():
+            if marker in text:
+                offenders.append(f"{path.name}: {marker} ({reason})")
+    record("7.4", "内置工具不依赖时间/随机数/环境变量/绝对路径", not offenders, str(offenders))
 
     config = read("config/default.toml")
     record(
@@ -421,6 +444,31 @@ def audit_core() -> None:
     record("8.7", "最终提交验证门禁", "validated_prefix_length != len(ledger)" in coordinator)
     record("8.8", "分离后独立执行", "_reassign_after_detach_locked" in coordinator)
     record("21.1", "单一协调者状态锁", "self._lock = asyncio.Lock()" in coordinator)
+    # §21.3 the boundary of the dependency tracking: a tool that bypasses the
+    # controlled reader must never be shared
+    record(
+        "21.3",
+        "绕过受控读取的工具永不共享",
+        "test_a_bypassing_tool_is_never_shared"
+        in read("tests/integration/test_dependency_tracking.py")
+        and "dependency_tracking" in read("agentfuse/tools/base.py"),
+        "依赖追踪的边界由用例证明",
+    )
+    # §21.5 the runtime must not depend on the internals of a framework
+    framework_imports = []
+    for path in sorted((ROOT / "agentfuse").rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        if "agentfuse/runtime" in str(path.relative_to(ROOT)).replace("\\", "/"):
+            continue
+        for marker in ("langchain", "autogen", "crewai", "semantic_kernel"):
+            if marker in text.lower():
+                framework_imports.append(f"{path.name}:{marker}")
+    record(
+        "21.5",
+        "Runtime 不依赖任何 Agent 框架的内部对象",
+        not framework_imports,
+        str(framework_imports),
+    )
     record("21.2", "快照被篡改时拒绝共享", "_snapshot_is_trustworthy" in coordinator)
     record("21.4", "真实执行次数来自 PhysicalExecution", "physical_executions" in read("agentfuse/monitoring/metrics.py"))
     record("9.1", "LocalResourceController", "class LocalResourceController" in read("agentfuse/runtime/scheduler.py"))
@@ -616,9 +664,7 @@ def audit_behaviour() -> None:
             # only the shared scenario is observed - the baseline mode runs
             # two executions in parallel
             unsubscribe()
-            divergent = await scenario_divergent(
-                app, RuntimeMode.ONLINE, {"rounds": 1500}
-            )
+            divergent = await scenario_divergent(app, RuntimeMode.ONLINE, {})
             baseline = await scenario_shared(app, RuntimeMode.BASELINE, {})
             # the remaining scenarios are executed by the acceptance check and
             # by the test suite - the audit only proves that they are covered
@@ -749,6 +795,21 @@ def audit_behaviour() -> None:
                 baseline.metrics["physical_executions"] == 2
                 and baseline.metrics["saved_executions"] == 0,
                 f"executions={baseline.metrics['physical_executions']}",
+            )
+            # The sharing mode must not use **more** compute resources.  The
+            # number of physical executions is the deterministic proof - the
+            # measured CPU time is quantised (10 ms per process) and therefore
+            # only compared with the noise floor.
+            baseline_cpu = float(baseline.metrics["total_cpu_time"] or 0.0)
+            online_cpu = float(shared.metrics["total_cpu_time"] or 0.0)
+            record(
+                "13.2",
+                "共享模式不使用更多计算资源",
+                shared.metrics["physical_executions"] < baseline.metrics["physical_executions"]
+                and online_cpu <= baseline_cpu + 0.05,
+                f"executions={shared.metrics['physical_executions']} vs "
+                f"{baseline.metrics['physical_executions']}, "
+                f"cpu={online_cpu} vs {baseline_cpu}",
             )
             record(
                 "13.3",
@@ -889,10 +950,11 @@ def audit_behaviour() -> None:
                     app.coordinator.submit_tool_call(
                         workflow_id=workflow.workflow_id,
                         tool_name="fault_injector",
-                        arguments={"mode": "sleep", "seconds": 30},
+                        arguments={"mode": "sleep", "seconds": 5},
                         snapshot_id=base.snapshot_id,
                     )
                 )
+                # the call has to exist before it can be cancelled
                 await asyncio.sleep(0.05)
                 for call in app.coordinator.active_calls(workflow.workflow_id):
                     await app.coordinator.cancel_logical_call(

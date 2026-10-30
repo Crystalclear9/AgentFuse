@@ -47,7 +47,7 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 | 工作区快照 | 不可变快照 + 分支 fork + SHA-256 manifest |
 | 共享执行 | CandidateKey → ShareGroup → In-flight Sharing → 增量在线验证 → 冲突分离 → 最终提交门禁 → 快照完整性校验 |
 | 资源管理 | FIFO / 最短作业优先调度、Worker 并发上限、内存准入、实测 RSS、CPU 时间、超时、取消、故障回收、**Worker 预热池** |
-| 持久化 | SQLite（15 张表，schema v7 + 迁移机制 + 外键约束 + 崩溃回收，后台写入线程） |
+| 持久化 | SQLite（15 张表，schema v8 + 迁移机制 + 外键约束 + 崩溃回收，后台写入线程） |
 | 结果复用 | 会话内已完成结果复用（默认关闭，需完整依赖校验才命中） |
 | 本地 Web 界面 | Dashboard / 执行图 / 时间线 / 依赖检查器 / 基准测试，127.0.0.1:8765，无 CDN |
 | 命令行 | `init / serve / demo / compare / trace / inspect / tools` |
@@ -66,7 +66,7 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 | 数据存储 | SQLite（WAL，独立写入线程） |
 | 本地 API | FastAPI + Uvicorn |
 | 前端 | 原生 HTML / CSS / JavaScript（无框架、无构建链、无 CDN）；测试用 Node 执行真实脚本 |
-| 自动化测试 | pytest + pytest-asyncio + httpx（197 个用例，含前端脚本的执行测试） |
+| 自动化测试 | pytest + pytest-asyncio + httpx（206 个用例，含前端脚本的执行测试） |
 | 配置 | TOML（`config/default.toml`） |
 | 命令行 | argparse |
 
@@ -103,8 +103,8 @@ uv pip install --python .agentfuse/wsl/venv/bin/python -e ".[dev]"
 .agentfuse/wsl/venv/bin/python scripts/acceptance_check.py
 ```
 
-实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 197 passed /
-WSL2 197 passed，两平台验收自检均 39/39）。
+实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 206 passed /
+WSL2 207 passed，两平台验收自检均 39/39）。
 
 > 跨平台实测发现并修复了一个 Linux 专属缺陷：父进程未 `wait()` 回收 worker
 > 导致僵尸进程堆积。详见 TEST_REPORT §4。

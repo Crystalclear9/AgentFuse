@@ -77,6 +77,17 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _is_loopback(host: str) -> bool:
+    """True when the address only reaches the local machine."""
+
+    import ipaddress
+
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return host in ("localhost", "")
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     import uvicorn
 
@@ -84,6 +95,23 @@ def cmd_serve(args: argparse.Namespace) -> int:
     settings.ensure_directories()
     host = args.host or settings.api_host
     port = args.port or settings.api_port
+    # The dashboard has **no** authentication.  Binding it to a public
+    # address would expose the runtime to everybody in the network - therefore
+    # it needs an explicit confirmation (requirement 2.2).
+    if not _is_loopback(host) and not getattr(args, "allow_remote", False):
+        print(
+            f"错误: {host} 不是回环地址。管理界面没有认证，"
+            "对外网暴露会让任何人都能操作 runtime。"
+            "\n确认请加上 --allow-remote。",
+            file=sys.stderr,
+        )
+        return 2
+    if not _is_loopback(host):
+        print(
+            "警告: 管理界面没有认证，它将对 "
+            f"{host} 上的所有人可访问。",
+            file=sys.stderr,
+        )
     print(f"AgentFuse 管理界面: http://{host}:{port}")
     uvicorn.run(
         "agentfuse.api.app:create_app",
@@ -390,6 +418,11 @@ def build_parser() -> argparse.ArgumentParser:
     serve = sub.add_parser("serve", help="启动本地 Web 管理服务")
     serve.add_argument("--host", help="监听地址 (默认 127.0.0.1)")
     serve.add_argument("--port", type=int, help="监听端口 (默认 8765)")
+    serve.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help="允许监听非回环地址（管理界面没有认证）",
+    )
     serve.set_defaults(func=cmd_serve)
 
     demo = sub.add_parser("demo", help="运行离线多智能体演示场景")

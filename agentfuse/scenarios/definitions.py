@@ -248,8 +248,9 @@ async def scenario_divergent(app: Any, mode: RuntimeMode, options: dict[str, Any
     files = list(options.get("files", DEMO_FILES))
     # The rounds are the margin: the follower joins after the first read, so
     # the crunch of the first file has to be long enough for the join to
-    # happen before the conflicting file is read.
-    rounds = int(options.get("rounds", 3000))
+    # happen before the conflicting file is read.  5000 rounds are about
+    # 75 ms per file - enough under load as well.
+    rounds = int(options.get("rounds", 5000))
     arguments = {"files": files, "rounds": rounds}
 
     async def leader_step(context: Any) -> Any:

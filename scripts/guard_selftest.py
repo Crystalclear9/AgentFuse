@@ -234,6 +234,125 @@ MUTATIONS: list[dict[str, Any]] = [
             ],
         ],
     },
+    {
+        "name": "一个逻辑调用可以再拥有第二个执行",
+        "clause": "8.2",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """            own_execution = self._running_execution_of(call)
+            if own_execution is not None:
+                continue""",
+        "new": """            own_execution = None""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_concurrency.py::"
+                "test_a_detached_follower_never_gets_a_second_execution",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "失败的参与者不再得到失败状态",
+        "clause": "10.1",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """            self._fail_waiting_participants(group, outcome.message)""",
+        "new": """            pass""",
+        "extra": (
+            "agentfuse/runtime/coordinator.py",
+            """        self._fail_participant_of(call, message)""",
+            """        pass""",
+        ),
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_concurrency.py::"
+                "test_the_participants_of_a_failed_group_are_failed",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "调度器错误又被报告成进程崩溃",
+        "clause": "10.1",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """                    ExecutionOutcome(ok=False, kind=ERROR_INTERNAL, message=str(exc))
+                )
+            return""",
+        "new": """                    ExecutionOutcome(ok=False, kind=ERROR_CRASH, message=str(exc))
+                )
+            return""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_concurrency.py::"
+                "test_a_runtime_failure_is_not_reported_as_a_worker_crash",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "共享组不再关闭",
+        "clause": "4.8",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """        # the group has served its purpose - it is closed (requirement 4.8)
+        group.close()
+        self._persist_group(group)""",
+        "new": """        pass""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_shared_execution.py::"
+                "test_a_finished_share_group_is_closed",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "身份未确定的状态被忽略",
+        "clause": "5.2",
+        "file": "agentfuse/core/workflow.py",
+        "old": """            identity_status=(
+                str(AgentIdentityStatus.CONFIRMED)
+                if identity_confirmed
+                else str(AgentIdentityStatus.UNDETERMINED)
+            ),""",
+        "new": """            identity_status=str(AgentIdentityStatus.CONFIRMED),""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_shared_execution.py::"
+                "test_an_undetermined_agent_identity_is_recorded",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "内置工具开始依赖当前时间",
+        "clause": "7.4",
+        "file": "agentfuse/tools/digest_analyzer.py",
+        "old": """    return {
+        "file_count": len(per_file),""",
+        "new": """    return {
+        "generated_at": time.time(),
+        "file_count": len(per_file),""",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
 ]
 
 
@@ -273,7 +392,23 @@ def _check_mutation(mutation: dict[str, Any]) -> dict[str, Any]:
             "detail": f"变异点不存在于 {mutation['file']}（代码已经变了？）",
             "guards": [],
         }
+    # a mutation may touch a second file as well
+    extra = mutation.get("extra")
+    extra_path = ROOT / extra[0] if extra else None
+    extra_original = extra_path.read_text(encoding="utf-8") if extra_path else None
+    if extra_path is not None and extra[1] not in extra_original:
+        return {
+            "name": mutation["name"],
+            "clause": mutation["clause"],
+            "ok": False,
+            "detail": f"变异点不存在于 {extra[0]}（代码已经变了？）",
+            "guards": [],
+        }
     path.write_text(original.replace(mutation["old"], mutation["new"], 1), encoding="utf-8")
+    if extra_path is not None:
+        extra_path.write_text(
+            extra_original.replace(extra[1], extra[2], 1), encoding="utf-8"
+        )
     guards: list[dict[str, Any]] = []
     try:
         for command in mutation["guards"]:
@@ -289,6 +424,8 @@ def _check_mutation(mutation: dict[str, Any]) -> dict[str, Any]:
             )
     finally:
         path.write_text(original, encoding="utf-8")
+        if extra_path is not None and extra_original is not None:
+            extra_path.write_text(extra_original, encoding="utf-8")
     caught = all(guard["caught"] for guard in guards) and guards
     return {
         "name": mutation["name"],

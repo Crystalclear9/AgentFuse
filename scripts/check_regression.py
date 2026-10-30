@@ -39,8 +39,11 @@ BASELINE_PATH = ROOT / "benchmarks" / "baseline.json"
 #: performance metrics - a regression is a *slowdown*
 PERFORMANCE_METRICS = ("makespan", "total_cpu_time")
 
-#: correctness metrics - these must stay exactly the same
-STRICT_METRICS = ("physical_executions", "detach_count", "validation_count")
+#: correctness metrics - these must stay exactly the same.  The number of
+#: dependency validations is **not** part of them: it counts the validations
+#: that happened before the leader finished, which depends on the scheduling
+#: of the two processes.
+STRICT_METRICS = ("physical_executions", "detach_count")
 
 #: metrics below this value are dominated by the measurement noise and are
 #: therefore not compared (the signal would be smaller than the noise)
