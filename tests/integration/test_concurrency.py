@@ -257,6 +257,12 @@ async def test_no_worker_processes_are_leaked(app, snapshot):
     pids = {execution["worker_pid"] for execution in app.repository.list_executions(workflow.workflow_id)}
 
     def running(pids: set) -> list:
+        """The pids that are still alive *and* are still the same process.
+
+        A pid can be reused by the operating system once the worker is gone -
+        the creation time tells the two apart.
+        """
+
         alive = []
         for pid in pids:
             if pid is None:
@@ -269,6 +275,19 @@ async def test_no_worker_processes_are_leaked(app, snapshot):
                 continue
         return alive
 
+    def identity(pids: set) -> dict:
+        """The creation time of every worker that is currently alive."""
+
+        known = {}
+        for pid in pids:
+            if pid is None:
+                continue
+            try:
+                known[pid] = psutil.Process(int(pid)).create_time()
+            except psutil.NoSuchProcess:
+                continue
+        return known
+
     # Workers of a warm pool stay alive on purpose (they wait for the next
     # job) - but they must not execute anything any more.
     for pid in running(pids):
@@ -276,5 +295,18 @@ async def test_no_worker_processes_are_leaked(app, snapshot):
         assert not process.is_running() or process.cpu_times().user < 10
 
     # after the runtime shuts down no worker may survive
+    known = identity(pids)
     await app.coordinator.shutdown()
-    assert not running(pids), f"worker processes are still running: {running(pids)}"
+    await asyncio.sleep(0.3)
+
+    survivors = []
+    for pid in running(pids):
+        try:
+            process = psutil.Process(int(pid))
+        except psutil.NoSuchProcess:
+            continue
+        if pid in known and process.create_time() != known[pid]:
+            # the pid was reused by an unrelated process
+            continue
+        survivors.append(pid)
+    assert not survivors, f"worker processes are still running: {survivors}"

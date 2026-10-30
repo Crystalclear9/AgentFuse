@@ -130,6 +130,15 @@ python scripts/run_ci_like.py --matrix
 | 基础解释器（= CI 环境，无存根） | 153 passed, 1 skipped（6 种池/并发组合全通过） |
 | WSL2 / Ubuntu-22.04 | 154 passed |
 
+## 3.6 CI 第二次运行的失败（run #4）
+
+第二次 CI 运行仍有 8 个 job 失败。本次已能通过 **git 凭据管理器的 token 读取 CI 日志** 取到确切失败点：
+
+| 失败 | 根因 | 修复 |
+|---|---|---|
+| 5 个 Windows job：`test_concurrency.py::test_no_worker_processes_are_leaked` 报「worker processes are still running」 | 旧的泄漏断言**只看 pid**；CI 上 pid 被操作系统重用 → 误报 | 改为**进程身份校验**（pid + `create_time`），只有身份一致的进程才算泄漏 |
+| 3 个 macOS job：`资源数据被采集` 报 `peak_rss=0` | `_finalize_execution` 中 **`_sample_final_rss()` 在 `_persist_execution()` 之后调用** → 最后一次 RSS 采样没落库。Windows 上工具大约足够慢（monitor 线程周期采样到了），macOS 上执行太快 → 采样值丢失 = 0 | 让 `_sample_final_rss()` **先执行**、再落库；采样失败时回退到 launcher/child pid |
+
 ## 4. 跨平台验证发现并修复的真实缺陷
 
 WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属问题**：

@@ -1121,7 +1121,18 @@ class RuntimeCoordinator:
         handle = execution.worker_handle
         if handle is None or not handle.is_alive():
             return
-        rss = self._resource_monitor.sample(self._worker_pid(handle))
+        candidates = [
+            self._worker_pid(handle),
+            getattr(handle.process, "pid", None),
+            *list(getattr(handle, "child_pids", ()) or ()),
+        ]
+        rss = 0
+        for pid in candidates:
+            if not pid:
+                continue
+            rss = self._resource_monitor.sample(pid)
+            if rss:
+                break
         if not rss:
             return
         if rss > execution.peak_rss:
@@ -1370,8 +1381,10 @@ class RuntimeCoordinator:
                 execution.status = ExecutionStatus.CRASHED
                 execution.error = outcome.message
 
-            self._persist_execution(execution)
+            # The final memory sample has to be taken *before* the row is
+            # written - otherwise a short execution would persist a peak of 0.
             self._sample_final_rss(execution)
+            self._persist_execution(execution)
             self._release_worker(
                 execution.worker_handle, reusable=execution.worker_handle is not None
                 and getattr(execution.worker_handle, "reusable", False)
