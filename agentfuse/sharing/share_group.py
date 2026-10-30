@@ -87,6 +87,9 @@ class Participant:
     attached_time: float = field(default_factory=time.time)
     detached_time: float | None = None
     delivered_time: float | None = None
+    #: why the participant is waiting - the reason is shown in the UI so that
+    #: a waiting call can be explained without reading the event log
+    wait_reason: str | None = None
     detach_reason: str | None = None
     is_leader: bool = False
 
@@ -120,6 +123,7 @@ class Participant:
             "detached_time": self.detached_time,
             "delivered_time": self.delivered_time,
             "wait_duration": self.wait_duration,
+            "wait_reason": self.wait_reason,
             "detach_reason": self.detach_reason,
             "is_leader": self.is_leader,
         }

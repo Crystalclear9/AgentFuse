@@ -36,12 +36,18 @@ async def overview(request: Request) -> dict[str, Any]:
 
     running = [row for row in workflows if row["status"] == "RUNNING"]
     invocations = 0
+    total_invocations = 0
     calls = 0
     executions = 0
     waiting = 0
     detached = 0
     for workflow in workflows:
-        invocations += len(repository.list_invocations(workflow["workflow_id"]))
+        workflow_invocations = repository.list_invocations(workflow["workflow_id"])
+        total_invocations += len(workflow_invocations)
+        # only the invocations that are still running are "active"
+        invocations += sum(
+            1 for row in workflow_invocations if row["status"] == "RUNNING"
+        )
         workflow_calls = repository.list_logical_calls(workflow["workflow_id"])
         calls += len(workflow_calls)
         executions += len(repository.list_executions(workflow["workflow_id"]))
@@ -71,6 +77,7 @@ async def overview(request: Request) -> dict[str, Any]:
         "running_workflows": len(running),
         "total_workflows": len(workflows),
         "active_invocations": invocations,
+        "total_invocations": total_invocations,
         "logical_tool_calls": calls,
         "physical_executions": executions,
         "shared_waiting": waiting,
@@ -87,6 +94,7 @@ async def overview(request: Request) -> dict[str, Any]:
                 "shareable": spec.shareable,
                 "deterministic": spec.deterministic,
                 "read_only": spec.read_only,
+                "dependency_tracking": spec.dependency_tracking,
             }
             for spec in app.registry.list_tools()
         ],

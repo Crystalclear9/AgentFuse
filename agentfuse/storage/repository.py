@@ -371,8 +371,8 @@ class Repository:
             INSERT INTO share_participants
             (share_group_id, logical_call_id, workflow_id, agent_id, invocation_id, snapshot_id,
              status, validated_prefix_length, validation_status, attached_time, detached_time,
-             delivered_time, wait_duration, detach_reason, is_leader)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             delivered_time, wait_duration, wait_reason, detach_reason, is_leader)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(share_group_id, logical_call_id) DO UPDATE SET
                 workflow_id=excluded.workflow_id, agent_id=excluded.agent_id,
                 invocation_id=excluded.invocation_id, snapshot_id=excluded.snapshot_id,
@@ -381,6 +381,7 @@ class Repository:
                 validation_status=excluded.validation_status,
                 attached_time=excluded.attached_time, detached_time=excluded.detached_time,
                 delivered_time=excluded.delivered_time, wait_duration=excluded.wait_duration,
+                wait_reason=excluded.wait_reason,
                 detach_reason=excluded.detach_reason, is_leader=excluded.is_leader
             """,
             (
@@ -397,6 +398,7 @@ class Repository:
                 record.detached_time,
                 record.delivered_time,
                 record.wait_duration,
+                record.wait_reason,
                 record.detach_reason,
                 1 if record.is_leader else 0,
             ),

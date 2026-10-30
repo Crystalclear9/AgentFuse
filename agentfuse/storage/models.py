@@ -161,6 +161,7 @@ class ShareParticipantRecord:
     detached_time: float | None = None
     delivered_time: float | None = None
     wait_duration: float | None = None
+    wait_reason: str | None = None
     detach_reason: str | None = None
     is_leader: bool = False
 

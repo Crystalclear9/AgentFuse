@@ -27,6 +27,13 @@ async def test_the_different_workspace_scenario_shares(app):
     assert result.metrics["detach_count"] == 0
     note = result.notes["snapshot_difference"]
     assert note["modified"] == ["README.md"]
+    # the final result: both agents got the result of the one shared
+    # execution - the different snapshot did not change the analysed files
+    assert len(result.results) == 2
+    assert all(item.result_hash for item in result.results)
+    assert result.results[0].result_hash == result.results[1].result_hash
+    assert result.results[0].physical_execution_id == result.results[1].physical_execution_id
+    assert result.results[0].result["file_count"] > 0
 
 
 async def test_the_multi_agent_scenario_builds_the_expected_graph(app):
@@ -40,6 +47,13 @@ async def test_the_multi_agent_scenario_builds_the_expected_graph(app):
     edge_kinds = [edge["kind"] for edge in payload["edges"]]
     assert edge_kinds.count("EXPLICIT_INVOCATION_DEPENDENCY") == 4
     assert "SHARES_EXECUTION_WITH" in edge_kinds
+    # the final result: the aggregator received the results of the three
+    # workers and indexed the sources
+    assert len(result.results) == 1
+    payload = result.results[0]
+    assert payload["workers"] == 3
+    assert payload["aggregated_functions"] > 0
+    assert payload["indexed_files"] > 0
 
 
 async def test_the_aggregator_only_starts_after_the_workers_finished(app):

@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from agentfuse.benchmarks.runner import check_correctness, collect_call_hashes, compare
+from agentfuse.benchmarks.runner import (
+    DEFAULT_SEED,
+    RSS_TOLERANCE_BYTES,
+    check_correctness,
+    collect_call_hashes,
+    compare,
+)
 from agentfuse.core.state import RuntimeMode
 
 
@@ -64,3 +70,44 @@ async def test_the_correctness_check_detects_a_difference(app):
     outcome_b = type("Outcome", (), {"call_hashes": [("other", "different")]})()
     report = check_correctness([outcome_a], [outcome_b])
     assert report["mismatched"] == 1
+
+
+async def test_the_benchmark_uses_a_fixed_seed(app):
+    """The seed must be effective - every mode and every repeat uses it."""
+
+    report = await compare(app, "shared", repeats=2, modes=("baseline", "online"))
+    assert report["seed"] == DEFAULT_SEED
+    # the seed reached the workflow records
+    workflow = app.repository.get_workflow(report["runs"]["online"][0]["workflow_id"])
+    assert workflow["random_seed"] == DEFAULT_SEED
+
+
+async def test_the_same_seed_produces_the_same_results(app):
+    """Two repetitions with the same seed have to decide the same way."""
+
+    report = await compare(app, "shared", repeats=2, modes=("online",))
+    reproducibility = report["reproducibility"]
+    assert reproducibility["reproducible"] is True
+    assert reproducibility["modes"]["online"]["identical"] is True
+
+
+async def test_the_repeated_runs_do_not_grow_the_resources(app):
+    """The repetitions must not accumulate workers or runtime memory."""
+
+    report = await compare(app, "shared", repeats=2, modes=("online",))
+    stability = report["resource_stability"]
+    assert stability["samples"] == 2
+    assert stability["workers_grew"] is False
+    assert stability["stable"] is True
+    assert stability["runtime_rss_growth"] <= RSS_TOLERANCE_BYTES
+
+
+async def test_the_detachment_benefit_reaches_the_aggregation(app):
+    """The value of the online check has to be visible in the aggregation."""
+
+    report = await compare(app, "divergent", repeats=1, modes=("online",))
+    aggregated = report["aggregated"]["online"]
+    assert "detach_lead_ms_max" in aggregated
+    assert "online_detach_before_finish_rate" in aggregated
+    assert aggregated["detach_lead_ms_max"]["mean"] > 0
+    assert aggregated["online_detach_before_finish_rate"]["mean"] == 1.0

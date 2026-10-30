@@ -174,11 +174,13 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 f"{data['share_success_rate']['mean'] * 100:.1f}%",
                 f"{data['detach_count']['mean']:.1f}",
                 f"{data['validation_count']['mean']:.1f}",
+                f"{data['detach_lead_ms_max']['mean']:.1f}",
+                f"{data['online_detach_before_finish_rate']['mean'] * 100:.0f}%",
             ]
         )
     print(
         f"场景 {report['scenario']}  重复 {report['repeats']} 次  "
-        f"worker={report.get('workers')}"
+        f"worker={report.get('workers')}  seed={report.get('seed')}"
     )
     print(
         _table(
@@ -194,6 +196,8 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 "共享成功率",
                 "分离",
                 "验证",
+                "提前分离(ms)",
+                "在线提前分离率",
             ],
         )
     )
@@ -206,6 +210,21 @@ def cmd_compare(args: argparse.Namespace) -> int:
             f"\n正确性({mode}): 对比 {correctness['compared']} 次, 一致 {correctness['identical']} 次, "
             f"不一致 {correctness['mismatched']} 次"
         )
+    stability = report.get("resource_stability") or {}
+    if stability:
+        print(
+            f"\n资源稳定性: {'稳定' if stability.get('stable') else '不稳定'} "
+            f"(worker 进程序列 {stability.get('worker_series')}, "
+            f"运行时内存增长 {stability.get('runtime_rss_growth_mib', 0.0):.1f} MiB)"
+        )
+    reproducibility = report.get("reproducibility") or {}
+    if reproducibility:
+        print(
+            f"\n可复现性: {'通过' if reproducibility.get('reproducible') else '未通过'} "
+            f"(相同种子 {report.get('seed')})"
+        )
+    if not stability.get("stable", True) or not reproducibility.get("reproducible", True):
+        return 1
     return 0
 
 

@@ -33,6 +33,20 @@ from ..core.state import RuntimeMode
 from ..scenarios import run_scenario
 from ..storage.models import BenchmarkRunRecord
 
+try:  # pragma: no cover - psutil is a hard dependency of the runtime
+    import psutil
+except Exception:  # pragma: no cover
+    psutil = None  # type: ignore[assignment]
+
+#: The seed that the benchmark uses when the caller does not specify one.
+#: Every mode and every repetition uses the same seed - that is what makes
+#: the comparison fair and the run reproducible.
+DEFAULT_SEED = 20240917
+
+#: How much the resident size of the runtime may grow before the benchmark
+#: reports a leak (64 MiB).
+RSS_TOLERANCE_BYTES = 64 * 1024 * 1024
+
 
 @dataclass
 class BenchmarkOutcome:
@@ -169,6 +183,9 @@ def aggregate_outcomes(outcomes: list[BenchmarkOutcome]) -> dict[str, Any]:
     """Aggregate the repetitions of one mode."""
 
     metrics = [outcome.metrics for outcome in outcomes]
+    online_detach = [
+        1.0 if m.get("online_detach_before_finish") else 0.0 for m in metrics
+    ]
     return {
         "runs": len(outcomes),
         "makespan": _aggregate([m.get("makespan", 0.0) for m in metrics]),
@@ -184,6 +201,21 @@ def aggregate_outcomes(outcomes: list[BenchmarkOutcome]) -> dict[str, Any]:
         "validation_ms": _aggregate([m.get("validation_ms", 0.0) for m in metrics]),
         "detach_count": _aggregate([m.get("detach_count", 0) for m in metrics]),
         "failed_calls": _aggregate([m.get("failed_calls", 0) for m in metrics]),
+        # --- the benefit of the online dependency check --------------------
+        # How long before the leader finished the conflict was detected - the
+        # time that the follower did not have to wait for a result it must not
+        # use.  This is the value that the online mode adds over the deferred
+        # mode.
+        "detach_lead_ms_max": _aggregate(
+            [m.get("detach_lead_ms_max") or 0.0 for m in metrics]
+        ),
+        "online_detach_before_finish_rate": _aggregate(online_detach),
+        "detection_delay": _aggregate(
+            [m.get("detection_delay") or 0.0 for m in metrics]
+        ),
+        "detach_to_independent_ms": _aggregate(
+            [m.get("detach_to_independent_ms") or 0.0 for m in metrics]
+        ),
     }
 
 
@@ -219,6 +251,125 @@ def check_correctness(baseline: list[BenchmarkOutcome], other: list[BenchmarkOut
     }
 
 
+def count_live_workers(app: Any) -> int:
+    """Return the number of worker processes that are currently alive."""
+
+    coordinator = getattr(app, "coordinator", None)
+    if coordinator is None:
+        return 0
+    return coordinator.live_worker_count()
+
+
+def sample_resources(app: Any) -> dict[str, Any]:
+    """Take a snapshot of the resources that a repeated run must not grow.
+
+    The *runtime* memory is the interesting value - the workers are short
+    lived processes that the runtime starts and terminates again.  A leak in
+    the runtime would show up as a steadily growing resident size.
+    """
+
+    rss: int | None = None
+    if psutil is not None:
+        try:
+            rss = int(psutil.Process().memory_info().rss)
+        except Exception:  # pragma: no cover - defensive
+            rss = None
+    return {"runtime_rss": rss, "workers": count_live_workers(app)}
+
+
+def check_resource_stability(
+    samples: list[dict[str, Any]], rss_baseline: int | None = None
+) -> dict[str, Any]:
+    """Verify that the repeated runs do not consume more and more resources.
+
+    Two signals are checked:
+
+    * the number of worker processes must not accumulate - the warm pool
+      keeps its workers alive, therefore the count may only grow by the size
+      of the pool, not with every repetition,
+    * the resident size of the runtime must not grow beyond the tolerance -
+      that is the signal of a real leak.
+    """
+
+    if not samples:
+        return {
+            "samples": 0,
+            "stable": True,
+            "workers_grew": False,
+            "worker_leftovers": 0,
+            "runtime_rss_growth": 0,
+            "runtime_rss_growth_mib": 0.0,
+            "peak_rss_series": {},
+        }
+
+    worker_counts = [int(sample["workers_after"]) for sample in samples]
+    workers_grew = worker_counts[-1] > worker_counts[0]
+    leftovers = [sample for sample in samples if sample["workers_after"] > 0]
+
+    rss_values = [
+        int(sample["runtime_rss"])
+        for sample in samples
+        if sample.get("runtime_rss") is not None
+    ]
+    if rss_baseline is not None:
+        rss_values.insert(0, int(rss_baseline))
+    rss_growth = 0
+    if len(rss_values) >= 2:
+        rss_growth = rss_values[-1] - rss_values[0]
+    rss_grew = rss_growth > RSS_TOLERANCE_BYTES
+
+    by_mode: dict[str, list[int]] = {}
+    for sample in samples:
+        by_mode.setdefault(sample["mode"], []).append(int(sample["peak_rss"]))
+    growing_modes = []
+    for mode, series in by_mode.items():
+        if len(series) > 1 and series[-1] > max(series[:-1]) * 1.3 and series[-1] > 0:
+            growing_modes.append(mode)
+
+    return {
+        "samples": len(samples),
+        "stable": not workers_grew and not rss_grew,
+        "workers_grew": workers_grew,
+        "worker_series": worker_counts,
+        "worker_leftovers": len(leftovers),
+        "runtime_rss_series": rss_values,
+        "runtime_rss_growth": rss_growth,
+        "runtime_rss_growth_mib": round(rss_growth / 1048576, 2),
+        "peak_rss_series": by_mode,
+        "peak_rss_growing_modes": growing_modes,
+    }
+
+
+def check_reproducibility(outcomes: dict[str, list[BenchmarkOutcome]]) -> dict[str, Any]:
+    """Verify that the repeats of one mode produced the same decisions.
+
+    The seed is only effective if a run with the same seed produces the same
+    result hashes - otherwise the seed would be a decoration.
+    """
+
+    report: dict[str, Any] = {}
+    reproducible = True
+    for mode, items in outcomes.items():
+        if len(items) < 2:
+            report[mode] = {"repeats": len(items), "identical": True, "compared": 0}
+            continue
+        identical = True
+        compared = 0
+        reference = dict(items[0].call_hashes)
+        for item in items[1:]:
+            compared += 1
+            if dict(item.call_hashes) != reference:
+                identical = False
+                break
+        report[mode] = {
+            "repeats": len(items),
+            "compared": compared,
+            "identical": identical,
+        }
+        reproducible = reproducible and identical
+    return {"reproducible": reproducible, "modes": report}
+
+
 async def compare(
     app: Any,
     scenario: str,
@@ -232,15 +383,40 @@ async def compare(
     ``workers`` limits the number of concurrently running tool workers.  With
     ``workers=1`` the two modes are executed under *resource contention*,
     which is where the shared execution actually saves wall clock time.
+
+    Every run uses the **same random seed** - that is the sixth fairness rule
+    of the module docstring.  The seed is also what makes the comparison
+    reproducible: two runs with the same seed have to produce the same
+    decisions.
     """
 
+    run_options = dict(options or {})
+    seed = run_options.get("seed")
+    if seed is None:
+        seed = DEFAULT_SEED
+    run_options["seed"] = int(seed)
+
     outcomes: dict[str, list[BenchmarkOutcome]] = {mode: [] for mode in modes}
+    resource_samples: list[dict[str, Any]] = []
+    rss_baseline = sample_resources(app)["runtime_rss"]
     for repeat in range(repeats):
         for mode in modes:
+            before = sample_resources(app)
             outcome = await run_single(
-                app, scenario, RuntimeMode(mode), repeat, options=options, workers=workers
+                app, scenario, RuntimeMode(mode), repeat, options=run_options, workers=workers
             )
+            after = sample_resources(app)
             outcomes[mode].append(outcome)
+            resource_samples.append(
+                {
+                    "mode": mode,
+                    "repeat_index": repeat,
+                    "workers_before": before["workers"],
+                    "workers_after": after["workers"],
+                    "runtime_rss": after["runtime_rss"],
+                    "peak_rss": int(outcome.metrics.get("peak_rss", 0)),
+                }
+            )
             await asyncio.sleep(0.05)
 
     aggregated = {mode: aggregate_outcomes(items) for mode, items in outcomes.items()}
@@ -259,14 +435,20 @@ async def compare(
         other = data.get("makespan", {}).get("mean", 0.0)
         speedup[mode] = round(baseline_makespan / other, 4) if other > 0 else 0.0
 
+    stability = check_resource_stability(resource_samples, rss_baseline)
+    reproducibility = check_reproducibility(outcomes)
+
     return {
         "scenario": scenario,
         "repeats": repeats,
         "modes": list(modes),
+        "seed": int(seed),
         "workers": workers or app.scheduler.max_workers,
         "runs": {mode: [item.to_dict() for item in items] for mode, items in outcomes.items()},
         "aggregated": aggregated,
         "correctness": correctness,
         "speedup": speedup,
+        "resource_stability": stability,
+        "reproducibility": reproducibility,
         "generated_at": time.time(),
     }

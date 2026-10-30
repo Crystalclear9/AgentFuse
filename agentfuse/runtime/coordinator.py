@@ -447,6 +447,37 @@ class RuntimeCoordinator:
             if workflow_id is None or group.workflow_id == workflow_id
         ]
 
+    def live_worker_count(self) -> int:
+        """Return the number of worker processes that are currently alive.
+
+        The count covers the workers of the warm pool and the workers that
+        belong to a running execution.  The benchmark uses it to prove that
+        the repeated runs do not leak processes.
+        """
+
+        with self._pool_lock:
+            idle = [handle for handle in self._idle_workers if handle.is_alive()]
+        running = {
+            handle.worker_pid or getattr(handle.process, "pid", None)
+            for handle in self._live_worker_handles()
+            if handle.is_alive()
+        }
+        return len(running) + sum(
+            1
+            for handle in idle
+            if (handle.worker_pid or getattr(handle.process, "pid", None)) not in running
+        )
+
+    def _live_worker_handles(self) -> list[Any]:
+        """Return the worker handles of the running executions."""
+
+        handles = []
+        for execution in self._executions.values():
+            handle = getattr(execution, "worker_handle", None)
+            if handle is not None:
+                handles.append(handle)
+        return handles
+
     def live_snapshot(self, workflow_id: str | None = None) -> dict[str, Any]:
         groups = self.active_groups(workflow_id)
         return {
@@ -597,8 +628,52 @@ class RuntimeCoordinator:
                         "status": str(status),
                     },
                 )
+                # The candidate was rejected.  The rejection is recorded as a
+                # detached participant - otherwise the database would not show
+                # that this call was offered to this group and why it was
+                # rejected.
+                self._record_rejected_participant(group, participant, status, reason)
             else:
                 self._create_group_locked(call)
+
+    def _record_rejected_participant(
+        self,
+        group: ShareGroup,
+        participant: Participant,
+        status: ValidationStatus,
+        reason: str | None,
+    ) -> None:
+        """Record a candidate that was rejected by the dependency validation.
+
+        The call never became a participant of the group - it runs on its own.
+        The rejection is nevertheless part of the audit trail: the group has to
+        show that the call was offered to it and that the validation refused
+        the join.
+        """
+
+        participant.transition(ParticipantStatus.DETACHED)
+        participant.detached_time = time.time()
+        participant.detach_reason = reason or "mismatch"
+        participant.validation_status = status
+        group.add_participant(participant)
+        self._persist_participant(group, participant)
+        self._persist_group(group)
+        call = self._calls.get(participant.logical_call_id)
+        self.event_bus.publish(
+            EventType.SHARE_PARTICIPANT_DETACHED,
+            workflow_id=group.workflow_id,
+            agent_id=participant.agent_id,
+            invocation_id=participant.invocation_id,
+            logical_call_id=participant.logical_call_id,
+            physical_execution_id=group.leader_execution_id,
+            parent_event_id=(call.request_event_id if call else None),
+            metadata={
+                "share_group_id": group.share_group_id,
+                "reason": participant.detach_reason,
+                "validated_prefix_length": participant.validated_prefix_length,
+                "rejected_at_join": True,
+            },
+        )
 
     def _publish_candidate_found(
         self,
@@ -670,9 +745,29 @@ class RuntimeCoordinator:
         self._schedule_execution(execution)
         self._publish_candidate_found(call, group, joinable=True, matched=0)
 
+    def _wait_reason(self, group: ShareGroup, validated_prefix: int) -> str:
+        """Explain why the participant has to wait.
+
+        The reason is shown in the dashboard - a waiting call must be
+        explainable without reading the event log.
+        """
+
+        if group.status is ShareGroupStatus.CREATED:
+            return "等待 Leader 启动物理执行"
+        if group.status is ShareGroupStatus.EXECUTING:
+            return "等待 Leader 的物理执行完成"
+        if group.status is ShareGroupStatus.VALIDATING:
+            return "等待 Leader 结果的依赖校验完成"
+        if group.status is ShareGroupStatus.COMPLETED:
+            return "等待结果下发"
+        if validated_prefix >= 0:
+            return f"已确认前 {validated_prefix} 项依赖，等待 Leader 完成"
+        return "等待 Leader 完成"
+
     def _attach_participant(
         self, group: ShareGroup, call: LogicalCall, validated_prefix: int
     ) -> Participant:
+        wait_reason = self._wait_reason(group, validated_prefix)
         participant = Participant(
             logical_call_id=call.logical_call_id,
             agent_id=call.agent_id,
@@ -683,6 +778,7 @@ class RuntimeCoordinator:
             validation_status=(
                 ValidationStatus.MATCH if validated_prefix >= 0 else ValidationStatus.PENDING
             ),
+            wait_reason=wait_reason,
         )
         group.add_participant(participant)
         call.share_group_id = group.share_group_id
@@ -703,6 +799,7 @@ class RuntimeCoordinator:
                 "share_group_id": group.share_group_id,
                 "candidate_key": call.candidate_key,
                 "validated_prefix_length": validated_prefix,
+                "wait_reason": wait_reason,
                 "mode": str(self.mode),
             },
         )
@@ -1905,6 +2002,7 @@ class RuntimeCoordinator:
                 detached_time=participant.detached_time,
                 delivered_time=participant.delivered_time,
                 wait_duration=participant.wait_duration,
+                wait_reason=participant.wait_reason,
                 detach_reason=participant.detach_reason,
                 is_leader=participant.is_leader,
             )

@@ -159,6 +159,52 @@ async def test_a_late_joiner_validates_the_existing_ledger(app, snapshot):
     assert len(executions) == 2, "the second call must not reuse a finished execution"
 
 
+async def test_a_rejected_candidate_is_recorded_as_detached(app, snapshot):
+    """A join that the validation refuses must leave a DETACHED participant.
+
+    The rejection is part of the audit trail: the database has to show that
+    the call was offered to the group and that the validation refused it.
+    """
+
+    branch = create_branch(app, snapshot, mutate_variant_source, "branch-b")
+    workflow = app.create_workflow("test-rejected-candidate")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 1200}
+    # the leader reads the conflicting file first, therefore the follower
+    # finds a mismatch in the ledger when it tries to join
+    leader = app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="content_digest",
+        arguments=arguments,
+        snapshot_id=snapshot.snapshot_id,
+    )
+    await asyncio.sleep(0.2)
+    follower = app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="content_digest",
+        arguments=arguments,
+        snapshot_id=branch.snapshot_id,
+    )
+    await asyncio.gather(leader, follower)
+
+    participants = app.repository.list_participants(workflow.workflow_id)
+    detached = [
+        participant
+        for participant in participants
+        if participant["status"] == "DETACHED"
+    ]
+    assert detached, "the rejected candidate must be recorded as detached"
+    assert detached[0]["detach_reason"]
+    assert detached[0]["validation_status"] == str(ValidationStatus.MISMATCH)
+
+    events = app.repository.list_events(workflow.workflow_id)
+    assert any(
+        event["event_type"] == EventType.SHARE_PARTICIPANT_DETACHED for event in events
+    )
+
+
 async def test_the_dependency_ledger_records_every_read(app, snapshot):
     workflow = app.create_workflow("test-ledger")
     workflow.default_snapshot_id = snapshot.snapshot_id

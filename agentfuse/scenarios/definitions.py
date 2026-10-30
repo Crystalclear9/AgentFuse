@@ -22,6 +22,7 @@ from .common import (
     mutate_variant_source,
     prepare_base_snapshot,
     wait_for_first_dependency,
+    wait_for_running_execution,
 )
 
 
@@ -67,7 +68,18 @@ async def scenario_shared(app: Any, mode: RuntimeMode, options: dict[str, Any]) 
     adapter = ScriptedAdapter(workflow)
     files = list(options.get("files", DEMO_FILES))
     agent_a = ScriptedAgent("analysis-agent-a", [ToolStep("ast_analyzer", {"files": files})])
-    agent_b = ScriptedAgent("analysis-agent-b", [ToolStep("ast_analyzer", {"files": files})])
+
+    async def follower_step(context: Any) -> Any:
+        # Deterministic rendezvous: the follower only submits its call after
+        # the leader's physical execution is really running.  Without the
+        # barrier the scenario would depend on the scheduling of the two
+        # agents - a late follower would start a second execution.
+        await wait_for_running_execution(
+            app.event_bus, workflow.workflow_id, tool_name="ast_analyzer"
+        )
+        return await context.call_tool("ast_analyzer", {"files": files})
+
+    agent_b = ScriptedAgent("analysis-agent-b", [CallableStep(follower_step)])
 
     results = await asyncio.gather(
         agent_a.run(workflow, adapter),
@@ -167,9 +179,21 @@ async def scenario_different_workspace(
         [ToolStep("ast_analyzer", {"files": files}, snapshot_id=branch_a.snapshot_id)],
         snapshot_id=branch_a.snapshot_id,
     )
+
+    async def follower_step(context: Any) -> Any:
+        # the barrier guarantees that the branch-a execution is already
+        # running - otherwise the two branches could run one after the other
+        # and the scenario would not test the sharing at all
+        await wait_for_running_execution(
+            app.event_bus, workflow.workflow_id, tool_name="ast_analyzer"
+        )
+        return await context.call_tool(
+            "ast_analyzer", {"files": files}, snapshot_id=branch_b.snapshot_id
+        )
+
     agent_b = ScriptedAgent(
         "branch-b-agent",
-        [ToolStep("ast_analyzer", {"files": files}, snapshot_id=branch_b.snapshot_id)],
+        [CallableStep(follower_step)],
         snapshot_id=branch_b.snapshot_id,
     )
 
@@ -284,9 +308,18 @@ async def scenario_multi_agent(app: Any, mode: RuntimeMode, options: dict[str, A
         [ToolStep("ast_analyzer", {"files": files})],
         description="analyses the sources",
     )
+
+    async def worker_b_step(context: Any) -> Any:
+        # the barrier makes the rendezvous deterministic: agent B joins the
+        # execution of agent A instead of starting a second one
+        await wait_for_running_execution(
+            app.event_bus, workflow.workflow_id, tool_name="ast_analyzer"
+        )
+        return await context.call_tool("ast_analyzer", {"files": files})
+
     agent_b = ScriptedAgent(
         "worker-agent-b",
-        [ToolStep("ast_analyzer", {"files": files})],
+        [CallableStep(worker_b_step)],
         description="analyses the same sources (shareable with agent A)",
     )
     agent_c = ScriptedAgent(

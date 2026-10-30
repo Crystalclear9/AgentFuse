@@ -340,3 +340,34 @@ def test_a_failing_transaction_does_not_kill_the_writer(tmp_path):
     assert db.write_errors == 1, "the second write must succeed"
     assert db.query("SELECT * FROM workflows WHERE workflow_id = 'wf-after'") != []
     db.close()
+
+
+def test_the_migration_copies_only_the_columns_that_exist(tmp_path):
+    """A column that was added later must not break the table rebuild."""
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+    db.write(
+        "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+        "VALUES ('wf-copy', 'demo', 1.0, 'RUNNING', 'online')"
+    )
+    db.flush()
+    db.close()
+
+    conn = sqlite3.connect(db.path)
+    try:
+        conn.execute("ALTER TABLE share_participants DROP COLUMN wait_reason")
+        conn.execute("PRAGMA user_version = 4")
+        conn.commit()
+    finally:
+        conn.close()
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+    assert db.schema_version() == SCHEMA_VERSION
+    assert "wait_reason" in _columns(db, "share_participants")
+    assert db.write_errors == 0
+    assert db.query("SELECT * FROM workflows WHERE workflow_id = 'wf-copy'") != []
+    db.close()

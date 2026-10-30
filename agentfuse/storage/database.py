@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 6
 
 _SCHEMA: tuple[str, ...] = (
     """
@@ -149,6 +149,7 @@ _SCHEMA: tuple[str, ...] = (
         detached_time         REAL,
         delivered_time        REAL,
         wait_duration         REAL,
+        wait_reason           TEXT,
         detach_reason         TEXT,
         is_leader             INTEGER DEFAULT 0,
         PRIMARY KEY (share_group_id, logical_call_id)
@@ -298,6 +299,9 @@ _REBUILD_TABLES = (
 #: The tables that carry a foreign key - used by the consistency check.
 _FOREIGN_KEY_TABLES = _REBUILD_TABLES
 
+#: The marker of the copy step inside a rebuild migration.
+_COPY_PREFIX = "__copy__:"
+
 
 def _table_definition(table: str) -> str:
     """Return the CREATE TABLE statement of a table from the schema."""
@@ -335,17 +339,47 @@ def _table_columns(definition: str) -> list[str]:
 
 
 def _rebuild_statements() -> tuple[str, ...]:
-    """Build the statements that recreate the tables with their foreign keys."""
+    """Build the statements that recreate the tables with their foreign keys.
+
+    The copy step is a placeholder - the columns that are copied are decided
+    when the migration runs, because only then it is known which columns the
+    old table actually has.
+    """
 
     statements: list[str] = []
     for table in _REBUILD_TABLES:
         definition = _table_definition(table)
-        columns = ", ".join(_table_columns(definition))
+        # a table that a failed migration left behind must not block the
+        # next attempt
+        statements.append(f"DROP TABLE IF EXISTS {table}_legacy")
         statements.append(f"ALTER TABLE {table} RENAME TO {table}_legacy")
-        statements.append(definition.replace(f"CREATE TABLE IF NOT EXISTS {table}", f"CREATE TABLE {table}"))
-        statements.append(f"INSERT INTO {table} ({columns}) SELECT {columns} FROM {table}_legacy")
+        statements.append(
+            definition.replace(
+                f"CREATE TABLE IF NOT EXISTS {table}", f"CREATE TABLE {table}"
+            )
+        )
+        statements.append(f"{_COPY_PREFIX}{table}")
         statements.append(f"DROP TABLE {table}_legacy")
     return tuple(statements)
+
+
+def _copy_columns(conn: sqlite3.Connection, table: str) -> str:
+    """Return the columns that the copy of a rebuilt table has to use.
+
+    A table that was created by an older version does not have the columns
+    that were added later - the copy may only use the columns that both
+    tables have.
+    """
+
+    definition = _table_definition(table)
+    new_columns = _table_columns(definition)
+    old_columns = _table_columns_of(conn, f"{table}_legacy")
+    shared = [column for column in new_columns if column in old_columns]
+    if not shared:
+        raise sqlite3.OperationalError(
+            f"the table {table} has no column that can be copied"
+        )
+    return ", ".join(shared)
 
 
 #: Ordered schema migrations.  ``(target_version, statements)``.
@@ -374,6 +408,12 @@ _MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (
         5,
         _rebuild_statements(),
+    ),
+    (
+        6,
+        (
+            "ALTER TABLE share_participants ADD COLUMN wait_reason TEXT",
+        ),
     ),
 )
 
@@ -424,18 +464,35 @@ class Database:
     # lifecycle
     # ------------------------------------------------------------------
     def initialize(self) -> None:
-        """Create the schema and apply the pending migrations."""
+        """Create the schema and apply the pending migrations.
+
+        The whole migration runs in **one** transaction: a migration that
+        fails half way would leave the database in a state that no later run
+        could repair.
+        """
 
         conn = self._connect()
         try:
-            with conn:
+            # the connections of the module manage their transactions
+            # explicitly - the pragmas below would be ignored inside one
+            conn.isolation_level = None
+            # the foreign key enforcement has to be off while the tables are
+            # rebuilt - the rename / copy / drop cycle would otherwise fail.
+            # Without the legacy behaviour SQLite rewrites the foreign key
+            # references of the *other* tables when a table is renamed, which
+            # would point them at the temporary "_legacy" tables.
+            conn.execute("PRAGMA foreign_keys=OFF")
+            conn.execute("PRAGMA legacy_alter_table=ON")
+            current = int(conn.execute("PRAGMA user_version").fetchone()[0] or 0)
+            if any(current < version for version, _ in _MIGRATIONS):
+                self._backup(conn)
+            conn.execute("BEGIN")
+            try:
                 for statement in _SCHEMA:
                     conn.execute(statement)
-                current = int(conn.execute("PRAGMA user_version").fetchone()[0] or 0)
                 for version, statements in _MIGRATIONS:
                     if current >= version:
                         continue
-                    self._backup(conn)
                     self._apply_migration(conn, statements)
                     current = version
                 conn.execute(
@@ -443,6 +500,10 @@ class Database:
                     (str(SCHEMA_VERSION),),
                 )
                 conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+            conn.execute("COMMIT")
         finally:
             # the connection has to be released - an open handle would keep the
             # file locked on Windows
@@ -454,26 +515,26 @@ class Database:
     ) -> None:
         """Apply the statements of one migration.
 
-        The foreign key enforcement is switched off while the tables are
-        rebuilt - the rename / copy / drop cycle would otherwise fail.
+        The caller has already switched the foreign key enforcement off and
+        opened the transaction.
         """
 
-        foreign_keys = conn.execute("PRAGMA foreign_keys").fetchone()[0]
-        legacy_alter = conn.execute("PRAGMA legacy_alter_table").fetchone()[0]
-        try:
-            conn.execute("PRAGMA foreign_keys=OFF")
-            # without the legacy behaviour SQLite rewrites the foreign key
-            # references of the *other* tables when a table is renamed - that
-            # would point them at the temporary "_legacy" tables
-            conn.execute("PRAGMA legacy_alter_table=ON")
-            for statement in statements:
-                table, column = _parse_alter(statement)
-                if column and column in _table_columns_of(conn, table):
-                    continue
-                conn.execute(statement)
-        finally:
-            conn.execute(f"PRAGMA legacy_alter_table={'ON' if legacy_alter else 'OFF'}")
-            conn.execute(f"PRAGMA foreign_keys={'ON' if foreign_keys else 'OFF'}")
+        for statement in statements:
+            if statement.startswith(_COPY_PREFIX):
+                # the copy of a rebuilt table - the columns are decided
+                # now, because only the old table knows which of them
+                # existed before
+                table = statement[len(_COPY_PREFIX) :]
+                columns = _copy_columns(conn, table)
+                conn.execute(
+                    f"INSERT INTO {table} ({columns}) "
+                    f"SELECT {columns} FROM {table}_legacy"
+                )
+                continue
+            table, column = _parse_alter(statement)
+            if column and column in _table_columns_of(conn, table):
+                continue
+            conn.execute(statement)
 
     def _backup(self, conn: sqlite3.Connection) -> Path | None:
         """Copy the database file before a migration is applied."""

@@ -123,3 +123,32 @@ async def wait_for_first_dependency(
     return await wait_for_event(
         event_bus, EventType.TOOL_READ_OBSERVED, workflow_id=workflow_id, timeout=timeout
     )
+
+
+async def wait_for_running_execution(
+    event_bus: EventBus,
+    workflow_id: str,
+    tool_name: str | None = None,
+    timeout: float = 30.0,
+) -> Any:
+    """Wait until a physical execution is really running.
+
+    The barrier makes the rendezvous deterministic: a follower that submits
+    its call after this barrier is guaranteed to find a running group that it
+    can join - the scenario does not depend on the scheduling of the two
+    agents.
+    """
+
+    def predicate(event: Any) -> bool:
+        if tool_name is None:
+            return True
+        metadata = getattr(event, "metadata", None) or {}
+        return metadata.get("tool_name") == tool_name
+
+    return await wait_for_event(
+        event_bus,
+        EventType.TOOL_EXECUTION_STARTED,
+        workflow_id=workflow_id,
+        timeout=timeout,
+        predicate=predicate,
+    )

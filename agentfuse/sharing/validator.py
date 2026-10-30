@@ -21,6 +21,7 @@ from ..workspace.fingerprint import (
     fingerprint_existence,
     fingerprint_stat,
 )
+from ..workspace.reader import WorkspaceBoundaryError, normalize_relative_path
 from ..workspace.snapshots import SnapshotStore
 from .dependency import DependencyRecord
 
@@ -38,6 +39,27 @@ class DependencyValidator:
         except Exception:
             return None
 
+    def _resolve(
+        self, tree: Path, relative_path: str
+    ) -> tuple[Path | None, str | None]:
+        """Resolve a dependency path inside the snapshot tree.
+
+        The path is normalised and checked against the workspace boundary -
+        a dependency record must never make the validator read a file outside
+        of the snapshot.
+        """
+
+        try:
+            relative = normalize_relative_path(relative_path)
+        except WorkspaceBoundaryError as exc:
+            return None, str(exc)
+        target = tree / relative if relative != "." else tree
+        root = os.path.realpath(tree)
+        real = os.path.realpath(target)
+        if real != root and not real.startswith(root + os.sep):
+            return None, f"{relative_path} resolves outside of the snapshot"
+        return target, None
+
     def fingerprint_for(
         self, snapshot_id: str, dependency: DependencyRecord
     ) -> tuple[str | None, str | None]:
@@ -53,7 +75,9 @@ class DependencyValidator:
             return None, f"unknown snapshot {snapshot_id}"
 
         relative = dependency.relative_path
-        target = tree / relative if relative != "." else tree
+        target, boundary_error = self._resolve(tree, relative)
+        if target is None:
+            return None, boundary_error
         kind = dependency.dependency_type
 
         try:

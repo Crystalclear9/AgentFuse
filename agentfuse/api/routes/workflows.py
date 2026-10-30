@@ -28,14 +28,33 @@ async def workflow_detail(request: Request, workflow_id: str) -> dict[str, Any]:
     if workflow is None:
         raise HTTPException(status_code=404, detail=f"unknown workflow: {workflow_id}")
     repository = app.repository
+    executions = repository.list_executions(workflow_id)
+    # the confirmed dependencies of every execution - this is what the
+    # dependency check actually confirmed, not what the tool declared
+    dependencies: dict[str, list[dict[str, Any]]] = {}
+    for execution in executions:
+        dependencies[execution["execution_id"]] = repository.list_dependencies(
+            execution["execution_id"]
+        )
+    validations = repository.list_validations()
+    group_ids = {
+        group["share_group_id"]
+        for group in repository.list_share_groups(workflow_id)
+    }
     return {
         "workflow": workflow,
         "agents": repository.list_agents(workflow_id),
         "invocations": repository.list_invocations(workflow_id),
         "logical_calls": repository.list_logical_calls(workflow_id),
-        "physical_executions": repository.list_executions(workflow_id),
+        "physical_executions": executions,
         "share_groups": repository.list_share_groups(workflow_id),
         "share_participants": repository.list_participants(workflow_id),
+        "dependencies": dependencies,
+        "validations": [
+            validation
+            for validation in validations
+            if validation["share_group_id"] in group_ids
+        ],
         "metrics": collect_workflow_metrics(repository, workflow_id, app.registry),
     }
 

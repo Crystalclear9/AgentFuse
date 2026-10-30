@@ -481,9 +481,10 @@ async function selectExecution(executionId) {
         <td>${statusPill(participant.status)}</td>
         <td>${participant.validated_prefix_length}</td>
         <td>${participant.wait_duration === null ? "-" : fmtDuration(participant.wait_duration)}</td>
+        <td class="mono">${short(participant.wait_reason || "-", 60)}</td>
         <td class="mono">${short(participant.detach_reason || "-", 60)}</td>
       </tr>`).join("");
-    $("participant-table").querySelector("tbody").innerHTML = participants || `<tr><td colspan="6">无共享组</td></tr>`;
+    $("participant-table").querySelector("tbody").innerHTML = participants || `<tr><td colspan="7">无共享组</td></tr>`;
   } catch (error) {
     $("execution-summary").innerHTML = `<div class="summary-item"><div class="k">错误</div><div class="v">${error.message}</div></div>`;
   }
@@ -555,6 +556,7 @@ async function pollBenchmark(jobId) {
 function renderBenchmark(report) {
   if (!report) { $("bench-result").innerHTML = "<p class='muted'>无结果</p>"; return; }
   const aggregated = report.aggregated || {};
+  const lead = (data) => (data.detach_lead_ms_max ? data.detach_lead_ms_max.mean : 0);
   const rows = Object.keys(aggregated).map((mode) => {
     const data = aggregated[mode];
     return `<tr>
@@ -570,6 +572,8 @@ function renderBenchmark(report) {
       <td>${(data.share_success_rate.mean * 100).toFixed(1)}%</td>
       <td>${data.detach_count.mean.toFixed(1)}</td>
       <td>${data.validation_count.mean.toFixed(1)}</td>
+      <td>${lead(data).toFixed(1)}</td>
+      <td>${((data.online_detach_before_finish_rate ? data.online_detach_before_finish_rate.mean : 0) * 100).toFixed(0)}%</td>
       <td>${report.speedup && report.speedup[mode] !== undefined ? report.speedup[mode].toFixed(3) + "x" : "-"}</td>
     </tr>`;
   }).join("");
@@ -578,6 +582,17 @@ function renderBenchmark(report) {
     return `<tr><td>${mode}</td><td>${data.compared}</td><td>${data.identical}</td><td>${data.mismatched}</td>
       <td>${data.mismatched === 0 ? pill("结果一致", "ok") : pill("结果不一致", "danger")}</td></tr>`;
   }).join("");
+  const stability = report.resource_stability || {};
+  const reproducibility = report.reproducibility || {};
+  const stabilityRows = `
+    <tr><td>随机种子</td><td>${report.seed ?? "-"}</td><td>${report.seed ?? "-"}</td>
+      <td>${report.seed ? pill("已固定", "ok") : pill("未固定", "danger")}</td></tr>
+    <tr><td>资源稳定性</td><td>${stability.stable ? "稳定" : "不稳定"}</td>
+      <td>RSS 增长 ${(stability.runtime_rss_growth_mib ?? 0).toFixed(1)} MiB</td>
+      <td>${stability.stable ? pill("无泄漏", "ok") : pill("存在增长", "danger")}</td></tr>
+    <tr><td>可复现性</td><td>${reproducibility.reproducible ? "通过" : "未通过"}</td>
+      <td>相同种子重复 ${report.repeats ?? 0} 次</td>
+      <td>${reproducibility.reproducible ? pill("结果一致", "ok") : pill("结果不一致", "danger")}</td></tr>`;
 
   const modes = Object.keys(aggregated);
   const max = Math.max(...modes.map((mode) => aggregated[mode].makespan.mean), 0.001);
@@ -591,14 +606,19 @@ function renderBenchmark(report) {
   $("bench-result").innerHTML = `
     <div class="table-wrap"><table>
       <thead><tr><th>模式</th><th>次数</th><th>耗时均值(s)</th><th>标准差</th><th>物理执行</th><th>逻辑调用</th>
-      <th>节省执行</th><th>CPU(s)</th><th>峰值RSS(MiB)</th><th>共享成功率</th><th>分离</th><th>验证</th><th>加速比</th></tr></thead>
+      <th>节省执行</th><th>CPU(s)</th><th>峰值RSS(MiB)</th><th>共享成功率</th><th>分离</th><th>验证</th>
+      <th>提前分离(ms)</th><th>在线提前分离率</th><th>加速比</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <h2 style="margin-top:18px">工作流耗时对比</h2>
     <div class="bar-chart">${chart}</div>
     <h2 style="margin-top:18px">正确性校验（与 baseline 逐调用比对）</h2>
     <div class="table-wrap"><table>
       <thead><tr><th>模式</th><th>对比次数</th><th>一致</th><th>不一致</th><th>结论</th></tr></thead>
-      <tbody>${correctness || "<tr><td colspan='5'>无</td></tr>"}</tbody></table></div>`;
+      <tbody>${correctness || "<tr><td colspan='5'>无</td></tr>"}</tbody></table></div>
+    <h2 style="margin-top:18px">基准公平性与资源校验</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>校验项</th><th>结果</th><th>详情</th><th>结论</th></tr></thead>
+      <tbody>${stabilityRows}</tbody></table></div>`;
 }
 
 async function loadBenchmarkHistory() {
