@@ -458,6 +458,60 @@ CI 的三次运行暴露了三类不同的问题。通过 **git 凭据管理器�
 * `scripts/audit_requirements.py` 改为在**临时数据库**上核对 schema 定义，不再依赖上一次运行的数据目录；且不再启动 worker 进程；
 * CI：审计提到测试之前（静态最快），数据始终上传，soak 扩到 10 分钟。
 
+## 阶段 23 — 需求逐条复核（P0/P1 补齐 + 守卫）
+
+对 25 章需求做了一次逐条复核，把"文档写了但代码没做"的条款补齐。
+本阶段只改语义与守卫，不新增功能面。
+
+### 23.1 P0 语义（5 条）
+
+| # | 条款 | 结果 |
+|---|---|---|
+| I1-1 | 工具依赖完整性声明与运行时强制 | `ToolSpec.dependency_tracking`；worker 装审计钩子，绕过时发 `DEPENDENCY_BYPASS` 并**分离全部参与者**（不交付不完整结果） |
+| I1-2 | 真正的 Leader 取消 | 场景改为 `cancelling_leader` + `joining_follower`，先确认"自己是 Leader 且组内 ≥ 2 人"再取消；用例断言 `cancelled_was_the_leader` |
+| I1-3 | 外键与跨表事务 | 14 个外键（`DEFERRABLE INITIALLY DEFERRED`）；v5 迁移重建 9 张表；调用与执行**一个事务**落库；写入失败计数 `write_errors` |
+| I1-4 | `result_reference` 真正落库 | 调用与执行记录都存结果路径，实测 2/2、1/1 非空 |
+| I1-5 | 事件因果链 | 事件带 `parent_event_id`；REQUESTED → EXECUTION_STARTED → READ_OBSERVED → RESULT_DELIVERED 链连通 |
+
+### 23.2 P1 条款（8 条）
+
+| # | 条款 | 结果 |
+|---|---|---|
+| I2-1 | 种子生效与资源不增断言 | workflow 用自己的 `random.Random(seed)` 并播种全局随机源；基准对所有模式用同一个固定种子；重复运行**不增长 worker 与运行时内存**（有断言） |
+| I2-2 | 分离收益入聚合与 UI | `detach_lead_ms_max`、`online_detach_before_finish_rate` 进入基准聚合、CLI 表格与 Web 表格 |
+| I2-3 | 已确认依赖与等待原因 | 工作流详情返回 `dependencies` 与 `validations`；参与者新增 `wait_reason`（schema v6）并在界面展示 |
+| I2-4 | 活跃调用口径 | `active_invocations` 只统计 `RUNNING` 的调用，另给出 `total_invocations` |
+| I2-5 | 集成流程断言最终结果 | `different-workspace` 断言两次结果哈希一致且同一次执行；`multi-agent` 断言聚合器拿到了 3 个 worker 的结果 |
+| I2-6 | 拒绝的候选要有记录 | 加入时被 MISMATCH 拒绝的调用会作为 **DETACHED 参与者**落库并发事件 |
+| I2-7 | 依赖路径规范化与越界检查 | 校验器复用 `normalize_relative_path` 并做 realpath 边界检查，绝对路径 / `..` / 盘符一律拒绝 |
+| I2-8 | 场景的显式屏障 | 共享、异工作区、多 Agent 场景都用**事件屏障**做会合，不再依赖调度顺序 |
+
+### 23.3 守卫与卫生（4 条）
+
+| # | 条款 | 结果 |
+|---|---|---|
+| I3-1 | 审计脚本行为化 | 审计从"grep 源码"升级为**真实运行**：共享场景只产生一次物理执行、冲突场景真的分离、事件真的落库、候选键不含快照、快照被篡改不共享、工具错误分类正确 |
+| I3-2 | 文档同步 | schema v2 → **v6**、17 → **22** 种事件、13 → **15** 张表、用例数量与覆盖范围同步 |
+| I3-3 | 死代码清理 | 删除 4 个未引用函数、9 处未使用 import，枚举成员全部可达 |
+| I3-4 | 稳健性 | worker 终止**不再阻塞事件循环**（改到线程里执行）；终止前先落结果（退出是结果的原因而不是结果）；依赖类型改用枚举而非字符串字面量；API 未捕获异常返回可读错误 |
+
+### 23.4 复核中发现并修复的真实缺陷
+
+| 缺陷 | 根因 | 修复 |
+|---|---|---|
+| 共享等待者可能收到**不完整**的结果 | 工具绕过受控读取时依赖账本不完整，运行时仍会共享 | 审计钩子 + `DEPENDENCY_BYPASS` + 分离全部参与者 |
+| 取消可能打在 **Follower** 而不是 Leader | 场景没有等待 Leader 就绪 | 事件屏障 + `cancelled_was_the_leader` 断言 |
+| 迁移可能把数据库**停在半迁移状态** | DDL 在 autocommit 下执行，中途失败只回滚了 DML | 整个迁移一个事务；重建只拷贝两边都有的列；残留的 `_legacy` 表自动清理 |
+| `INSERT OR REPLACE` 会**级联删除**子记录 | REPLACE 先删旧行，外键 CASCADE 把参与者一起删掉 | 改为 UPSERT（`ON CONFLICT ... DO UPDATE`） |
+| 事件循环被**阻塞 6 秒** | 终止 worker 时在事件循环里同步 `time.sleep` 轮询进程消失 | 终止放到线程里执行 |
+| 取消场景比记录基线**慢 6 倍** | 场景用 5 ms 轮询会合，Windows 的定时器精度是 15.6 ms | 改成事件屏障（4.9 s → 3.2 s） |
+
+### 23.5 P2 条款
+
+§19 的 P2 条款逐条状态见 `KNOWN_LIMITATIONS.md` §0：5 条已实现，
+5 条（跨会话持久化缓存、GPU 调度 / KV Cache、分布式执行、多用户权限、
+崩溃后自动恢复）**明确未实现**。
+
 ## 下一阶段建议（P3）
 
 1. 跨会话持久化结果缓存（需要持久化依赖账本 + 快照内容寻址）。

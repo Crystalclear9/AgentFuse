@@ -128,10 +128,23 @@ python scripts/run_ci_like.py --matrix
 
 | 环境 | 结果 |
 |---|---|
-| venv（有 launcher 存根） | 153 passed, 1 skipped |
-| 基础解释器（= CI 环境，无存根） | 153 passed, 1 skipped（6 种池/并发组合全通过） |
-| WSL2 / Ubuntu-22.04 | 154 passed |
+| venv（有 launcher 存根） | 179 passed, 1 skipped |
+| 基础解释器（= CI 环境，无存根） | 179 passed, 1 skipped（6 种池/并发组合全通过） |
+| WSL2 / Ubuntu-22.04 | 180 passed |
 | **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **16 / 16 job 全部成功** |
+
+### 3.5.1 需求复核后的验证（阶段 23）
+
+| 检查 | Windows | WSL2 / Ubuntu-22.04 |
+|---|---|---|
+| `pytest tests` | **179 passed, 1 skipped** | **180 passed** |
+| `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
+| `scripts/acceptance_check.py` | **23 / 23 通过** | **23 / 23 通过** |
+| `scripts/audit_requirements.py`（167 项，含行为审计） | **167 / 167 通过** | **167 / 167 通过** |
+| `scripts/check_regression.py --repeat 3` | **无性能回归** | — |
+
+> 验收自检新增了 4 项与 P0 语义直接相关的断言：**数据库写入零错误**、
+> **外键约束无违规**、**外键约束已声明**、**调用与执行原子落库**。
 
 ## 3.6 CI 第二次运行的失败（run #4）
 
