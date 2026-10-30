@@ -65,8 +65,8 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 | 资源监控 | psutil（进程树 RSS 采样，50ms） |
 | 数据存储 | SQLite（WAL，独立写入线程） |
 | 本地 API | FastAPI + Uvicorn |
-| 前端 | 原生 HTML / CSS / JavaScript（无框架、无构建链、无 CDN） |
-| 自动化测试 | pytest + pytest-asyncio + httpx（136 个用例） |
+| 前端 | 原生 HTML / CSS / JavaScript（无框架、无构建链、无 CDN）；测试用 Node 执行真实脚本 |
+| 自动化测试 | pytest + pytest-asyncio + httpx（197 个用例，含前端脚本的执行测试） |
 | 配置 | TOML（`config/default.toml`） |
 | 命令行 | argparse |
 
