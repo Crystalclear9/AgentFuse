@@ -126,7 +126,7 @@ async def test_the_detached_follower_uses_its_own_snapshot(app, snapshot):
 
 
 async def test_the_divergent_scenario_reports_the_expected_numbers(app):
-    result = await scenario_divergent(app, RuntimeMode.ONLINE, {"rounds": 1200})
+    result = await scenario_divergent(app, RuntimeMode.ONLINE, {"rounds": 3000})
     metrics = result.metrics
     assert metrics["logical_calls"] == 2
     assert metrics["physical_executions"] == 2

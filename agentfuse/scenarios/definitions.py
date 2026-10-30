@@ -242,7 +242,10 @@ async def scenario_divergent(app: Any, mode: RuntimeMode, options: dict[str, Any
 
     adapter = ScriptedAdapter(workflow)
     files = list(options.get("files", DEMO_FILES))
-    rounds = int(options.get("rounds", 1500))
+    # The rounds are the margin: the follower joins after the first read, so
+    # the crunch of the first file has to be long enough for the join to
+    # happen before the conflicting file is read.
+    rounds = int(options.get("rounds", 3000))
     arguments = {"files": files, "rounds": rounds}
 
     async def leader_step(context: Any) -> Any:

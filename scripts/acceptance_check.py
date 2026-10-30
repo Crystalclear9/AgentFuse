@@ -66,8 +66,12 @@ def main() -> int:
     check("工程目录结构完整", not missing, f"missing: {missing}")
 
     # --- runtime --------------------------------------------------------
+    home = ROOT / ".agentfuse" / "acceptance"
+    #: the ids of the real run - the CLI commands below inspect them
+    runtime_ids: dict[str, str] = {}
+
     async def runtime_checks() -> None:
-        settings = load_settings(home=ROOT / ".agentfuse" / "acceptance")
+        settings = load_settings(home=home)
         app = AgentFuseApp(settings=settings, mode=RuntimeMode.ONLINE)
         try:
             shared = await scenario_shared(app, RuntimeMode.ONLINE, {})
@@ -91,6 +95,8 @@ def main() -> int:
 
             calls = app.repository.list_logical_calls(shared.workflow_id)
             executions = app.repository.list_executions(shared.workflow_id)
+            runtime_ids["workflow"] = shared.workflow_id
+            runtime_ids["execution"] = executions[0]["execution_id"]
             check("SQLite 保存真实执行记录",
                   len(calls) == 2 and len(executions) == 1
                   and executions[0]["worker_pid"] is not None)
@@ -113,6 +119,34 @@ def main() -> int:
             check("外键约束已声明",
                   len(foreign_keys) >= 14,
                   f"declared={len(foreign_keys)}")
+            # the count alone proves nothing - the *relations* have to be there
+            # the pragma reports (id, seq, table, from, to, ...) - the row of
+            # ``foreign_keys()`` starts with the child table
+            relations = {
+                (str(row[0]), str(row[4]), str(row[3])) for row in foreign_keys
+            }
+            expected_relations = {
+                ("agents", "workflow_id", "workflows"),
+                ("agent_invocations", "agent_id", "agents"),
+                ("logical_tool_calls", "physical_execution_id", "physical_executions"),
+                ("physical_executions", "workflow_id", "workflows"),
+                ("share_groups", "leader_execution_id", "physical_executions"),
+                ("share_participants", "share_group_id", "share_groups"),
+                ("share_participants", "logical_call_id", "logical_tool_calls"),
+                ("dependency_records", "execution_id", "physical_executions"),
+                ("validation_records", "share_group_id", "share_groups"),
+                ("resource_samples", "execution_id", "physical_executions"),
+            }
+            missing_relations = sorted(
+                relation
+                for relation in expected_relations
+                if relation not in relations
+            )
+            check(
+                "外键关系齐备",
+                not missing_relations,
+                f"缺: {missing_relations}" if missing_relations else f"{len(expected_relations)} 条关系",
+            )
             check("调用与执行原子落库",
                   all(call["physical_execution_id"] for call in calls)
                   and all(execution["result_reference"] for execution in executions),
@@ -123,11 +157,30 @@ def main() -> int:
     asyncio.run(runtime_checks())
 
     # --- cli ------------------------------------------------------------
-    for command in (["init"], ["tools"], ["demo", "--scenario", "shared", "--mode", "online"],
-                    ["compare", "--scenario", "shared", "--repeat", "1"], ["--version"]):
+    # The commands of requirement 15 have to be *usable* - not only to exist.
+    # ``serve`` is checked with ``--help``: starting the server would block.
+    cli_commands: list[list[str]] = [
+        ["init"],
+        ["tools"],
+        ["demo", "--scenario", "shared", "--mode", "online"],
+        ["demo", "--scenario", "diverged", "--mode", "online"],
+        ["demo", "--scenario", "multi-agent", "--mode", "online"],
+        ["compare", "--scenario", "shared", "--repeat", "1"],
+        ["serve", "--help"],
+        ["--version"],
+    ]
+    # ``trace`` and ``inspect`` need a real id - the workflow and the
+    # execution of the run above.
+    trace_id = runtime_ids.get("workflow", "")
+    execution_id = runtime_ids.get("execution", "")
+    cli_commands.append(["trace", trace_id])
+    cli_commands.append(["inspect", execution_id])
+
+    for command in cli_commands:
         process = subprocess.run(
-            [sys.executable, "-m", "agentfuse", *command],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(ROOT), timeout=600,
+            [sys.executable, "-m", "agentfuse", "--home", str(home), *command],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            cwd=str(ROOT), timeout=600,
         )
         check(f"CLI 命令可用: agentfuse {' '.join(command)}",
               process.returncode == 0, process.stderr[-200:] if process.returncode else "")

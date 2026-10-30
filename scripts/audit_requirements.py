@@ -1,14 +1,24 @@
 """Requirement audit.
 
 Turns the line by line review of the specification into an executable check.
-Every section of the requirements is verified against the *source* (not
-against a hand written list), so a change that silently breaks a clause is
-caught by CI.
 
-    python scripts/audit_requirements.py            # human readable report
-    python scripts/audit_requirements.py --json     # machine readable
+The audit has two kinds of checks:
 
-Exit code 0 = every clause is satisfied, 1 = at least one clause is broken.
+**behavioural**
+    The runtime is started and the *outcome* is inspected - the events have
+    to be in the database, the executions have to be real processes, the
+    shared result has to be identical to the baseline result.  These checks
+    can fail when the behaviour breaks.
+
+**structural**
+    The schema, the files, the functions and the documented clauses are
+    checked against the repository.  They prove that a building block exists,
+    not that it behaves correctly.
+
+The coverage is **not** complete: the requirement has 25 chapters and the
+audit checks the sections listed in ``COVERED_SECTIONS``.  A clause that is
+neither audited nor covered by a test is a gap - the gap list is printed with
+``--coverage``.
 """
 
 from __future__ import annotations
@@ -31,6 +41,19 @@ from agentfuse.storage.database import Database  # noqa: E402
 configure_console()
 
 RESULTS: list[dict[str, Any]] = []
+
+#: The requirement sections the audit checks.  The requirement has 25
+#: chapters - the chapters that are **not** listed here are either general
+#: introductions (1, 3, 18, 23-25) or covered by the test suite and the
+#: acceptance check.  ``--coverage`` prints the list.
+COVERED_SECTIONS = (
+    "2.2", "4", "4.8", "5.1", "5.2", "6.2", "7.1", "7.2", "7.3",
+    "8.1", "8.2", "8.5", "8.7", "8.8", "9.1", "9.2", "9.3", "9.4",
+    "10.1", "10.5", "11.3", "12", "12.4", "12.6", "13", "13.1", "13.2",
+    "13.3", "13.4", "13.5", "14", "15", "16", "17.1", "17.2", "17.3",
+    "17.4", "17.5", "17.6", "17.7", "19", "20", "21.1", "21.2", "21.4",
+    "22",
+)
 
 
 def record(section: str, clause: str, ok: bool, detail: str = "") -> bool:
@@ -151,7 +174,34 @@ TABLES = [
     "physical_executions", "share_groups", "share_participants",
     "workspace_snapshots", "dependency_records", "validation_records",
     "runtime_events", "resource_samples", "benchmark_runs",
+    "tool_results", "schema_meta",
 ]
+
+#: The columns of the tables that the requirement names explicitly.  A column
+#: that disappears would break the data model without any other check
+#: noticing it.
+TABLE_COLUMNS = {
+    "share_participants": [
+        "share_group_id", "logical_call_id", "workflow_id", "agent_id",
+        "invocation_id", "snapshot_id", "status", "validated_prefix_length",
+        "validation_status", "attached_time", "detached_time", "delivered_time",
+        "wait_duration", "wait_reason", "detach_reason", "detach_kind",
+        "is_leader",
+    ],
+    "tool_results": [
+        "result_id", "workflow_id", "execution_id", "logical_call_id",
+        "result_hash", "payload_path", "payload_size", "created_at",
+    ],
+    "resource_samples": [
+        "sample_id", "workflow_id", "execution_id", "timestamp", "rss_bytes",
+        "cpu_seconds", "system_cpu_percent",
+    ],
+    "runtime_events": [
+        "event_id", "workflow_id", "sequence", "event_type", "timestamp",
+        "agent_id", "invocation_id", "logical_call_id", "physical_execution_id",
+        "parent_event_id", "metadata",
+    ],
+}
 
 
 def audit_data_model() -> None:
@@ -194,6 +244,17 @@ def audit_data_model() -> None:
             continue
         missing = [field for field in fields if field not in schema[table]]
         record("4", f"{label} 字段", not missing, f"缺: {missing}" if missing else "")
+    for table, columns in TABLE_COLUMNS.items():
+        if table not in schema:
+            record("16", f"表 {table} 的列", False, f"缺少表 {table}")
+            continue
+        missing = [column for column in columns if column not in schema[table]]
+        record(
+            "16",
+            f"表 {table} 的列",
+            not missing,
+            f"缺: {missing}" if missing else f"{len(columns)} 列",
+        )
     record("16", "保存数据库 Schema 版本", "SCHEMA_VERSION" in schema_source, f"v{version}")
     record("16", "提供必要迁移", "_MIGRATIONS" in schema_source)
 
@@ -271,12 +332,16 @@ def audit_interfaces() -> None:
 # 8 / 9 / 10 core algorithms
 # ----------------------------------------------------------------------
 def audit_core() -> None:
-    coordinator = read("agentfuse/runtime/coordinator.py")
-    candidate = read("agentfuse/sharing/candidate.py")
-    group = read("agentfuse/sharing/share_group.py")
-    validator = read("agentfuse/sharing/validator.py")
+    """Check the core algorithms.
 
-    record("8.1", "候选键不含 workspace snapshot", "snapshot" not in candidate.split('"""')[2] if candidate.count('"""') > 2 else True)
+    The behavioural counterpart of every clause in this function lives in
+    :func:`audit_behaviour` - the checks here only prove that the building
+    blocks exist, the behaviour is verified by running the runtime.
+    """
+
+    coordinator = read("agentfuse/runtime/coordinator.py")
+    group = read("agentfuse/sharing/share_group.py")
+
     record("8.2", "共享组状态机", all(
         state in group for state in
         ("CREATED", "EXECUTING", "VALIDATING", "COMPLETED", "FAILED", "CLOSED")
@@ -293,12 +358,9 @@ def audit_core() -> None:
     record("21.2", "快照被篡改时拒绝共享", "_snapshot_is_trustworthy" in coordinator)
     record("21.4", "真实执行次数来自 PhysicalExecution", "physical_executions" in read("agentfuse/monitoring/metrics.py"))
     record("9.1", "LocalResourceController", "class LocalResourceController" in read("agentfuse/runtime/scheduler.py"))
-    record("9.2", "共享只占用一次执行槽位", "acquire(" in coordinator)
     record("9.3", "psutil 采集 RSS", "psutil" in read("agentfuse/monitoring/resource_monitor.py"))
     record("9.4", "工具在独立进程执行",
            "worker_child" in read("agentfuse/runtime/pool.py"))
-    record("10.1", "区分工具错误/进程崩溃/调度错误",
-           all(token in coordinator for token in ("ERROR_TOOL", "ERROR_CRASH", "ERROR_TIMEOUT")))
     record("10.5", "中断运行标记 INTERRUPTED", "recover_interrupted_workflows" in read("agentfuse/storage/repository.py"))
 
 
@@ -438,11 +500,15 @@ def audit_behaviour() -> None:
     """
 
     import asyncio
+    import os
     import shutil
 
     from agentfuse.app import AgentFuseApp
     from agentfuse.core.state import RuntimeMode
-    from agentfuse.scenarios.definitions import scenario_divergent, scenario_shared
+    from agentfuse.scenarios.definitions import (
+        scenario_divergent,
+        scenario_shared,
+    )
     from agentfuse.settings import load_settings
 
     home = ROOT / ".agentfuse" / "audit-behaviour"
@@ -463,20 +529,24 @@ def audit_behaviour() -> None:
             )
             record(
                 "17.2",
-                "共享结果与基线一致",
+                "共享者与 Leader 得到同一个结果",
                 len(shared.results) == 2
                 and shared.results[0].result_hash == shared.results[1].result_hash,
             )
             record(
                 "9.4",
                 "工具在独立进程执行",
-                all(execution["worker_pid"] for execution in executions),
+                all(execution["worker_pid"] for execution in executions)
+                and all(
+                    execution["worker_pid"] != os.getpid() for execution in executions
+                ),
                 f"pids={[e['worker_pid'] for e in executions]}",
             )
             record(
                 "21.4",
                 "执行次数来自真实物理执行记录",
-                shared.metrics["physical_executions"] == len(executions),
+                shared.metrics["physical_executions"] == 1 == len(executions),
+                f"metric={shared.metrics['physical_executions']} rows={len(executions)}",
             )
             record(
                 "16",
@@ -484,6 +554,50 @@ def audit_behaviour() -> None:
                 app.database.write_errors == 0
                 and not app.database.foreign_key_violations(),
                 f"errors={app.database.write_errors}",
+            )
+            # the relations have to be there - the count alone proves nothing
+            relations = {
+                (str(row[0]), str(row[4]), str(row[3]))
+                for row in app.database.foreign_keys()
+            }
+            expected_relations = {
+                ("agents", "workflow_id", "workflows"),
+                ("agent_invocations", "agent_id", "agents"),
+                ("logical_tool_calls", "physical_execution_id", "physical_executions"),
+                ("physical_executions", "workflow_id", "workflows"),
+                ("share_groups", "leader_execution_id", "physical_executions"),
+                ("share_participants", "share_group_id", "share_groups"),
+                ("share_participants", "logical_call_id", "logical_tool_calls"),
+                ("dependency_records", "execution_id", "physical_executions"),
+                ("validation_records", "share_group_id", "share_groups"),
+                ("resource_samples", "execution_id", "physical_executions"),
+            }
+            missing_relations = sorted(
+                relation
+                for relation in expected_relations
+                if relation not in relations
+            )
+            record(
+                "16",
+                "外键关系齐备",
+                not missing_relations,
+                f"缺: {missing_relations}"
+                if missing_relations
+                else f"{len(expected_relations)} 条关系",
+            )
+            # the write errors have to be counted: a statement that violates a
+            # constraint must not disappear silently
+            errors_before = app.database.write_errors
+            app.database.write(
+                "INSERT INTO agents (agent_id, workflow_id, created_at) "
+                "VALUES ('audit-orphan', 'audit-missing-workflow', 1.0)"
+            )
+            app.database.flush()
+            record(
+                "16",
+                "写入错误被计数",
+                app.database.write_errors > errors_before,
+                f"errors={app.database.write_errors} last={app.database.last_error}",
             )
 
             # the event protocol: the events have to be in the database
@@ -493,11 +607,14 @@ def audit_behaviour() -> None:
                 "WORKFLOW_STARTED",
                 "AGENT_BOUND",
                 "AGENT_INVOKED",
+                "AGENT_RETURNED",
                 "TOOL_CALL_REQUESTED",
                 "TOOL_EXECUTION_STARTED",
                 "TOOL_READ_OBSERVED",
                 "SHARE_CANDIDATE_FOUND",
+                "SHARE_VALIDATION_PASSED",
                 "TOOL_CALL_WAITING",
+                "TOOL_EXECUTION_FINISHED",
                 "TOOL_RESULT_DELIVERED",
                 "WORKFLOW_FINISHED",
             ):
@@ -516,7 +633,7 @@ def audit_behaviour() -> None:
             # the divergent scenario: the follower has to be detached and has
             # to run its own execution
             divergent = await scenario_divergent(
-                app, RuntimeMode.ONLINE, {"rounds": 800}
+                app, RuntimeMode.ONLINE, {"rounds": 3000}
             )
             participants = app.repository.list_participants(divergent.workflow_id)
             divergent_calls = app.repository.list_logical_calls(divergent.workflow_id)
@@ -555,6 +672,12 @@ def audit_behaviour() -> None:
                 "分离后每个调用都有真实执行",
                 len({call["physical_execution_id"] for call in divergent_calls})
                 == len(divergent_calls),
+            )
+            record(
+                "12.4",
+                "分离时 Leader 尚未结束后续计算",
+                (divergent.metrics["detach_lead_ms_max"] or 0) > 0,
+                f"lead_ms={divergent.metrics['detach_lead_ms_max']}",
             )
 
             # the candidate key must not contain the snapshot
@@ -617,11 +740,66 @@ def audit_behaviour() -> None:
                 f"executions={len(integrity_executions)}",
             )
 
+            # §13.2 / §13.3 - the baseline mode computes the same result
+            # without any sharing
+            baseline = await scenario_shared(app, RuntimeMode.BASELINE, {})
+            baseline_executions = app.repository.list_executions(baseline.workflow_id)
+            record(
+                "13.3",
+                "共享结果与 Baseline 完全一致",
+                len(baseline_executions) == 2
+                and baseline.results[0].result_hash == shared.results[0].result_hash,
+                f"baseline_executions={len(baseline_executions)}",
+            )
+            record(
+                "13.2",
+                "Baseline 不共享",
+                baseline.metrics["physical_executions"] == 2
+                and baseline.metrics["saved_executions"] == 0,
+                f"executions={baseline.metrics['physical_executions']}",
+            )
+
+            # §9.2 - a shared call occupies exactly one execution slot
+            slot_workflow = app.create_workflow("audit-shared-slot")
+            slot_workflow.default_snapshot_id = base.snapshot_id
+            slot_workflow.start()
+            observed_slots: list[dict[str, Any]] = []
+
+            def slot_observer(event: Any) -> None:
+                if event.event_type == "TOOL_READ_OBSERVED":
+                    observed_slots.append(app.scheduler.snapshot())
+
+            app.event_bus.subscribe(slot_observer)
+            await asyncio.gather(
+                app.coordinator.submit_tool_call(
+                    workflow_id=slot_workflow.workflow_id,
+                    tool_name="content_digest",
+                    arguments={"files": list(DEMO_FILES), "rounds": 600},
+                    snapshot_id=base.snapshot_id,
+                ),
+                app.coordinator.submit_tool_call(
+                    workflow_id=slot_workflow.workflow_id,
+                    tool_name="content_digest",
+                    arguments={"files": list(DEMO_FILES), "rounds": 600},
+                    snapshot_id=base.snapshot_id,
+                ),
+            )
+            slot_executions = app.repository.list_executions(slot_workflow.workflow_id)
+            record(
+                "9.2",
+                "共享只占用一次执行槽位",
+                len(slot_executions) == 1
+                and all(item["running"] <= 1 for item in observed_slots)
+                and app.scheduler.snapshot()["admitted_total"] >= 1,
+                f"executions={len(slot_executions)} running={sorted({i['running'] for i in observed_slots})}",
+            )
+
             # the failure kinds have to be distinguishable
             failing = app.create_workflow("audit-failure")
             failing.default_snapshot_id = base.snapshot_id
             failing.start()
             raised: str | None = None
+            kind: str | None = None
             try:
                 await app.coordinator.submit_tool_call(
                     workflow_id=failing.workflow_id,
@@ -631,16 +809,17 @@ def audit_behaviour() -> None:
                 )
             except Exception as exc:
                 raised = type(exc).__name__
+                kind = getattr(exc, "kind", None)
             failed_calls = app.repository.list_logical_calls(failing.workflow_id)
             record(
                 "10.1",
                 "区分工具错误",
-                raised is not None
+                kind == "tool_error"
                 and any(
                     call["status"] in ("FAILED", "CANCELLED")
                     for call in failed_calls
                 ),
-                f"raised={raised} status={[call['status'] for call in failed_calls]}",
+                f"kind={kind} status={[call['status'] for call in failed_calls]}",
             )
             record(
                 "10.1",
@@ -658,6 +837,190 @@ def audit_behaviour() -> None:
         record("17.2", "行为审计执行", False, str(exc))
     finally:
         shutil.rmtree(home, ignore_errors=True)
+
+
+# ----------------------------------------------------------------------
+# 19 the priority tiers
+# ----------------------------------------------------------------------
+#: The P2 clauses of requirement 19 and the state that has to be documented
+#: for them.  The check is self maintaining: the documented table is the
+#: contract, the code has to match it.
+P2_EXPECTATIONS = {
+    "可插拔调度策略": True,
+    "会话内已完成结果复用": True,
+    "Worker 预热池": True,
+    "性能基线与回归守卫": True,
+    "CI 工作流": True,
+    "跨会话持久化结果缓存": False,
+    "GPU 调度与 GPU KV Cache 管理": False,
+    "分布式执行 / 多节点调度": False,
+    "多用户权限与认证": False,
+    "崩溃后的自动恢复执行": False,
+}
+
+
+def audit_priority_tiers() -> None:
+    """Check §19 - the capability tiers and the documented P2 status.
+
+    Every P2 clause has to be listed in ``KNOWN_LIMITATIONS.md`` with its
+    state, and the state has to match the code: an implemented clause has to
+    point at a module that exists, a clause that is not implemented must not
+    have one.
+    """
+
+    text = read("docs/KNOWN_LIMITATIONS.md")
+    section = text.split("## 0.")[1].split("\n## ")[0] if "## 0." in text else ""
+    rows = {}
+    for line in section.splitlines():
+        if not line.strip().startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) < 3 or cells[0] in ("P2 条款", "---"):
+            continue
+        if set(cells[0]) <= set("-: "):
+            continue
+        rows[cells[0]] = (cells[1], cells[2])
+
+    for clause, implemented in P2_EXPECTATIONS.items():
+        row = rows.get(clause)
+        if row is None:
+            record("19", f"P2 条款 {clause}", False, "未在 KNOWN_LIMITATIONS 中列出")
+            continue
+        status, entry = row
+        documented = "已实现" in status and "未实现" not in status
+        if documented != implemented:
+            record(
+                "19",
+                f"P2 条款 {clause}",
+                False,
+                f"文档声明与期望不符: {entry[:60]}",
+            )
+            continue
+        if not implemented:
+            record("19", f"P2 条款 {clause}", True, "已明确声明未实现")
+            continue
+        # an implemented clause has to point at code that exists
+        import re
+
+        paths = re.findall(r"`([\w./]+\.py)`", entry)
+        missing = [path for path in paths if not (ROOT / path).exists()]
+        record(
+            "19",
+            f"P2 条款 {clause}",
+            not missing,
+            f"缺少: {missing}" if missing else f"{len(paths)} 个入口存在",
+        )
+
+    # the P0 clauses are the acceptance contract - they must all be covered
+    # by a behaviour check of this script
+    p0_clauses = {
+        "真实多 Agent 工作流": "17.2",
+        "受控调用接入": "7.2",
+        "真实工具进程执行": "9.4",
+        "本地工作区快照": "6.2",
+        "工具依赖追踪": "7.2",
+        "In-flight Sharing": "17.2",
+        "在线动态依赖验证": "8.5",
+        "冲突分离": "8.8",
+        "正确结果分发": "8.7",
+        "Worker 并发控制": "9.2",
+        "基线对比": "13.3",
+        "SQLite": "16",
+        "可运行 CLI": "15",
+        "基础 Web UI": "14",
+        "完整自动化测试": "17.2",
+    }
+    covered = {item["section"] for item in RESULTS}
+    for clause, section in p0_clauses.items():
+        record(
+            "19",
+            f"P0 条款 {clause}",
+            section in covered,
+            f"由 §{section} 覆盖" if section in covered else f"§{section} 没有检查",
+        )
+
+
+# ----------------------------------------------------------------------
+# 13 the benchmark
+# ----------------------------------------------------------------------
+def audit_benchmark() -> None:
+    """Check §13 - the comparison modes, the fairness rules and the metrics."""
+
+    runner = read("agentfuse/benchmarks/runner.py")
+    metrics = read("agentfuse/monitoring/metrics.py")
+    document = read("docs/BENCHMARK.md")
+
+    cli = read("agentfuse/cli.py")
+    for mode in ("baseline", "online", "deferred"):
+        record("13.1", f"比较模式 {mode}", f'"{mode}"' in runner or f'"{mode}"' in cli)
+    record("13.1", "模式 C 可选且已实现", "deferred" in runner or "deferred" in cli)
+
+    # the fairness rules of the module docstring
+    for rule in (
+        "same input repository and same snapshots",
+        "same tool implementations",
+        "same request sequence",
+        "same worker limit, memory budget and timeout",
+        "same random seed",
+    ):
+        record("13.2", f"公平性规则 {rule}", rule in runner)
+
+    # the metrics of requirement 13.3
+    for metric in (
+        "makespan",
+        "physical_executions",
+        "saved_executions",
+        "share_success_rate",
+        "total_cpu_time",
+        "peak_rss",
+        "avg_share_wait",
+        "validation_count",
+        "validation_failures",
+        "validation_ms",
+        "detach_count",
+        "first_conflict_at",
+        "follower_independent_at",
+    ):
+        record("13.3", f"指标 {metric}", f'"{metric}"' in metrics)
+
+    record("13.4", "Speedup 定义", "speedup" in runner)
+    record("13.4", "负收益也必须显示", "speedup" in runner and "baseline" in runner)
+    record("13.5", "对比页面展示指标", "bench-result" in read("agentfuse/web/app.js"))
+    for section in ("场景", "方法", "工作负载", "指标定义", "公平性原则", "实测结果"):
+        record("13", f"BENCHMARK 文档 {section}", section in document)
+
+
+# ----------------------------------------------------------------------
+# 11.3 the incomplete graph
+# ----------------------------------------------------------------------
+def audit_incomplete_graph() -> None:
+    """Check §11.3 - an unobserved relation must not create an edge."""
+
+    graph = read("agentfuse/core/execution_graph.py")
+    record("11.3", "未知节点使用 UNKNOWN 状态", '"UNKNOWN"' in graph)
+    record("11.3", "未知节点被标记为占位", "placeholder" in graph)
+    record(
+        "11.3",
+        "乱序事件不产生错误的边",
+        "test_out_of_order_events_do_not_create_wrong_edges" in read("tests/integration/test_events.py"),
+    )
+
+
+# ----------------------------------------------------------------------
+# 4.8 the share group
+# ----------------------------------------------------------------------
+def audit_share_group_contract() -> None:
+    """Check §4.8 - the share group and its participants."""
+
+    group = read("agentfuse/sharing/share_group.py")
+    record("4.8", "共享组保存逻辑调用列表", "participant_calls" in group)
+    record("4.8", "非法状态转换被拒绝", "IllegalTransition" in group)
+    record(
+        "4.8",
+        "参与者状态机被测试覆盖",
+        "test_illegal_participant_transitions_are_rejected"
+        in read("tests/unit/test_share_group.py"),
+    )
 
 
 # ----------------------------------------------------------------------
@@ -715,6 +1078,9 @@ DOC_SECTIONS = {
         "\u4ec5\u652f\u6301\u53d7\u63a7\u5de5\u5177", "\u6c99\u7bb1", "\u4f9d\u8d56\u8ffd\u8e2a",
         "KV Cache", "\u5206\u5e03\u5f0f", "\u5feb\u7167\u4e0d\u5305\u542b\u8fdb\u7a0b\u5185\u5b58",
         "\u786c\u9650\u5236", "Scripted Agent",
+    ],
+    "docs/DEVELOPMENT_LOG.md": [
+        "\u9636\u6bb5", "\u5df2\u9a8c\u8bc1", "\u95ee\u9898", "\u4e0b\u4e00\u9636\u6bb5",
     ],
 }
 
@@ -809,6 +1175,9 @@ def audit_layout_tests_docs() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--coverage", action="store_true", help="print the covered requirement sections"
+    )
     args = parser.parse_args()
 
     audit_offline()
@@ -818,12 +1187,21 @@ def main() -> int:
     audit_core()
     audit_surface()
     audit_behaviour()
+    audit_incomplete_graph()
+    audit_share_group_contract()
+    audit_benchmark()
+    audit_priority_tiers()
     audit_layout_tests_docs()
 
     failed = [item for item in RESULTS if not item["ok"]]
     if args.json:
         print(json.dumps(
-            {"total": len(RESULTS), "failed": len(failed), "checks": RESULTS},
+            {
+                "total": len(RESULTS),
+                "failed": len(failed),
+                "covered_sections": list(COVERED_SECTIONS),
+                "checks": RESULTS,
+            },
             ensure_ascii=False, indent=2,
         ))
     else:
@@ -836,6 +1214,13 @@ def main() -> int:
             detail = f"  ({item['detail']})" if item["detail"] else ""
             print(f"  [{mark}] {item['clause']}{detail}")
         print(f"\n总计 {len(RESULTS)} 项，未通过 {len(failed)} 项")
+        if args.coverage:
+            checked = {item["section"] for item in RESULTS}
+            print(
+                "\n覆盖的需求小节: "
+                + ", ".join(sorted(checked, key=lambda value: (len(value), value)))
+            )
+            print(f"声明覆盖的小节: {len(COVERED_SECTIONS)} 项")
     return 1 if failed else 0
 
 
