@@ -139,6 +139,7 @@ const TABLES = [
   "share-table",
   "tool-table",
   "workflow-table",
+  "workflow-dependency-table",
 ];
 
 const ELEMENTS = new Map();
@@ -319,7 +320,7 @@ check(
 );
 
 /* the benchmark table renders the recorded comparison */
-sandbox.renderBenchmark({
+await sandbox.renderBenchmark({
   aggregated: {
     online: {
       runs: 2,
@@ -338,6 +339,9 @@ sandbox.renderBenchmark({
     },
   },
   speedup: { online: 1.5 },
+  runs: {
+    online: [{ workflow_id: PAYLOADS._ids.workflow }],
+  },
   correctness: { online: { compared: 2, identical: 2, mismatched: 0 } },
   resource_stability: { stable: true, runtime_rss_growth_mib: 1 },
   reproducibility: { reproducible: true },
@@ -350,6 +354,33 @@ check("基准表格显示加速比", benchmarkRows.includes("1.500x"));
 check(
   "基准表格显示资源稳定性",
   benchmarkRows.includes("stable") || benchmarkRows.includes("稳定"),
+);
+check(
+  "基准表格显示共享次数",
+  benchmarkRows.includes("共享次数"),
+);
+check(
+  "基准表格显示验证开销",
+  benchmarkRows.includes("验证失败"),
+);
+check(
+  "基准页展示逻辑调用与物理执行的对应",
+  benchmarkRows.includes(PAYLOADS.workflow.logical_calls[0].logical_call_id.slice(0, 14))
+    && benchmarkRows.includes(PAYLOADS.workflow.physical_executions[0].execution_id.slice(0, 14)),
+);
+
+/* the workflow detail shows the confirmed dependencies and the wait reason */
+const detail = PAYLOADS.workflow;
+const workflowCalls = htmlOf("call-table");
+check(
+  "工作流详情显示已确认依赖",
+  htmlOf("workflow-dependency-table").includes(
+    Object.values(detail.dependencies)[0][0].relative_path,
+  ),
+);
+check(
+  "工作流详情显示等待原因",
+  workflowCalls.includes("等待 Leader") || workflowCalls.includes("Leader"),
 );
 
 /* every tab has to be reachable */

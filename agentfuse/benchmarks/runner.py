@@ -195,6 +195,8 @@ def aggregate_outcomes(outcomes: list[BenchmarkOutcome]) -> dict[str, Any]:
         "logical_calls": _aggregate([m.get("logical_calls", 0) for m in metrics]),
         "saved_executions": _aggregate([m.get("saved_executions", 0) for m in metrics]),
         "share_success_rate": _aggregate([m.get("share_success_rate", 0.0) for m in metrics]),
+        "shared_calls": _aggregate([m.get("shared_calls", 0) for m in metrics]),
+        "rejected_candidates": _aggregate([m.get("rejected_candidates", 0) for m in metrics]),
         "avg_share_wait": _aggregate([m.get("avg_share_wait", 0.0) for m in metrics]),
         "validation_count": _aggregate([m.get("validation_count", 0) for m in metrics]),
         "validation_failures": _aggregate([m.get("validation_failures", 0) for m in metrics]),

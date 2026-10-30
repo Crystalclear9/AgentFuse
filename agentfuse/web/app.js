@@ -244,11 +244,19 @@ async function switchToWorkflow(workflowId) {
       executionById[execution.execution_id] = execution;
     });
 
+    // the reason a call waits - the share group knows it
+    const waitReason = {};
+    (detail.share_participants || []).forEach((participant) => {
+      waitReason[participant.logical_call_id] =
+        participant.wait_reason || participant.detach_reason || "";
+    });
+
     const callRows = (detail.logical_calls || []).map((call) => {
       const execution = executionById[call.physical_execution_id] || {};
       const note = execution.admission_reason
         ? `${execution.admission_reason}${execution.queued_time ? ` · 排队 ${execution.queued_time.toFixed(3)}s` : ""}`
         : (call.status === "PENDING" ? "等待执行槽位" : "-");
+      const reason = waitReason[call.logical_call_id] || "-";
       return `
       <tr>
         <td class="mono">${short(call.logical_call_id, 16)}</td>
@@ -258,9 +266,27 @@ async function switchToWorkflow(workflowId) {
         <td class="mono">${short(call.workspace_snapshot_id, 16)}</td>
         <td class="mono">${short(call.result_hash, 14)}</td>
         <td>${note}</td>
+        <td class="mono">${reason}</td>
       </tr>`;
     }).join("");
-    $("call-table").querySelector("tbody").innerHTML = callRows || `<tr><td colspan="7">暂无逻辑调用</td></tr>`;
+    $("call-table").querySelector("tbody").innerHTML = callRows || `<tr><td colspan="8">暂无逻辑调用</td></tr>`;
+
+    // the confirmed dependencies of the workflow (requirement 14.3)
+    const dependencyRows = Object.entries(detail.dependencies || {}).map(([executionId, records]) =>
+      (records || []).map((record) => `
+      <tr>
+        <td class="mono">${short(executionId, 16)}</td>
+        <td>${record.sequence_number}</td>
+        <td>${record.dependency_type}</td>
+        <td class="mono">${record.relative_path}</td>
+        <td class="mono">${short(record.fingerprint, 14)}</td>
+      </tr>`).join("")
+    ).join("");
+    const dependencyTable = $("workflow-dependency-table");
+    if (dependencyTable) {
+      dependencyTable.querySelector("tbody").innerHTML =
+        dependencyRows || `<tr><td colspan="5">暂无已确认依赖</td></tr>`;
+    }
 
     const graph = await api(`/api/workflows/${workflowId}/graph`);
     state.currentGraph = graph;
@@ -549,11 +575,11 @@ async function pollBenchmark(jobId) {
     return;
   }
   $("bench-status").textContent = `完成，用时 ${fmtDuration(job.finished_at - job.started_at)}s`;
-  renderBenchmark(job.result);
+  await renderBenchmark(job.result);
   loadBenchmarkHistory();
 }
 
-function renderBenchmark(report) {
+async function renderBenchmark(report) {
   if (!report) { $("bench-result").innerHTML = "<p class='muted'>无结果</p>"; return; }
   const aggregated = report.aggregated || {};
   const lead = (data) => (data.detach_lead_ms_max ? data.detach_lead_ms_max.mean : 0);
@@ -569,9 +595,12 @@ function renderBenchmark(report) {
       <td>${data.saved_executions.mean.toFixed(1)}</td>
       <td>${fmtDuration(data.total_cpu_time.mean)}</td>
       <td>${(data.peak_rss.mean / 1048576).toFixed(2)}</td>
+      <td>${(data.shared_calls ? data.shared_calls.mean : 0).toFixed(1)}</td>
       <td>${(data.share_success_rate.mean * 100).toFixed(1)}%</td>
       <td>${data.detach_count.mean.toFixed(1)}</td>
       <td>${data.validation_count.mean.toFixed(1)}</td>
+      <td>${(data.validation_failures ? data.validation_failures.mean : 0).toFixed(1)}</td>
+      <td>${(data.validation_ms ? data.validation_ms.mean : 0).toFixed(1)}</td>
       <td>${lead(data).toFixed(1)}</td>
       <td>${(data.saved_wait_ms_max ? data.saved_wait_ms_max.mean : 0).toFixed(1)}</td>
       <td>${((data.online_detach_before_finish_rate ? data.online_detach_before_finish_rate.mean : 0) * 100).toFixed(0)}%</td>
@@ -595,6 +624,40 @@ function renderBenchmark(report) {
       <td>相同种子重复 ${report.repeats ?? 0} 次</td>
       <td>${reproducibility.reproducible ? pill("结果一致", "ok") : pill("结果不一致", "danger")}</td></tr>`;
 
+  // the correspondence between the logical calls and the physical executions
+  // of every run (requirement 13.5)
+  const mappingRows = [];
+  for (const mode of Object.keys(report.runs || {})) {
+    for (const run of report.runs[mode] || []) {
+      let detail = null;
+      try {
+        detail = await api(`/api/workflows/${run.workflow_id}`);
+      } catch (error) {
+        continue;
+      }
+      const executions = {};
+      (detail.physical_executions || []).forEach((execution) => {
+        executions[execution.execution_id] = execution;
+      });
+      (detail.logical_calls || []).forEach((call) => {
+        const execution = executions[call.physical_execution_id] || {};
+        mappingRows.push(`<tr>
+          <td>${mode}</td>
+          <td class="mono">${short(call.logical_call_id, 14)}</td>
+          <td>${call.tool_name}@${call.tool_version}</td>
+          <td>${statusPill(call.status)}</td>
+          <td class="mono">${short(call.physical_execution_id, 14)}</td>
+          <td>${execution.worker_pid ? `#${execution.worker_pid}` : "-"}</td>
+        </tr>`);
+      });
+    }
+  }
+  const mappingTable = `
+    <h2 style="margin-top:18px">逻辑调用 ↔ 物理执行 对应关系</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>模式</th><th>逻辑调用</th><th>工具</th><th>状态</th><th>物理执行</th><th>Worker PID</th></tr></thead>
+      <tbody>${mappingRows.join("") || "<tr><td colspan='6'>无</td></tr>"}</tbody></table></div>`;
+
   const modes = Object.keys(aggregated);
   const max = Math.max(...modes.map((mode) => aggregated[mode].makespan.mean), 0.001);
   const chart = modes.map((mode) => `
@@ -607,11 +670,13 @@ function renderBenchmark(report) {
   $("bench-result").innerHTML = `
     <div class="table-wrap"><table>
       <thead><tr><th>模式</th><th>次数</th><th>耗时均值(s)</th><th>标准差</th><th>物理执行</th><th>逻辑调用</th>
-      <th>节省执行</th><th>CPU(s)</th><th>峰值RSS(MiB)</th><th>共享成功率</th><th>分离</th><th>验证</th>
+      <th>节省执行</th><th>CPU(s)</th><th>峰值RSS(MiB)</th><th>共享次数</th><th>共享成功率</th><th>分离</th><th>验证次数</th>
+      <th>验证失败</th><th>验证耗时(ms)</th>
       <th>提前分离(ms)</th><th>节省等待(ms)</th><th>在线提前分离率</th><th>加速比</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <h2 style="margin-top:18px">工作流耗时对比</h2>
     <div class="bar-chart">${chart}</div>
+    ${mappingTable}
     <h2 style="margin-top:18px">正确性校验（与 baseline 逐调用比对）</h2>
     <div class="table-wrap"><table>
       <thead><tr><th>模式</th><th>对比次数</th><th>一致</th><th>不一致</th><th>结论</th></tr></thead>

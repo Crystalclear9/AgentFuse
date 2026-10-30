@@ -89,7 +89,16 @@
       <h2>逻辑调用 → 物理执行</h2>
       <div class="table-wrap">
         <table id="call-table">
-          <thead><tr><th>逻辑调用</th><th>工具</th><th>状态</th><th>物理执行</th><th>快照</th><th>结果哈希</th><th>说明</th></tr></thead>
+          <thead><tr><th>逻辑调用</th><th>工具</th><th>状态</th><th>物理执行</th><th>快照</th><th>结果哈希</th><th>说明</th><th>等待原因</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>已确认依赖</h2>
+      <div class="table-wrap">
+        <table id="workflow-dependency-table">
+          <thead><tr><th>物理执行</th><th>#</th><th>类型</th><th>路径</th><th>指纹</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
