@@ -10,3 +10,4 @@ dist/
 .vscode/
 tmp*/
 .agentfuse/wsl/
+.tmp_*
