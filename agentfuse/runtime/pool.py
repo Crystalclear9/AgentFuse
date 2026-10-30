@@ -25,6 +25,7 @@ import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -135,16 +136,47 @@ def build_environment() -> dict[str, str]:
     return environment
 
 
-def discover_children(pid: int | None, timeout: float = 1.0) -> list[int]:
+def may_have_launcher() -> bool:
+    """True when the interpreter could be started through a launcher stub.
+
+    A virtual environment on Windows starts the real interpreter through a
+    small launcher (``python.exe`` -> child process).  Everywhere else - a
+    base installation, a Linux virtual environment, macOS - the started
+    process *is* the worker.  The check avoids waiting for a child process that
+    will never appear.
+    """
+
+    try:
+        executable = Path(sys.executable).resolve()
+        base = Path(sys.base_prefix).resolve()
+    except (OSError, ValueError):  # pragma: no cover - defensive
+        return True
+    try:
+        executable.relative_to(base)
+    except ValueError:
+        # the interpreter lives outside of the base installation -> a virtual
+        # environment -> on Windows a launcher stub is used
+        return True
+    return False
+
+
+def discover_children(pid: int | None, timeout: float = 0.25) -> list[int]:
     """Find the processes that the started process launched.
 
     A virtual environment on Windows starts the real interpreter through a
     launcher stub.  The launcher waits for its child, so killing the launcher
     does **not** stop a worker that is busy computing - it never reads stdin
     again.  The child pids are therefore collected right after the start.
+
+    The authoritative pid is the one the worker reports itself (the ``hello``
+    message); this discovery is only the fallback for a worker that is killed
+    before it could report.
     """
 
     if psutil is None or not pid:
+        return []
+    if not may_have_launcher():
+        # no launcher -> the started process is the worker
         return []
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -157,7 +189,7 @@ def discover_children(pid: int | None, timeout: float = 1.0) -> list[int]:
             children = []
         if children:
             return children
-        time.sleep(0.01)
+        time.sleep(0.005)
     return []
 
 

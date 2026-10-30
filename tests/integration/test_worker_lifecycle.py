@@ -121,24 +121,31 @@ async def test_terminate_retries_until_the_process_is_gone(app, snapshot):
 
 
 async def test_the_real_worker_process_is_terminated(app, snapshot):
-    """The process that really executes the tool must be gone, not only the launcher."""
+    """The process that really executes the tool must be gone, not only the launcher.
+
+    A virtual environment on Windows starts the interpreter through a launcher
+    stub; everywhere else the started process *is* the worker.  The test
+    therefore asserts the invariant instead of a platform specific shape.
+    """
+
+    import json
 
     from agentfuse.runtime.pool import start_worker
 
     handle = start_worker()
-    launcher_pid = handle.process.pid
+    started_pid = handle.process.pid
     children = list(handle.child_pids)
-    # On Windows a virtual environment starts the interpreter through a
-    # launcher stub - the real worker is its child.  On Linux the started
-    # process *is* the worker.
-    assert children or not sys.platform.startswith("win"), (
-        "the launcher stub must be detected on Windows"
-    )
-
-    handle.terminate()
+    try:
+        # the worker reports which process really executes the tool
+        message = json.loads(handle.process.stdout.readline())
+        assert message["t"] == "hello"
+        real_pid = int(message["pid"])
+        assert real_pid == started_pid or real_pid in children
+    finally:
+        handle.terminate()
     time.sleep(0.5)
 
-    for pid in [launcher_pid, *children]:
+    for pid in {started_pid, real_pid, *children}:
         try:
             assert not psutil.Process(pid).is_running(), f"process {pid} survived"
         except psutil.NoSuchProcess:
@@ -199,6 +206,7 @@ async def test_the_worker_reports_its_real_pid(app, snapshot):
         # child of the launcher (Windows) or the started process itself
         assert message["pid"] == handle.process.pid or message["pid"] in handle.child_pids
         assert psutil.pid_exists(message["pid"])
+        assert psutil.Process(message["pid"]).is_running()
     finally:
         handle.terminate()
 

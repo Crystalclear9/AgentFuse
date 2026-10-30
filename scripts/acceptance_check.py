@@ -163,18 +163,31 @@ def main() -> int:
     check("前端不加载 CDN 资源",
           "http://" not in html.replace("http://127.0.0.1", "") and "https://" not in html)
 
+    failed = sum(1 for _name, ok, _detail in RESULTS if not ok)
+    report = {
+        "total": len(RESULTS),
+        "passed": len(RESULTS) - failed,
+        "failed": failed,
+        "checks": [
+            {"name": name, "ok": ok, "detail": detail} for name, ok, detail in RESULTS
+        ],
+    }
+    report_dir = ROOT / ".agentfuse" / "reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "acceptance.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
     print()
-    width = 62
-    failed = 0
     for name, ok, detail in RESULTS:
         status = "PASS" if ok else "FAIL"
-        if not ok:
-            failed += 1
         print(f"[{status}] {name}")
         if detail and not ok:
             print(f"        {detail}")
     print()
     print(f"{len(RESULTS) - failed}/{len(RESULTS)} 项通过")
+    if failed:
+        print(f"报告: {report_dir / 'acceptance.json'}")
     return 1 if failed else 0
 
 

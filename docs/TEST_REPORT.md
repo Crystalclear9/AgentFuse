@@ -107,6 +107,29 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 |---|---|
 | `test_concurrency_race.py` | 10 个 Agent 分属两个分支 → 每个结果与其分支一致、物理执行数收敛为 2、重复提交不产生重复执行 |
 
+## 3.5 CI 运行的失败与根因（run #40894231765）
+
+CI 的第一版运行有 **9 个 job 失败**：6 个 Windows 池矩阵、
+2 个 macOS 验收、2 个 Windows 测试。根因有两个，都已修复：
+
+| # | 根因 | 性质 | 修复 |
+|---|---|---|---|
+| A | 测试假设“Windows 必有 launcher 存根”，但 GitHub runner 用 `setup-python` 的**真实解释器**（无存根）→ 断言必败 | 测试错误 | 改为平台无关的**不变量**：真正执行工具的进程必须消失 |
+| B | `discover_children` 在找不到子进程时**阻塞满 1 秒**，而它在**事件循环线程**上同步调用 → 整个 Runtime 每次启动 worker 停顿 1 秒 | **性能缺陷** | 用 `sys.base_prefix` 判定是否可能有存根；无存根时不等待（**1010 ms → 5 ms**） |
+
+为了不再相依 CI，新增 `scripts/run_ci_like.py`：用基础解释器 + `PYTHONPATH` 本地仓库
+复现 runner 环境（无 launcher 存根），可在本地跑完整矩阵。
+
+```bash
+python scripts/run_ci_like.py --matrix
+```
+
+| 环境 | 结果 |
+|---|---|
+| venv（有 launcher 存根） | 153 passed, 1 skipped |
+| 基础解释器（= CI 环境，无存根） | 153 passed, 1 skipped（6 种池/并发组合全通过） |
+| WSL2 / Ubuntu-22.04 | 154 passed |
+
 ## 4. 跨平台验证发现并修复的真实缺陷
 
 WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属问题**：

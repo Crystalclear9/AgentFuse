@@ -131,6 +131,18 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 
 两者都会被终止，但只看 `worker_pid` 很容易误判（launcher 可能已经退出）。
 
+### 4.7 进程终止的平台差异
+
+* **Windows**：虚拟环境使用 **launcher 打手**，`Popen.pid` 是 launcher，
+  真正执行工具的是它的子进程。杀掉 launcher 只会关闭管道，
+  正在计算的 worker 不会再读 stdin → 它会成为孤儿。
+  因此 worker 启动后的第一句话是 `hello`，它报告自己的**真实 pid**；
+  Runtime 同时用 `psutil` 发现 launcher 的子进程作为兜底。
+* **Linux / macOS**：虚拟环境的 `python` 就是真实解释器，**没有 launcher 打手**。
+  Runtime 会通过 `sys.base_prefix` 判定是否可能存在存根，在没有存根的平台上**不做等待**（启动开销从 1010 ms 降到 5 ms）。
+* 两种平台上的实际 worker pid 都会写入 `physical_executions.worker_root_pid`，
+  而 `worker_pid` 保留 launcher pid。
+
 ## 5. Agent 与模型
 
 * **Scripted Agent 不是 LLM Agent。** 它是按照真实结果动态选择下一步的本地程序，

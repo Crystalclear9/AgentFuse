@@ -346,25 +346,30 @@ class Database:
         """Create the schema and apply the pending migrations."""
 
         conn = self._connect()
-        with conn:
-            for statement in _SCHEMA:
-                conn.execute(statement)
-            current = int(conn.execute("PRAGMA user_version").fetchone()[0] or 0)
-            for version, statements in _MIGRATIONS:
-                if current >= version:
-                    continue
-                self._backup(conn)
-                for statement in statements:
-                    table, column = _parse_alter(statement)
-                    if column and column in _table_columns(conn, table):
-                        continue
+        try:
+            with conn:
+                for statement in _SCHEMA:
                     conn.execute(statement)
-                current = version
-            conn.execute(
-                "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', ?)",
-                (str(SCHEMA_VERSION),),
-            )
-            conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+                current = int(conn.execute("PRAGMA user_version").fetchone()[0] or 0)
+                for version, statements in _MIGRATIONS:
+                    if current >= version:
+                        continue
+                    self._backup(conn)
+                    for statement in statements:
+                        table, column = _parse_alter(statement)
+                        if column and column in _table_columns(conn, table):
+                            continue
+                        conn.execute(statement)
+                    current = version
+                conn.execute(
+                    "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', ?)",
+                    (str(SCHEMA_VERSION),),
+                )
+                conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        finally:
+            # the connection has to be released - an open handle would keep the
+            # file locked on Windows
+            conn.close()
 
     def _backup(self, conn: sqlite3.Connection) -> Path | None:
         """Copy the database file before a migration is applied."""

@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from agentfuse.console import configure_console  # noqa: E402
+from agentfuse.storage.database import Database  # noqa: E402
 
 configure_console()
 
@@ -154,32 +155,47 @@ TABLES = [
 
 
 def audit_data_model() -> None:
-    database = ROOT / ".agentfuse" / "db" / "agentfuse.sqlite3"
+    """Check the schema of a freshly created database.
+
+    The audit must not depend on the data directory of a previous run - on a
+    fresh checkout the default home does not exist yet.  The schema is
+    therefore verified on a temporary database, and the database of the
+    default home is only inspected when it happens to exist.
+    """
+
+    import tempfile
+
     schema_source = read("agentfuse/storage/database.py")
-    if not database.exists():
-        record("4", "数据库 schema 可读", False, f"缺少 {database}")
-        return
-    conn = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
-    try:
-        tables = {
-            row[0] for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            )
-        }
-        for table in TABLES:
-            record("16", f"表 {table}", table in tables)
-        for label, (table, fields) in MODEL.items():
-            if table not in tables:
-                record("4", f"{label} 字段", False, f"缺少表 {table}")
-                continue
-            columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
-            missing = [field for field in fields if field not in columns]
-            record("4", f"{label} 字段", not missing, f"缺: {missing}" if missing else "")
-        version = int(conn.execute("PRAGMA user_version").fetchone()[0] or 0)
-        record("16", "保存数据库 Schema 版本", "SCHEMA_VERSION" in schema_source, f"v{version}")
-        record("16", "提供必要迁移", "_MIGRATIONS" in schema_source)
-    finally:
-        conn.close()
+    with tempfile.TemporaryDirectory() as tmp:
+        fresh = Database(str(Path(tmp) / "audit.sqlite3"))
+        fresh.initialize()
+        schema = {}
+        conn = sqlite3.connect(f"file:{fresh.path}?mode=ro", uri=True)
+        try:
+            tables = {
+                row[0] for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            }
+            for table in tables:
+                schema[table] = {
+                    row[1] for row in conn.execute(f"PRAGMA table_info({table})")
+                }
+            version = int(conn.execute("PRAGMA user_version").fetchone()[0] or 0)
+        finally:
+            conn.close()
+        fresh.close()
+
+    for table in TABLES:
+        record("16", f"表 {table}", table in schema)
+    for label, (table, fields) in MODEL.items():
+        if table not in schema:
+            record("4", f"{label} 字段", False, f"缺少表 {table}")
+            continue
+        missing = [field for field in fields if field not in schema[table]]
+        record("4", f"{label} 字段", not missing, f"缺: {missing}" if missing else "")
+    record("16", "保存数据库 Schema 版本", "SCHEMA_VERSION" in schema_source, f"v{version}")
+    record("16", "提供必要迁移", "_MIGRATIONS" in schema_source)
 
 
 # ----------------------------------------------------------------------
@@ -319,6 +335,8 @@ def audit_surface() -> None:
         if True:
             app = create_app(settings=load_settings(home=str(tmp)))
             try:
+                # the audit must not start worker processes
+                app.state.runtime.coordinator.worker_pool_size = 0
                 paths = set()
 
                 def flatten(routes):
