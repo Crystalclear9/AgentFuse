@@ -29,7 +29,7 @@ from typing import Any, Iterable
 
 from ..core.ids import new_id
 from .fingerprint import fingerprint_file, hash_manifest
-from .manifest import build_manifest, compare_manifests, read_manifest, write_manifest
+from .manifest import compare_manifests, read_manifest, write_manifest
 
 
 class SnapshotError(RuntimeError):

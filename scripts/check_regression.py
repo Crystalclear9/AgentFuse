@@ -90,6 +90,11 @@ def summarise(report: dict[str, Any]) -> dict[str, dict[str, float]]:
             "physical_executions": data["physical_executions"]["mean"],
             "detach_count": data["detach_count"]["mean"],
             "validation_count": data["validation_count"]["mean"],
+            # the benefit of the online dependency check
+            "detach_lead_ms_max": data["detach_lead_ms_max"]["mean"],
+            "online_detach_before_finish_rate": data[
+                "online_detach_before_finish_rate"
+            ]["mean"],
         }
     return summary
 

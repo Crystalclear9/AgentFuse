@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 
 from agentfuse.core.state import EventType
 from agentfuse.scenarios.common import DEMO_FILES, create_branch, mutate_variant_source

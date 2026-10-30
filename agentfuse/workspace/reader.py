@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from ..core.state import DependencyType
 from .fingerprint import (
     directory_listing_from_disk,
     fingerprint_bytes,
@@ -208,10 +209,10 @@ class WorkspaceReader:
         relative, target = self._resolve(path)
         with controlled_access():
             if not target.is_file():
-                self._report("PATH_NOT_EXISTS", relative, fingerprint_existence(False))
+                self._report(DependencyType.PATH_NOT_EXISTS, relative, fingerprint_existence(False))
                 raise FileNotFoundError(f"file not found in workspace: {relative}")
             data = target.read_bytes()
-        self._report("FILE_READ", relative, fingerprint_bytes(data))
+        self._report(DependencyType.FILE_READ, relative, fingerprint_bytes(data))
         return data
 
     def read_text(self, path: str | os.PathLike[str], encoding: str = "utf-8") -> str:
@@ -226,10 +227,10 @@ class WorkspaceReader:
         relative, target = self._resolve(path)
         with controlled_access():
             if not target.is_dir():
-                self._report("PATH_NOT_EXISTS", relative, fingerprint_existence(False))
+                self._report(DependencyType.PATH_NOT_EXISTS, relative, fingerprint_existence(False))
                 raise NotADirectoryError(f"directory not found in workspace: {relative}")
             entries = directory_listing_from_disk(target)
-        self._report("DIRECTORY_LIST", relative, fingerprint_directory_listing(entries))
+        self._report(DependencyType.DIRECTORY_LIST, relative, fingerprint_directory_listing(entries))
         return [
             {"name": name, "kind": kind, "path": f"{relative}/{name}" if relative != "." else name}
             for name, kind in sorted(entries)
@@ -240,7 +241,7 @@ class WorkspaceReader:
         with controlled_access():
             present = target.exists()
         self._report(
-            "PATH_EXISTS" if present else "PATH_NOT_EXISTS",
+            DependencyType.PATH_EXISTS if present else DependencyType.PATH_NOT_EXISTS,
             relative,
             fingerprint_existence(present),
         )
@@ -249,11 +250,11 @@ class WorkspaceReader:
     def stat(self, path: str | os.PathLike[str]) -> dict[str, Any]:
         relative, target = self._resolve(path)
         if not target.exists():
-            self._report("PATH_NOT_EXISTS", relative, fingerprint_existence(False))
+            self._report(DependencyType.PATH_NOT_EXISTS, relative, fingerprint_existence(False))
             raise FileNotFoundError(f"path not found in workspace: {relative}")
         info = target.stat()
         self._report(
-            "FILE_STAT",
+            DependencyType.FILE_STAT,
             relative,
             fingerprint_stat(info.st_size, info.st_mtime_ns, target.is_dir()),
         )

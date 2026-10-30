@@ -117,6 +117,27 @@ async def wait_for_event(
     return await event_bus.wait_for(matcher, timeout=timeout)
 
 
+async def wait_for_any_event(
+    event_bus: EventBus,
+    event_types: tuple[str, ...],
+    workflow_id: str | None = None,
+    timeout: float = 30.0,
+    predicate: Callable[[Any], bool] | None = None,
+) -> Any:
+    """Wait for the first of several event types."""
+
+    def matcher(event: Any) -> bool:
+        if event.event_type not in event_types:
+            return False
+        if workflow_id is not None and event.workflow_id != workflow_id:
+            return False
+        if predicate is not None and not predicate(event):
+            return False
+        return True
+
+    return await event_bus.wait_for(matcher, timeout=timeout)
+
+
 async def wait_for_first_dependency(
     event_bus: EventBus, workflow_id: str, timeout: float = 30.0
 ) -> Any:

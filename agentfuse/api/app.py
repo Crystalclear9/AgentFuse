@@ -6,8 +6,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
 
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..app import AgentFuseApp
@@ -46,6 +46,19 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
     )
     app.state.runtime = runtime
     app.state.benchmark_jobs: dict[str, dict[str, Any]] = {}
+
+    @app.exception_handler(Exception)
+    async def unhandled_error(_: Request, exc: Exception) -> JSONResponse:
+        """Answer with a readable error instead of an empty 500.
+
+        The dashboard shows the message, therefore the runtime must not
+        answer with an opaque "Internal Server Error".
+        """
+
+        return JSONResponse(
+            status_code=500,
+            content={"error": type(exc).__name__, "message": str(exc)},
+        )
 
     app.include_router(overview_routes.router)
     app.include_router(workflow_routes.router)

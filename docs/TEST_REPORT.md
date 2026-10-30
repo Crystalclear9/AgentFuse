@@ -31,13 +31,13 @@ python scripts/acceptance_check.py
 ### 3.1 Windows 11
 
 ```text
-153 passed, 1 skipped
+179 passed, 1 skipped
 ```
 
 ### 3.2 WSL2 / Ubuntu-22.04
 
 ```text
-154 passed
+180 passed
 ```
 
 ### 3.3 Worker pool / worker limit matrix
@@ -48,9 +48,9 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | pool \ workers | 1 | 2 |
 |---|---|---|
-| 0 | 153 passed | 153 passed |
-| 1 | 153 passed | 153 passed |
-| 2 | 153 passed | 153 passed |
+| 0 | 179 passed | 179 passed |
+| 1 | 179 passed | 179 passed |
+| 2 | 179 passed | 179 passed |
 
 **两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
 权限才能创建符号链接，因此被跳过；在 Linux 上它**真实执行并通过**。
@@ -66,8 +66,8 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | 目录 | 数量 | 结果 |
 |---|---|---|
-| `tests/unit` | 76 passed, 1 skipped（Windows）/ 77 passed（Linux） | 全部通过 |
-| `tests/integration` | 75 passed | 全部通过 |
+| `tests/unit` | 88 passed, 1 skipped（Windows）/ 89 passed（Linux） | 全部通过 |
+| `tests/integration` | 89 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 
 ### 3.5 单元测试覆盖
@@ -81,7 +81,8 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 | `test_events_and_graph.py` | event_id 唯一性、workflow 内序号、订阅分发、图只包含被观察到的边 |
 | `test_tools.py` | 工具注册、可共享性、6 个工具的真实输出、确定性、schema 校验 |
 | `test_scheduler.py` | Worker 上限、内存预算阻塞、死锁避免、FIFO、快照数据 |
-| `test_database.py` | 新建库 schema、v1→v2 迁移、迁移前备份、孤儿 workflow 回收、已完成记录不被回收 |
+| `test_database.py` | 新建库 schema、v1→v6 迁移、迁移前备份、外键约束与违规拒绝、事务原子性、写入错误计数、孤儿 workflow 回收、已完成记录不被回收 |
+| `test_validator.py` | 依赖路径规范化、绝对路径/父目录/盘符越界拒绝、快照边界检查、前缀校验在首个不匹配处停止 |
 | `test_scheduler.py`（扩展） | FIFO 与 SJF 策略的准入顺序、未知策略回退、等待原因、资源快照 |
 
 ### 3.6 集成测试覆盖
@@ -97,9 +98,10 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 | `test_result_cache.py` | 相同输入命中缓存、不同输入状态不复用、缓存有上限、缓存不跨会话 |
 | `test_worker_lifecycle.py` | 关闭与启动重叠时的 worker 不泄漏、shutdown 幂等、terminate 重试、真实 worker 进程被终止、hello 报告真实 pid、运行时不变量 |
 | `test_worker_pool.py` | 预热 worker 被复用、**主动制造预热竞态**、并发下结果正确、失败的工具不污染池、shutdown 后零残留、空闲池不超过上限、默认启用、可显式关闭、0/1/2 三种配置 |
-| `test_scenarios.py` | 5 个演示场景的期望指标、聚合器必须在 worker 之后启动、失败/取消场景覆盖全部 5 种情况 |
+| `test_scenarios.py` | 5 个演示场景的期望指标、聚合器必须在 worker 之后启动、失败/取消场景覆盖全部 5 种情况、场景的**最终结果**断言 |
 | `test_api.py` | 健康检查、静态资源、总览、工具列表、workflow/graph/timeline/events、execution/dependencies、404、基准测试端到端 |
-| `test_benchmark.py` | 执行次数真实下降、结果与 baseline 一致、divergent 场景两侧结果正确、deferred 验证次数更少、跨运行哈希稳定、正确性检查能发现差异 |
+| `test_benchmark.py` | 执行次数真实下降、结果与 baseline 一致、divergent 场景两侧结果正确、deferred 验证次数更少、跨运行哈希稳定、正确性检查能发现差异、**固定种子生效**、相同种子结果可复现、重复运行不增长资源、分离收益进入聚合 |
+| `test_dependency_tracking.py` | 每个工具都声明依赖追踪、不可共享工具、依赖账本不完整的工具不可共享、审计钩子发现绕过、绕过的工具绝不被共享 |
 
 ### 3.7 压力测试覆盖
 

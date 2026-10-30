@@ -15,13 +15,11 @@ from __future__ import annotations
 
 import asyncio
 import os
-import sys
 import time
 
 import psutil
 import pytest
 
-from agentfuse.core.state import RuntimeMode
 from agentfuse.scenarios.common import DEMO_FILES
 
 ME = os.getpid()

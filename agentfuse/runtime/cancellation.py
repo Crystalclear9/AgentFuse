@@ -145,18 +145,21 @@ def terminate_worker(
 
 
 async def terminate_execution(execution: Any, reason: str) -> None:
-    """Terminate one execution and record the cancellation."""
+    """Terminate one execution and record the cancellation.
+
+    The outcome is set **before** the process is killed: the exit of the
+    worker is a consequence of the termination, not its cause.  Otherwise the
+    reader would report "the worker exited unexpectedly" instead of the real
+    reason (a timeout, a cancellation, a shutdown).
+
+    The termination waits until the process is really gone - that wait must
+    not block the event loop, therefore it runs in a worker thread.
+    """
 
     execution.terminated = True
     handle = getattr(execution, "worker_handle", None)
     if handle is not None:
         handle.reusable = False
-    terminate_worker(
-        execution.process,
-        execution.pid,
-        worker_pid=getattr(handle, "worker_pid", None),
-        child_pids=list(getattr(handle, "child_pids", ()) or ()),
-    )
     if execution.status is ExecutionStatus.RUNNING:
         execution.status = ExecutionStatus.CANCELLED
     if execution.timeout_task is not None:
@@ -166,6 +169,13 @@ async def terminate_execution(execution: Any, reason: str) -> None:
         execution.outcome.set_result(
             _timeout_outcome(reason)
         )
+    await asyncio.to_thread(
+        terminate_worker,
+        execution.process,
+        execution.pid,
+        worker_pid=getattr(handle, "worker_pid", None),
+        child_pids=list(getattr(handle, "child_pids", ()) or ()),
+    )
 
 
 def _timeout_outcome(reason: str) -> Any:
@@ -176,10 +186,3 @@ def _timeout_outcome(reason: str) -> Any:
         ok=False, kind=ERROR_TIMEOUT, message=reason, exit_status="timeout"
     )
 
-
-async def cancel_call(call: Any, reason: str) -> None:
-    """Cancel one logical call and resolve its future with a cancellation."""
-
-    if call.future.done():
-        return
-    call.future.set_exception(asyncio.CancelledError(reason))

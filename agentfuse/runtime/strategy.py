@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any
 
 
 @dataclass
@@ -206,6 +206,3 @@ def build_strategy(name: str | None) -> SchedulingStrategy:
     factory = STRATEGIES.get(key, FifoStrategy)
     return factory()
 
-
-def available_strategies() -> Iterable[str]:
-    return sorted(STRATEGIES)

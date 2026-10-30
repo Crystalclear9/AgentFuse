@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from ..adapters.scripted_adapter import CallableStep, ScriptedAdapter, ScriptedAgent, ToolStep
-from ..core.state import RuntimeMode
+from ..core.state import EventType, RuntimeMode
 from ..monitoring.metrics import collect_workflow_metrics
 from .common import (
     DEMO_FILES,
@@ -21,6 +21,8 @@ from .common import (
     mutate_readme,
     mutate_variant_source,
     prepare_base_snapshot,
+    wait_for_any_event,
+    wait_for_event,
     wait_for_first_dependency,
     wait_for_running_execution,
 )
@@ -442,44 +444,35 @@ async def scenario_cancel_failure(
         task = asyncio.create_task(
             context.call_tool("content_digest", {"files": files, "rounds": rounds})
         )
-        leader_call = None
-        for _ in range(400):
-            await asyncio.sleep(0.005)
-            for call in coordinator.calls_for_invocation(context.invocation_id):
-                group = (
-                    coordinator.get_group(call.share_group_id)
-                    if call.share_group_id
-                    else None
-                )
-                if group is None:
-                    continue
-                for participant in group.participants.values():
-                    if (
-                        participant.is_leader
-                        and participant.logical_call_id == call.logical_call_id
-                    ):
-                        leader_call = call
-                        break
-                if leader_call is not None:
-                    break
-            if leader_call is not None:
-                break
-        leader_ready.set()
-        if leader_call is None:
-            for call in coordinator.calls_for_invocation(context.invocation_id):
-                leader_call = call
-                break
-        # wait until the follower has joined the group, then cancel the leader
-        # immediately - the execution must still be running.
-        group = (
-            coordinator.get_group(leader_call.share_group_id)
-            if leader_call is not None and leader_call.share_group_id
-            else None
+        # The rendezvous uses the event stream, not a polling loop: a poll
+        # would depend on the timer resolution of the platform (15.6 ms on
+        # Windows) and would make the scenario ten times slower.
+        started = await wait_for_event(
+            app.event_bus,
+            EventType.TOOL_EXECUTION_STARTED,
+            workflow_id=workflow.workflow_id,
+            timeout=30.0,
+            predicate=lambda event: any(
+                call.logical_call_id == event.logical_call_id
+                for call in coordinator.calls_for_invocation(context.invocation_id)
+            ),
         )
-        for _ in range(400):
-            await asyncio.sleep(0.005)
-            if group is not None and len(group.participants) >= 2:
-                break
+        leader_call = coordinator.get_call(started.logical_call_id)
+        leader_ready.set()
+        # wait until the follower is active - it either joined the group or
+        # (in the baseline mode) it started its own execution.  Then the
+        # leader is cancelled immediately, the execution must still run.
+        try:
+            await wait_for_any_event(
+                app.event_bus,
+                (EventType.TOOL_CALL_WAITING, EventType.TOOL_EXECUTION_STARTED),
+                workflow_id=workflow.workflow_id,
+                timeout=5.0,
+            )
+        except Exception:
+            # nobody joined (the baseline mode never shares) - the leader is
+            # cancelled anyway
+            pass
         if leader_call is not None:
             await coordinator.cancel_logical_call(
                 leader_call.logical_call_id, "leader cancelled"

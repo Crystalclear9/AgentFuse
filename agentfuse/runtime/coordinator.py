@@ -22,9 +22,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
-import subprocess
-import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -62,7 +59,7 @@ from .protocol import (
     MSG_HELLO,
     MSG_RESULT,
 )
-from .cancellation import CancellationReason, terminate_execution, terminate_worker
+from .cancellation import terminate_execution
 from .pool import WorkerHandle, start_worker
 from .execution import ExecutionOutcome, PhysicalExecution
 from .scheduler import LocalResourceController

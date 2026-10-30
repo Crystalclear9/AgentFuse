@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from ..core.state import ValidationStatus
+from ..core.state import DependencyType, ValidationStatus
 from ..workspace.fingerprint import (
     directory_listing_from_disk,
     fingerprint_bytes,
@@ -81,19 +81,19 @@ class DependencyValidator:
         kind = dependency.dependency_type
 
         try:
-            if kind == "FILE_READ":
+            if kind == DependencyType.FILE_READ:
                 if not target.is_file():
                     return None, f"{relative} does not exist in snapshot {snapshot_id}"
                 return fingerprint_bytes(target.read_bytes()), None
-            if kind == "DIRECTORY_LIST":
+            if kind == DependencyType.DIRECTORY_LIST:
                 if not target.is_dir():
                     return None, f"{relative} is not a directory in snapshot {snapshot_id}"
                 return fingerprint_directory_listing(directory_listing_from_disk(target)), None
-            if kind == "PATH_EXISTS":
+            if kind == DependencyType.PATH_EXISTS:
                 return fingerprint_existence(os.path.exists(target)), None
-            if kind == "PATH_NOT_EXISTS":
+            if kind == DependencyType.PATH_NOT_EXISTS:
                 return fingerprint_existence(os.path.exists(target)), None
-            if kind == "FILE_STAT":
+            if kind == DependencyType.FILE_STAT:
                 if not target.exists():
                     return None, f"{relative} does not exist in snapshot {snapshot_id}"
                 info = target.stat()

@@ -76,7 +76,7 @@
 | `workspace/snapshots.py` | 不可变快照、分支 fork、manifest、完整性校验 | 写时复制 / 去重 |
 | `workspace/reader.py` | 受控读取接口：路径规范化、边界校验、指纹、即时上报 | 安全沙箱 |
 | `workspace/fingerprint.py` | **唯一**的指纹实现（父子进程共用） | 策略判断 |
-| `tools/*` | 4 个真实只读确定性工具 + 1 个故障注入测试夹具 | 任意程序执行 |
+| `tools/*` | 6 个真实只读确定性工具 + 1 个故障注入测试夹具；每个工具声明是否完整追踪依赖 | 任意程序执行 |
 | `storage/*` | SQLite schema、后台写入线程、仓储查询 | 业务逻辑 |
 | `monitoring/*` | 指标采集、时间线构建、依赖检查 | 采集频率之外的调度 |
 | `api/*` | 本地 HTTP 接口 | 业务决策 |
@@ -90,21 +90,27 @@
 WORKFLOW_STARTED
 AGENT_BOUND            (每个 Agent 一次)
 AGENT_INVOKED          (每次调用一次)
+AGENT_RETURNED         (每次调用结束一次)
 TOOL_CALL_REQUESTED    (每个逻辑调用一次)
 SHARE_CANDIDATE_FOUND  (发现潜在共享候选时)
 TOOL_CALL_WAITING      (进入共享等待)
 TOOL_CALL_RETRYING     (失败后进入唯一一次独立重试)
 TOOL_EXECUTION_STARTED (物理执行启动)
 TOOL_READ_OBSERVED     (每条依赖一次，读取即刻上报)
+DEPENDENCY_BYPASS      (工具绕过受控读取，依赖账本不完整)
 SHARE_VALIDATION_PASSED / SHARE_VALIDATION_FAILED
 SHARE_PARTICIPANT_DETACHED
 TOOL_EXECUTION_FINISHED
 TOOL_RESULT_DELIVERED  (每个逻辑调用一次，仅由 Runtime 发布)
 FRAMEWORK_RESULT_RECEIVED (框架侧回传边界，适配器专用)
+TOOL_CALL_FAILED / TOOL_CALL_CANCELLED
 RESOURCE_LIMIT_WARNING (实测 RSS 超过软限制)
-AGENT_RETURNED
+RESOURCE_LEAK_WARNING  (运行结束时仍有未回收的 Worker)
 WORKFLOW_FINISHED
 ```
+
+共 **22** 种事件类型。每个事件都带有 `parent_event_id`，因此事件流可以
+重建出"请求 → 执行 → 读取 → 交付"的因果链。
 
 > `TOOL_RESULT_DELIVERED` 只由 Runtime 发布一次。适配器的 `deliver_result`
 > 使用独立事件类型 `FRAMEWORK_RESULT_RECEIVED`，因此外部框架回传结果时
@@ -174,27 +180,32 @@ submit_tool_call
 ## 6. 数据持久化
 
 SQLite（`agentfuse/storage/database.py`），schema 版本记录在 `PRAGMA user_version`
-与 `schema_meta` 表中。当前版本 **v2**。
+与 `schema_meta` 表中。当前版本 **v6**。
 
 * `initialize()` 先幂等地建表，再按 `user_version` 顺序执行迁移
   （`_MIGRATIONS`：`(目标版本, 语句列表)`）；
-* 迁移前自动备份数据库到 `<home>/backups/`，迁移在事务中执行；
-* `ALTER TABLE ... ADD COLUMN` 会先检查列是否已存在，因此重复初始化是安全的。
+* **整个迁移在一个事务中执行**：中途失败会回滚，数据库不会停在半迁移状态；
+* 迁移前自动备份数据库到 `<home>/backups/`；
+* `ALTER TABLE ... ADD COLUMN` 会先检查列是否已存在，因此重复初始化是安全的；
+* SQLite 不能给已存在的表添加外键，v5 迁移会**重建**相关的表：改名 →
+  按新定义建表 → 只拷贝两边都有的列 → 删除旧表；
+* 重建期间关闭 `foreign_keys` 与 `legacy_alter_table`，否则 SQLite 会把其他表
+  的外键引用改写到临时的 `_legacy` 表上。
 
 | 表 | 内容 |
 |---|---|
 | `workflows` | 工作流实例与配置 |
-| `agents` | Agent 身份绑定 |
-| `agent_invocations` | 调用记录与父子关系 |
-| `logical_tool_calls` | 逻辑调用、状态、绑定的物理执行、结果哈希 |
-| `physical_executions` | 物理执行、worker pid、CPU 时间、峰值 RSS、退出状态 |
-| `share_groups` | 共享组、Leader、`participant_count` 与 `participant_calls`（组内的逻辑调用列表） |
-| `share_participants` | 参与者状态、已验证前缀、分离原因、等待时长 |
+| `agents` | Agent 身份绑定（外键 → `workflows`） |
+| `agent_invocations` | 调用记录与父子关系（外键 → `workflows` / `agents`） |
+| `logical_tool_calls` | 逻辑调用、状态、绑定的物理执行、结果哈希与结果路径（外键 → `workflows` / `physical_executions`） |
+| `physical_executions` | 物理执行、worker pid、CPU 时间、峰值 RSS、退出状态（外键 → `workflows`） |
+| `share_groups` | 共享组、Leader、`participant_count` 与 `participant_calls`（组内的逻辑调用列表）（外键 → `workflows` / `physical_executions`） |
+| `share_participants` | 参与者状态、已验证前缀、等待原因、分离原因、等待时长（外键 → `share_groups` / `logical_tool_calls`） |
 | `workspace_snapshots` | 快照元数据与 manifest 哈希 |
-| `dependency_records` | 每个物理执行的依赖账本 |
-| `validation_records` | 每一次真实验证检查的结果与耗时 |
+| `dependency_records` | 每个物理执行的依赖账本（外键 → `physical_executions`） |
+| `validation_records` | 每一次真实验证检查的结果与耗时（外键 → `share_groups` / `logical_tool_calls`） |
 | `runtime_events` | 全部运行时事件 |
-| `resource_samples` | 资源采样序列 |
+| `resource_samples` | 资源采样序列（外键 → `physical_executions`） |
 | `tool_results` | 结果文件路径、哈希与大小 |
 | `benchmark_runs` | 基准测试记录 |
 

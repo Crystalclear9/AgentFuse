@@ -378,6 +378,246 @@ def audit_surface() -> None:
 
 
 # ----------------------------------------------------------------------
+# behavioural audit - the clauses that describe the runtime behaviour are
+# verified by *running* the runtime, not by reading the source
+# ----------------------------------------------------------------------
+def audit_behaviour() -> None:
+    """Verify the runtime clauses with a real run.
+
+    The text based checks can only prove that a name exists.  The clauses of
+    the sharing protocol, the event protocol and the failure semantics are
+    therefore verified against a real workflow: the events have to be in the
+    database, the executions have to be physical processes and the results
+    have to be the results of those executions.
+    """
+
+    import asyncio
+    import shutil
+
+    from agentfuse.app import AgentFuseApp
+    from agentfuse.core.state import RuntimeMode
+    from agentfuse.scenarios.definitions import scenario_divergent, scenario_shared
+    from agentfuse.settings import load_settings
+
+    home = ROOT / ".agentfuse" / "audit-behaviour"
+    shutil.rmtree(home, ignore_errors=True)
+
+    async def run() -> None:
+        settings = load_settings(home=str(home))
+        app = AgentFuseApp(settings=settings, mode=RuntimeMode.ONLINE)
+        try:
+            shared = await scenario_shared(app, RuntimeMode.ONLINE, {})
+            calls = app.repository.list_logical_calls(shared.workflow_id)
+            executions = app.repository.list_executions(shared.workflow_id)
+            record(
+                "17.2",
+                "等价调用只产生一次物理执行",
+                len(calls) == 2 and len(executions) == 1,
+                f"calls={len(calls)} executions={len(executions)}",
+            )
+            record(
+                "17.2",
+                "共享结果与基线一致",
+                len(shared.results) == 2
+                and shared.results[0].result_hash == shared.results[1].result_hash,
+            )
+            record(
+                "9.4",
+                "工具在独立进程执行",
+                all(execution["worker_pid"] for execution in executions),
+                f"pids={[e['worker_pid'] for e in executions]}",
+            )
+            record(
+                "21.4",
+                "执行次数来自真实物理执行记录",
+                shared.metrics["physical_executions"] == len(executions),
+            )
+            record(
+                "16",
+                "调用与执行记录外键完整",
+                app.database.write_errors == 0
+                and not app.database.foreign_key_violations(),
+                f"errors={app.database.write_errors}",
+            )
+
+            # the event protocol: the events have to be in the database
+            events = app.repository.list_events(shared.workflow_id)
+            published = {event["event_type"] for event in events}
+            for event in (
+                "WORKFLOW_STARTED",
+                "AGENT_BOUND",
+                "AGENT_INVOKED",
+                "TOOL_CALL_REQUESTED",
+                "TOOL_EXECUTION_STARTED",
+                "TOOL_READ_OBSERVED",
+                "SHARE_CANDIDATE_FOUND",
+                "TOOL_CALL_WAITING",
+                "TOOL_RESULT_DELIVERED",
+                "WORKFLOW_FINISHED",
+            ):
+                record(
+                    "5.1",
+                    f"事件 {event} 真实产生",
+                    event in published,
+                    f"已发布 {event}" if event in published else "未产生",
+                )
+            record(
+                "5.1",
+                "事件携带因果链",
+                any(event["parent_event_id"] for event in events),
+            )
+
+            # the divergent scenario: the follower has to be detached and has
+            # to run its own execution
+            divergent = await scenario_divergent(
+                app, RuntimeMode.ONLINE, {"rounds": 800}
+            )
+            participants = app.repository.list_participants(divergent.workflow_id)
+            divergent_calls = app.repository.list_logical_calls(divergent.workflow_id)
+            divergent_executions = app.repository.list_executions(divergent.workflow_id)
+            detached = [
+                participant for participant in participants if participant["status"] == "DETACHED"
+            ]
+            record(
+                "8.5",
+                "在线增量依赖验证",
+                divergent.metrics["validation_failures"] >= 1,
+                f"failures={divergent.metrics['validation_failures']}",
+            )
+            record(
+                "8.8",
+                "分离后独立执行",
+                len(detached) >= 1 and len(divergent_executions) == 2,
+                f"detached={len(detached)} executions={len(divergent_executions)}",
+            )
+            record(
+                "17.3",
+                "冲突依赖导致分离",
+                divergent.metrics["detach_count"] >= 1
+                and divergent.metrics["validation_failures"] >= 1,
+            )
+            record(
+                "8.7",
+                "最终提交验证门禁",
+                all(
+                    participant["validation_status"] in ("MATCH", "MISMATCH", "PENDING")
+                    for participant in participants
+                )
+                and all(
+                    call["physical_execution_id"] for call in divergent_calls
+                ),
+            )
+            record(
+                "21.4",
+                "分离后每个调用都有真实执行",
+                len({call["physical_execution_id"] for call in divergent_calls})
+                == len(divergent_calls),
+            )
+
+            # the candidate key must not contain the snapshot
+            from agentfuse.sharing.candidate import compute_candidate_key
+
+            spec = app.registry.get("ast_analyzer")
+            key_a = compute_candidate_key(spec, {"files": ["a.py"]})
+            key_b = compute_candidate_key(spec, {"files": ["a.py"]})
+            key_other = compute_candidate_key(spec, {"files": ["b.py"]})
+            record("8.1", "候选键只由工具与参数决定", key_a == key_b)
+            record(
+                "8.1",
+                "候选键不含 workspace snapshot",
+                "snapshot" not in key_a,
+                key_a,
+            )
+            record(
+                "8.1",
+                "不同参数产生不同候选键",
+                key_a != key_other,
+            )
+
+            # a snapshot that was modified behind the runtime's back must
+            # not take part in a shared execution
+            from agentfuse.scenarios.common import (
+                DEMO_FILES,
+                create_branch,
+                prepare_base_snapshot,
+            )
+
+            base = prepare_base_snapshot(app)
+            branch = create_branch(app, base, None, "audit-branch")
+            tampered = branch.tree_path / "src" / "alpha.py"
+            tampered.write_text("tampered = True\n", encoding="utf-8")
+            integrity_ok = app.snapshots.check_integrity(branch.snapshot_id)
+            record("21.2", "快照完整性检查发现篡改", integrity_ok is False)
+
+            workflow = app.create_workflow("audit-integrity")
+            workflow.default_snapshot_id = base.snapshot_id
+            workflow.start()
+            await asyncio.gather(
+                app.coordinator.submit_tool_call(
+                    workflow_id=workflow.workflow_id,
+                    tool_name="ast_analyzer",
+                    arguments={"files": list(DEMO_FILES)},
+                    snapshot_id=base.snapshot_id,
+                ),
+                app.coordinator.submit_tool_call(
+                    workflow_id=workflow.workflow_id,
+                    tool_name="ast_analyzer",
+                    arguments={"files": list(DEMO_FILES)},
+                    snapshot_id=branch.snapshot_id,
+                ),
+            )
+            integrity_executions = app.repository.list_executions(workflow.workflow_id)
+            record(
+                "21.2",
+                "快照被篡改时拒绝共享",
+                len(integrity_executions) == 2,
+                f"executions={len(integrity_executions)}",
+            )
+
+            # the failure kinds have to be distinguishable
+            failing = app.create_workflow("audit-failure")
+            failing.default_snapshot_id = base.snapshot_id
+            failing.start()
+            raised: str | None = None
+            try:
+                await app.coordinator.submit_tool_call(
+                    workflow_id=failing.workflow_id,
+                    tool_name="fault_injector",
+                    arguments={"mode": "raise", "message": "audit"},
+                    snapshot_id=base.snapshot_id,
+                )
+            except Exception as exc:
+                raised = type(exc).__name__
+            failed_calls = app.repository.list_logical_calls(failing.workflow_id)
+            record(
+                "10.1",
+                "区分工具错误",
+                raised is not None
+                and any(
+                    call["status"] in ("FAILED", "CANCELLED")
+                    for call in failed_calls
+                ),
+                f"raised={raised} status={[call['status'] for call in failed_calls]}",
+            )
+            record(
+                "10.1",
+                "工具错误不会进入共享协调",
+                all(
+                    call["share_group_id"] is None for call in failed_calls
+                ),
+            )
+        finally:
+            await app.close()
+
+    try:
+        asyncio.run(run())
+    except Exception as exc:  # pragma: no cover - defensive
+        record("17.2", "行为审计执行", False, str(exc))
+    finally:
+        shutil.rmtree(home, ignore_errors=True)
+
+
+# ----------------------------------------------------------------------
 # 17 test categories + 20 layout + 22 documentation
 # ----------------------------------------------------------------------
 LAYOUT = """
@@ -534,6 +774,7 @@ def main() -> int:
     audit_interfaces()
     audit_core()
     audit_surface()
+    audit_behaviour()
     audit_layout_tests_docs()
 
     failed = [item for item in RESULTS if not item["ok"]]

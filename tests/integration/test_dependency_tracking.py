@@ -18,13 +18,10 @@ from __future__ import annotations
 
 import asyncio
 import os
-from pathlib import Path
 
-import pytest
 
 from agentfuse.core.state import EventType
 from agentfuse.scenarios.common import DEMO_FILES
-from agentfuse.tools.base import ToolContext, ToolError
 from agentfuse.tools.registry import ToolRegistry, build_default_registry
 from agentfuse.workspace.reader import WorkspaceReader, install_access_audit_hook
 

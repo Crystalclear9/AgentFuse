@@ -6,20 +6,9 @@ between them so that the rest of the runtime never has to deal with raw rows.
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-
-def _json_loads(raw: Any, default: Any = None) -> Any:
-    if raw in (None, ""):
-        return default
-    if isinstance(raw, (dict, list)):
-        return raw
-    try:
-        return json.loads(raw)
-    except (TypeError, ValueError):
-        return default
 
 
 @dataclass

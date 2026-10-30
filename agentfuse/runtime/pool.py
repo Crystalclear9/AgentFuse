@@ -27,7 +27,7 @@ import threading
 import time
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 try:  # pragma: no cover - psutil is a hard dependency
     import psutil
@@ -210,15 +210,3 @@ def start_worker() -> WorkerHandle:
     handle = WorkerHandle(process=process)
     handle.child_pids = discover_children(process.pid)
     return handle
-
-
-def spawn_pool(size: int, on_ready: Callable[[WorkerHandle], None] | None = None) -> list[WorkerHandle]:
-    """Start ``size`` workers in the background."""
-
-    workers: list[WorkerHandle] = []
-    for _ in range(max(0, int(size))):
-        handle = start_worker()
-        workers.append(handle)
-        if on_ready is not None:
-            on_ready(handle)
-    return workers
