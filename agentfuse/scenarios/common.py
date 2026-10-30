@@ -11,6 +11,11 @@ from ..core.state import EventType
 from ..resources import sample_repository_path
 from ..workspace.snapshots import SnapshotInfo
 
+#: The seed that every scenario uses when the caller does not specify one.
+#: The benchmark compares the modes with **the same** seed - that is one of
+#: the fairness rules of requirement 13.2.
+DEFAULT_SEED = 20240917
+
 #: The files that the demo scenarios analyse.
 DEMO_FILES: list[str] = [
     "src/alpha.py",

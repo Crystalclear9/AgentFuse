@@ -171,3 +171,80 @@ def test_the_new_tools_are_shareable():
         assert spec.shareable is True
         assert spec.deterministic is True
         assert spec.read_only is True
+
+
+def test_a_tool_that_uses_randomness_is_not_shareable():
+    """Requirement 7.4 - a tool with an undeclared input must not be shared."""
+
+    registry = build_default_registry()
+    spec = registry.get("ast_analyzer")
+    random_spec = type(spec)(
+        tool_name="lucky",
+        tool_version="1.0.0",
+        deterministic=True,
+        read_only=True,
+        uses_random=True,
+        resource_estimate=spec.resource_estimate,
+        input_schema=spec.input_schema,
+        output_schema=spec.output_schema,
+        implementation=spec.implementation,
+        implementation_reference=spec.implementation_reference,
+    )
+    assert random_spec.shareable is False
+    assert registry.get("ast_analyzer").shareable is True
+
+
+def test_the_workflow_does_not_seed_the_global_random_state():
+    """The seed belongs to the workflow - the process wide random state does
+    not belong to AgentFuse."""
+
+    import random as random_module
+
+    random_module.seed(1234)
+    expected = [random_module.random() for _ in range(3)]
+
+    random_module.seed(1234)
+    expected = [random_module.random() for _ in range(3)]
+
+    random_module.seed(1234)
+    from agentfuse.core.workflow import WorkflowRuntime
+
+    class _Repository:
+        def save_workflow(self, record):
+            return None
+
+    class _Bus:
+        def subscribe(self, handler):
+            return lambda: None
+
+        def publish(self, *args, **kwargs):
+            return None
+
+    runtime = WorkflowRuntime(
+        coordinator=None,
+        repository=_Repository(),
+        event_bus=_Bus(),
+        scenario="test",
+        random_seed=999,
+    )
+    runtime.start()
+    observed = [random_module.random() for _ in range(3)]
+    assert observed == expected, "the global random state must not change"
+    # the workflow has its own source
+    assert runtime.rng.random() != observed[0]
+
+
+def test_the_random_source_of_a_call_is_reproducible():
+    """A retry of the same call draws the same numbers."""
+
+    from agentfuse.runtime.worker import _call_random
+
+    payload = {"seed": 4242, "logical_call_id": "call-1"}
+    first = _call_random(payload).random()
+    second = _call_random(payload).random()
+    assert first == second, "the same call must draw the same numbers"
+
+    other = _call_random({"seed": 4242, "logical_call_id": "call-2"}).random()
+    assert other != first, "two different calls must not share their numbers"
+
+    assert _call_random({}) is None

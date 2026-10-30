@@ -16,6 +16,7 @@ from ..adapters.scripted_adapter import CallableStep, ScriptedAdapter, ScriptedA
 from ..core.state import EventType, RuntimeMode
 from ..monitoring.metrics import collect_workflow_metrics
 from .common import (
+    DEFAULT_SEED,
     DEMO_FILES,
     create_branch,
     mutate_readme,
@@ -61,7 +62,7 @@ async def scenario_shared(app: Any, mode: RuntimeMode, options: dict[str, Any]) 
     """Two agents, one snapshot, one identical request -> one physical execution."""
 
     workflow = app.create_workflow(
-        "shared", mode=mode, label="scenario: full sharing", random_seed=options.get("seed")
+        "shared", mode=mode, label="scenario: full sharing", random_seed=options.get("seed", DEFAULT_SEED)
     )
     base = prepare_base_snapshot(app)
     workflow.default_snapshot_id = base.snapshot_id
@@ -118,7 +119,10 @@ async def scenario_shared_heavy(
     """
 
     workflow = app.create_workflow(
-        "shared-heavy", mode=mode, label="scenario: full sharing (cpu heavy)"
+        "shared-heavy",
+        mode=mode,
+        label="scenario: full sharing (cpu heavy)",
+        random_seed=options.get("seed", DEFAULT_SEED),
     )
     base = prepare_base_snapshot(app)
     workflow.default_snapshot_id = base.snapshot_id
@@ -166,7 +170,7 @@ async def scenario_different_workspace(
         "different-workspace",
         mode=mode,
         label="scenario: different workspace, identical dependencies",
-        random_seed=options.get("seed"),
+        random_seed=options.get("seed", DEFAULT_SEED),
     )
     base = prepare_base_snapshot(app)
     branch_a = create_branch(app, base, mutate_readme, "branch-a")
@@ -232,7 +236,7 @@ async def scenario_divergent(app: Any, mode: RuntimeMode, options: dict[str, Any
         "divergent",
         mode=mode,
         label="scenario: dynamic dependency conflict",
-        random_seed=options.get("seed"),
+        random_seed=options.get("seed", DEFAULT_SEED),
     )
     base = prepare_base_snapshot(app)
     branch_a = create_branch(app, base, None, "branch-a")
@@ -298,7 +302,7 @@ async def scenario_multi_agent(app: Any, mode: RuntimeMode, options: dict[str, A
         "multi-agent",
         mode=mode,
         label="scenario: parallel agents and a join",
-        random_seed=options.get("seed"),
+        random_seed=options.get("seed", DEFAULT_SEED),
     )
     base = prepare_base_snapshot(app)
     workflow.default_snapshot_id = base.snapshot_id
@@ -399,7 +403,7 @@ async def scenario_cancel_failure(
         "cancel-failure",
         mode=mode,
         label="scenario: cancellation and failure semantics",
-        random_seed=options.get("seed"),
+        random_seed=options.get("seed", DEFAULT_SEED),
     )
     base = prepare_base_snapshot(app)
     workflow.default_snapshot_id = base.snapshot_id
@@ -507,6 +511,9 @@ async def scenario_cancel_failure(
     }
 
     # -- case 3: an execution times out -------------------------------------
+    # The timeout can be shortened - the requirement audit uses a short one so
+    # that the check stays fast.  The semantics do not change.
+    timeout_seconds = float(options.get("timeout_seconds", 1.0))
     timeout_result: Any = None
     try:
         await coordinator.submit_tool_call(
@@ -514,7 +521,7 @@ async def scenario_cancel_failure(
             tool_name="fault_injector",
             arguments={"mode": "sleep", "seconds": 30},
             snapshot_id=base.snapshot_id,
-            timeout_seconds=1.0,
+            timeout_seconds=timeout_seconds,
         )
     except Exception as exc:
         timeout_result = {"error": str(exc), "kind": getattr(exc, "kind", "error")}

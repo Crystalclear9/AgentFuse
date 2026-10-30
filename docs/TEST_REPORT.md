@@ -31,13 +31,13 @@ python scripts/acceptance_check.py
 ### 3.1 Windows 11
 
 ```text
-189 passed, 1 skipped
+197 passed, 1 skipped
 ```
 
 ### 3.2 WSL2 / Ubuntu-22.04
 
 ```text
-190 passed
+198 passed
 ```
 
 ### 3.3 Worker pool / worker limit matrix
@@ -48,9 +48,9 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | pool \ workers | 1 | 2 |
 |---|---|---|
-| 0 | 189 passed | 189 passed |
-| 1 | 189 passed | 189 passed |
-| 2 | 189 passed | 189 passed |
+| 0 | 197 passed | 197 passed |
+| 1 | 197 passed | 197 passed |
+| 2 | 197 passed | 197 passed |
 
 **两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
 权限才能创建符号链接，因此被跳过；在 Linux 上它**真实执行并通过**。
@@ -59,15 +59,15 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | 平台 | 结果 |
 |---|---|
-| Windows 11 | 36/36 项通过 |
-| WSL2 | 36/36 项通过 |
+| Windows 11 | 39/39 项通过 |
+| WSL2 | 39/39 项通过 |
 
 ### 3.4 用例分布
 
 | 目录 | 数量 | 结果 |
 |---|---|---|
-| `tests/unit` | 89 passed, 1 skipped（Windows）/ 90 passed（Linux） | 全部通过 |
-| `tests/integration` | 98 passed | 全部通过 |
+| `tests/unit` | 93 passed, 1 skipped（Windows）/ 94 passed（Linux） | 全部通过 |
+| `tests/integration` | 101 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 
 ### 3.5 单元测试覆盖
@@ -100,6 +100,7 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 | `test_worker_pool.py` | 预热 worker 被复用、**主动制造预热竞态**、并发下结果正确、失败的工具不污染池、shutdown 后零残留、空闲池不超过上限、默认启用、可显式关闭、0/1/2 三种配置 |
 | `test_scenarios.py` | 5 个演示场景的期望指标、聚合器必须在 worker 之后启动、失败/取消场景覆盖全部 5 种情况、场景的**最终结果**断言 |
 | `test_api.py` | 健康检查、静态资源、总览、工具列表、workflow/graph/timeline/events、execution/dependencies、404、基准测试端到端 |
+| `test_frontend.py`（`tests/frontend/`） | 前端脚本在最小 DOM 模拟中**真实执行**，食物是后端真实响应；页签、执行图、时间线、依赖检查器、基准表格的值均被断言 |
 | `test_benchmark.py` | 执行次数真实下降、结果与 baseline 一致、divergent 场景两侧结果正确、deferred 验证次数更少、跨运行哈希稳定、正确性检查能发现差异、**固定种子生效**、相同种子结果可复现、重复运行不增长资源、分离收益进入聚合 |
 | `test_dependency_tracking.py` | 每个工具都声明依赖追踪、不可共享工具、依赖账本不完整的工具不可共享、审计钩子发现绕过、绕过的工具绝不被共享 |
 
@@ -128,21 +129,21 @@ python scripts/run_ci_like.py --matrix
 
 | 环境 | 结果 |
 |---|---|
-| venv（有 launcher 存根） | 189 passed, 1 skipped |
-| 基础解释器（= CI 环境，无存根） | 189 passed, 1 skipped（6 种池/并发组合全通过） |
-| WSL2 / Ubuntu-22.04 | 190 passed |
+| venv（有 launcher 存根） | 197 passed, 1 skipped |
+| 基础解释器（= CI 环境，无存根） | 197 passed, 1 skipped（6 种池/并发组合全通过） |
+| WSL2 / Ubuntu-22.04 | 198 passed |
 | **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **16 / 16 job 全部成功** |
 
 ### 3.5.1 需求复核后的验证（阶段 23）
 
 | 检查 | Windows | WSL2 / Ubuntu-22.04 |
 |---|---|---|
-| `pytest tests` | **189 passed, 1 skipped** | **190 passed** |
+| `pytest tests` | **197 passed, 1 skipped** | **198 passed** |
 | `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
-| `scripts/acceptance_check.py` | **36 / 36 通过** | **36 / 36 通过** |
-| `scripts/audit_requirements.py`（240 项 / 46 个需求小节，含行为审计） | **240 / 240 通过** | **240 / 240 通过** |
+| `scripts/acceptance_check.py` | **39 / 39 通过** | **39 / 39 通过** |
+| `scripts/audit_requirements.py`（263 项 / 46 个需求小节，含行为审计） | **263 / 263 通过** | **263 / 263 通过** |
 | `scripts/check_regression.py --repeat 3` | **无性能回归** | — |
-| `scripts/guard_selftest.py`（守卫自检） | **6 / 6 个守卫证明了它们能发现问题** | — |
+| `scripts/guard_selftest.py`（守卫自检） | **10 / 10 个守卫证明了它们能发现问题** | — |
 
 > 验收自检新增了 4 项与 P0 语义直接相关的断言：**数据库写入零错误**、
 > **外键约束无违规**、**外键约束已声明**、**调用与执行原子落库**。
@@ -249,8 +250,8 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 
 | 工具 | 命令 | 作用 |
 |---|---|---|
-| 交付验收自检 | `python scripts/acceptance_check.py` | **36 项**：目录结构、共享行为、CLI 全部命令、API 与真实字段、数据库与外键、离线依赖 |
-| 需求条款审计 | `python scripts/audit_requirements.py` | **240 个检查 / 46 个需求小节**逐条对照（25 章，含行为审计） |
+| 交付验收自检 | `python scripts/acceptance_check.py` | **39 项**：目录结构、共享行为、CLI 全部命令、API 与真实字段、数据库与外键、离线依赖 |
+| 需求条款审计 | `python scripts/audit_requirements.py` | **263 个检查 / 46 个需求小节**逐条对照（25 章，含行为审计） |
 | 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 6 处行为，断言对应的守卫**必须报红** |
 | 性能回归守卫 | `python scripts/check_regression.py` | 对比 `benchmarks/baseline.json`，超出容差即失败 |
 | CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 + 守卫自检 |

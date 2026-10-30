@@ -8,6 +8,12 @@ the runtime:
     ``WorkspaceReader``).  It declares a complete dependency tracking - the
     runtime has to detect the bypass and must not share its result.
 
+``random_reader``
+    reads the workspace like ``raw_reader`` and adds a number that it draws
+    from the random source of the call.  It declares ``uses_random`` and is
+    therefore never shared - a result that depends on randomness must not be
+    reused (requirement 7.4).
+
 They are only registered when ``AGENTFUSE_TEST_TOOLS=1`` is set, so the
 production registry stays clean.
 """
@@ -31,6 +37,19 @@ def raw_reader(context: ToolContext) -> dict[str, Any]:
         text = (root / relative).read_text(encoding="utf-8")
         total += text.count("def ")
     return {"files": len(files), "functions": total}
+
+
+def random_reader(context: ToolContext) -> dict[str, Any]:
+    """Read the workspace and draw a number from the random source of the call.
+
+    The number is derived from the seed of the workflow **and** the id of the
+    logical call: the same call always draws the same value, two different
+    calls never share it.
+    """
+
+    payload = raw_reader(context)
+    payload["random"] = context.random().random()
+    return payload
 
 
 def test_tools_enabled() -> bool:

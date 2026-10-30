@@ -46,6 +46,11 @@ STRICT_METRICS = ("physical_executions", "detach_count", "validation_count")
 #: therefore not compared (the signal would be smaller than the noise)
 MIN_SIGNAL_SECONDS = 0.25
 
+#: The worker start up costs about 0.15 s.  A light scenario therefore has a
+#: noise floor of that size - a smaller slack would report the noise as a
+#: regression.
+NOISE_FLOOR_SECONDS = 0.15
+
 #: scenarios whose event counts are deterministic.  The cancellation scenario
 #: intentionally races (the number of validations depends on the timing), its
 #: correctness is asserted by the test suite instead.
@@ -145,6 +150,8 @@ def check(
             (absolute_slack / expected) if expected else 0.0,
             # the worst run that was recorded is a legitimate reference value
             ((worst - expected) / expected) if expected else 0.0,
+            # the start up of a worker is the noise floor of a light scenario
+            (NOISE_FLOOR_SECONDS / expected) if expected else 0.0,
         )
         delta = (float(value) - expected) / expected
         if delta > slack:
@@ -218,8 +225,12 @@ def main() -> int:
     parser.add_argument(
         "--absolute-slack",
         type=float,
-        default=0.05,
-        help="absolute slack in seconds (the noise floor of the measurement)",
+        default=0.15,
+        help=(
+            "absolute slack in seconds (the noise floor of the measurement). "
+            "A light scenario is dominated by the worker start up (~0.15 s), "
+            "therefore a smaller value would report noise as a regression."
+        ),
     )
     parser.add_argument("--update-baseline", action="store_true")
     args = parser.parse_args()

@@ -203,6 +203,7 @@ class RuntimeCoordinator:
         self._groups: dict[str, ShareGroup] = {}
         self._groups_by_key: dict[str, list[str]] = {}
         self._workflow_modes: dict[str, RuntimeMode] = {}
+        self._workflow_seeds: dict[str, int | None] = {}
         self._tasks: set[asyncio.Task] = set()
         self._loop: asyncio.AbstractEventLoop | None = None
         self._closing = False
@@ -214,6 +215,21 @@ class RuntimeCoordinator:
         """Bind an execution mode to a workflow (baseline / online / deferred)."""
 
         self._workflow_modes[workflow_id] = mode
+
+    def register_workflow_seed(self, workflow_id: str, seed: int | None) -> None:
+        """Bind the random seed of a workflow.
+
+        The seed reaches the tool process as the source of the call's random
+        numbers.  It is **not** installed globally - the process wide random
+        state belongs to the application that embeds AgentFuse.
+        """
+
+        self._workflow_seeds[workflow_id] = seed
+
+    def seed_for(self, workflow_id: str | None) -> int | None:
+        if workflow_id is None:
+            return None
+        return self._workflow_seeds.get(workflow_id)
 
     def mode_for(self, workflow_id: str | None) -> RuntimeMode:
         if workflow_id is not None:
@@ -886,6 +902,9 @@ class RuntimeCoordinator:
             "arguments": execution.arguments,
             "snapshot_root": str(tree),
             "snapshot_id": execution.snapshot_id,
+            # the seed and the call id derive the random source of the call
+            "seed": self.seed_for(execution.workflow_id),
+            "logical_call_id": execution.leader_call_id,
         }
 
         self._loop = self._loop or asyncio.get_running_loop()
@@ -1471,13 +1490,17 @@ class RuntimeCoordinator:
         if execution.outcome.done():
             return
         await self._terminate_execution(
-            execution, f"execution timed out after {execution.timeout_seconds:.0f}s"
+            execution,
+            f"execution timed out after {execution.timeout_seconds:.0f}s",
+            kind=ERROR_TIMEOUT,
         )
 
-    async def _terminate_execution(self, execution: PhysicalExecution, reason: str) -> None:
+    async def _terminate_execution(
+        self, execution: PhysicalExecution, reason: str, kind: str = ERROR_CANCELLED
+    ) -> None:
         """Terminate a running worker (used by timeout, cancellation and shutdown)."""
 
-        await terminate_execution(execution, reason)
+        await terminate_execution(execution, reason, kind=kind)
 
     # ------------------------------------------------------------------
     # finalisation

@@ -41,7 +41,7 @@ except Exception:  # pragma: no cover
 #: The seed that the benchmark uses when the caller does not specify one.
 #: Every mode and every repetition uses the same seed - that is what makes
 #: the comparison fair and the run reproducible.
-DEFAULT_SEED = 20240917
+from ..scenarios.common import DEFAULT_SEED  # noqa: E402
 
 #: How much the resident size of the runtime may grow before the benchmark
 #: reports a leak (64 MiB).

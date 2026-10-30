@@ -20,6 +20,7 @@ protocol stays human readable.
 from __future__ import annotations
 
 import os
+import random
 import time
 import traceback
 from typing import Any, Callable
@@ -45,6 +46,25 @@ def _current_rss() -> int:
         return int(psutil.Process(os.getpid()).memory_info().rss)
     except Exception:  # pragma: no cover - psutil is a hard dependency in practice
         return 0
+
+
+def _call_random(payload: dict[str, Any]) -> random.Random | None:
+    """Derive the random source of one logical call.
+
+    The source is seeded with the seed of the workflow **and** the id of the
+    logical call:
+
+    * a **retry** of the same call draws the same numbers - the retry is not
+      a lottery,
+    * two different calls never share their numbers - therefore a tool that
+      uses randomness is never shared (requirement 7.4).
+    """
+
+    seed = payload.get("seed")
+    call_id = payload.get("logical_call_id")
+    if seed is None and not call_id:
+        return None
+    return random.Random(f"{seed}:{call_id}")
 
 
 def execute_tool(payload: dict[str, Any], reporter: DependencyReporter) -> dict[str, Any]:
@@ -78,7 +98,11 @@ def execute_tool(payload: dict[str, Any], reporter: DependencyReporter) -> dict[
         reporter=reporter,
         snapshot_id=payload.get("snapshot_id"),
     )
-    context = ToolContext(reader=reader, arguments=payload.get("arguments") or {})
+    context = ToolContext(
+        reader=reader,
+        arguments=payload.get("arguments") or {},
+        rng=_call_random(payload),
+    )
     violations = install_access_audit_hook(payload["snapshot_root"])
 
     try:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from agentfuse.sharing.candidate import compute_candidate_key
 from agentfuse.tools.registry import build_default_registry
-from agentfuse.workspace.fingerprint import canonical_json
+from agentfuse.workspace.fingerprint import canonical_json, sha256_hex
 
 
 def test_same_arguments_produce_the_same_key():
@@ -49,13 +49,30 @@ def test_environment_signature_changes_the_key():
 
 
 def test_candidate_key_does_not_contain_the_snapshot():
-    """Two branches of the same repository must be able to share."""
+    """Two branches of the same repository must be able to share.
+
+    The key is the hash of **exactly** the tool, the version, the arguments
+    and the environment signature.  The check compares the key with the hash
+    of those four inputs - a snapshot that would sneak into the payload
+    would change the key and therefore fail the test.
+    """
 
     registry = build_default_registry()
     spec = registry.get("ast_analyzer")
-    key = compute_candidate_key(spec, {"files": ["a.py"]})
-    assert "snap" not in key
+    arguments = {"files": ["a.py"]}
+    key = compute_candidate_key(spec, arguments)
     assert len(key) == 64
+    expected = sha256_hex(
+        canonical_json(
+            {
+                "tool_name": spec.tool_name,
+                "tool_version": spec.tool_version,
+                "arguments": arguments,
+                "environment": spec.environment_signature(),
+            }
+        ).encode("utf-8")
+    )
+    assert key == expected, "the candidate key must be built from these four inputs only"
 
 
 def test_canonical_json_is_order_independent_for_mappings():

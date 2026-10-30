@@ -12,6 +12,7 @@ location.
 from __future__ import annotations
 
 import logging
+import random
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -40,6 +41,12 @@ class ToolContext:
     arguments: dict[str, Any]
     logger: logging.Logger = LOGGER
     extra: dict[str, Any] = field(default_factory=dict)
+    #: The random source of the call.  It is derived from the seed of the
+    #: workflow **and** the id of the logical call, therefore the same call
+    #: always produces the same values, while two different calls never share
+    #: them.  A tool that uses it must declare ``uses_random`` - such a tool
+    #: is never shared (requirement 7.4).
+    rng: random.Random | None = None
 
     def arg(self, name: str, default: Any = None, required: bool = False) -> Any:
         if name in self.arguments:
@@ -53,6 +60,17 @@ class ToolContext:
         if not isinstance(value, (list, tuple)):
             raise ToolInputError(f"argument {name} must be a list")
         return list(value)
+
+    def random(self) -> random.Random:
+        """Return the random source of the call.
+
+        The source is always available: a tool that does not use it simply
+        ignores it.
+        """
+
+        if self.rng is None:
+            self.rng = random.Random()
+        return self.rng
 
 
 @dataclass
@@ -77,13 +95,27 @@ class ToolSpec:
     #: such a tool is never allowed into the share coordinator because its
     #: dependency ledger would be incomplete.
     dependency_tracking: bool = True
+    #: True when the tool draws random numbers.  Such a tool is never shared:
+    #: the result would depend on an input that is not part of the sharing
+    #: conditions (requirement 7.4).
+    uses_random: bool = False
 
     @property
     def shareable(self) -> bool:
         """Only deterministic, read-only tools with a complete dependency
-        tracking may enter the share coordinator."""
+        tracking may enter the share coordinator.
 
-        return bool(self.deterministic and self.read_only and self.dependency_tracking)
+        A tool that uses randomness is never shareable: its result would
+        depend on an input that is not part of the sharing conditions
+        (requirement 7.4).
+        """
+
+        return bool(
+            self.deterministic
+            and self.read_only
+            and self.dependency_tracking
+            and not self.uses_random
+        )
 
     @property
     def estimated_memory_mb(self) -> float:

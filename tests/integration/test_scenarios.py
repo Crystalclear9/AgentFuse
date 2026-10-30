@@ -8,6 +8,7 @@ from agentfuse.scenarios.definitions import (
     scenario_different_workspace,
     scenario_multi_agent,
     scenario_shared,
+    scenario_shared_heavy,
 )
 
 
@@ -87,3 +88,21 @@ async def test_the_cancel_failure_scenario_covers_every_case(app):
     assert notes["crash"]["kind"] in ("worker_crash", "internal_error")
     assert "not found" in notes["shared_failure"]["agent_a"]["error"]
     assert "not found" in notes["shared_failure"]["agent_b"]["error"]
+
+
+async def test_the_shared_heavy_scenario_shares_the_cpu_work(app):
+    """The CPU heavy variant shares one execution and halves the CPU time."""
+
+    online = await scenario_shared_heavy(app, RuntimeMode.ONLINE, {"rounds": 400})
+    baseline = await scenario_shared_heavy(app, RuntimeMode.BASELINE, {"rounds": 400})
+
+    assert online.metrics["logical_calls"] == 2
+    assert online.metrics["physical_executions"] == 1
+    assert online.metrics["saved_executions"] == 1
+    assert online.metrics["detach_count"] == 0
+    assert len(online.results) == 2
+    assert online.results[0].result_hash == online.results[1].result_hash
+
+    # the baseline computes the same result twice
+    assert baseline.metrics["physical_executions"] == 2
+    assert baseline.results[0].result_hash == online.results[0].result_hash

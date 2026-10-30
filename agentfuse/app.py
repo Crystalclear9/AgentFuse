@@ -132,6 +132,9 @@ class AgentFuseApp:
         )
         workflow.default_snapshot_id = default_snapshot_id
         self.coordinator.register_workflow_mode(workflow.workflow_id, workflow.mode)
+        self.coordinator.register_workflow_seed(
+            workflow.workflow_id, workflow.random_seed
+        )
         self._workflows.append(workflow)
         return workflow
 

@@ -1,0 +1,2024 @@
+{
+ "overview": {
+  "running_workflows": 0,
+  "total_workflows": 1,
+  "active_invocations": 0,
+  "total_invocations": 2,
+  "logical_tool_calls": 2,
+  "physical_executions": 1,
+  "shared_waiting": 0,
+  "detached": 0,
+  "workers": {
+   "max_workers": 2,
+   "running": 0,
+   "waiting": 0,
+   "max_memory_budget_mb": 1024,
+   "max_rss_soft_limit_mb": 0,
+   "effective_rss_limit_mb": 1024,
+   "rss_limit_exceeded": false,
+   "reserved_estimate_mb": 0,
+   "observed_rss_mb": 0,
+   "peak_rss_mb": 23.05,
+   "system_cpu_percent": 0.0,
+   "admitted_total": 1,
+   "strategy": "fifo",
+   "pending": []
+  },
+  "mode": "online",
+  "workflows": [
+   {
+    "workflow_id": "wf-a189c810a9dd",
+    "scenario": "shared",
+    "start_time": 1793347616.6958668,
+    "end_time": 1793347616.8179402,
+    "status": "COMPLETED",
+    "configuration": {},
+    "runtime_mode": "online",
+    "random_seed": null,
+    "label": "scenario: full sharing",
+    "error": null
+   }
+  ],
+  "recent_events": [
+   {
+    "event_id": "evt-9653098a6434",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 26,
+    "event_type": "WORKFLOW_FINISHED",
+    "timestamp": 1793347616.8179402,
+    "agent_id": null,
+    "invocation_id": null,
+    "logical_call_id": null,
+    "physical_execution_id": null,
+    "parent_event_id": null,
+    "metadata": {
+     "status": "COMPLETED",
+     "error": null
+    }
+   },
+   {
+    "event_id": "evt-cfebf72d0b6e",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 25,
+    "event_type": "AGENT_RETURNED",
+    "timestamp": 1793347616.8179402,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": null,
+    "physical_execution_id": null,
+    "parent_event_id": null,
+    "metadata": {
+     "status": "COMPLETED"
+    }
+   },
+   {
+    "event_id": "evt-d4817fd5e3b1",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 24,
+    "event_type": "AGENT_RETURNED",
+    "timestamp": 1793347616.8179402,
+    "agent_id": "agent-1e491035b8a7",
+    "invocation_id": "inv-3ad5ccc7e02f",
+    "logical_call_id": null,
+    "physical_execution_id": null,
+    "parent_event_id": null,
+    "metadata": {
+     "status": "COMPLETED"
+    }
+   },
+   {
+    "event_id": "evt-77b79e4f6c36",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 23,
+    "event_type": "TOOL_RESULT_DELIVERED",
+    "timestamp": 1793347616.8179402,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-91f44b415dea",
+    "metadata": {
+     "result_hash": "40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+     "result_reference": "C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\results\\wf-a189c810a9dd\\40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782.json",
+     "shared": true,
+     "cached": false,
+     "tool_name": "ast_analyzer",
+     "wait_duration": 0.11350321769714355
+    }
+   },
+   {
+    "event_id": "evt-4c5626eb7af5",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 22,
+    "event_type": "TOOL_RESULT_DELIVERED",
+    "timestamp": 1793347616.7772927,
+    "agent_id": "agent-1e491035b8a7",
+    "invocation_id": "inv-3ad5ccc7e02f",
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-91f44b415dea",
+    "metadata": {
+     "result_hash": "40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+     "result_reference": "C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\results\\wf-a189c810a9dd\\40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782.json",
+     "shared": false,
+     "cached": false,
+     "tool_name": "ast_analyzer",
+     "wait_duration": 0.07941031455993652
+    }
+   },
+   {
+    "event_id": "evt-5bc8cb254b5f",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 21,
+    "event_type": "TOOL_EXECUTION_FINISHED",
+    "timestamp": 1793347616.7752934,
+    "agent_id": null,
+    "invocation_id": null,
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-91f44b415dea",
+    "metadata": {
+     "status": "COMPLETED",
+     "cpu_time": 0.015625,
+     "peak_rss": 24166400,
+     "exit_status": "0",
+     "error": null,
+     "dependency_count": 5
+    }
+   },
+   {
+    "event_id": "evt-930ecf525eb5",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 20,
+    "event_type": "SHARE_VALIDATION_PASSED",
+    "timestamp": 1793347616.7490094,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "dependency_sequence": 4,
+     "relative_path": "src/zeta_variant.py"
+    }
+   },
+   {
+    "event_id": "evt-03bf898dc6e3",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 19,
+    "event_type": "TOOL_READ_OBSERVED",
+    "timestamp": 1793347616.748014,
+    "agent_id": null,
+    "invocation_id": null,
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-91f44b415dea",
+    "metadata": {
+     "dependency_type": "FILE_READ",
+     "relative_path": "src/zeta_variant.py",
+     "fingerprint": "9b90b801884f964103efc7f61badca99afc4a8597a85ec61723ef009788465aa",
+     "sequence_number": 4
+    }
+   },
+   {
+    "event_id": "evt-c51afebcfe49",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 18,
+    "event_type": "SHARE_VALIDATION_PASSED",
+    "timestamp": 1793347616.748014,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "dependency_sequence": 3,
+     "relative_path": "src/pkg/helper.py"
+    }
+   },
+   {
+    "event_id": "evt-04d377de1240",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 17,
+    "event_type": "TOOL_READ_OBSERVED",
+    "timestamp": 1793347616.748014,
+    "agent_id": null,
+    "invocation_id": null,
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-91f44b415dea",
+    "metadata": {
+     "dependency_type": "FILE_READ",
+     "relative_path": "src/pkg/helper.py",
+     "fingerprint": "5a10f0520f5aec2bd0bf8b82fdcb947891df3ccd8ef6e7e99bb3d15454eda276",
+     "sequence_number": 3
+    }
+   },
+   {
+    "event_id": "evt-fce13696a923",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 16,
+    "event_type": "SHARE_VALIDATION_PASSED",
+    "timestamp": 1793347616.748014,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "dependency_sequence": 2,
+     "relative_path": "src/gamma.py"
+    }
+   },
+   {
+    "event_id": "evt-652b9dc66bb9",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 15,
+    "event_type": "TOOL_READ_OBSERVED",
+    "timestamp": 1793347616.7470255,
+    "agent_id": null,
+    "invocation_id": null,
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-91f44b415dea",
+    "metadata": {
+     "dependency_type": "FILE_READ",
+     "relative_path": "src/gamma.py",
+     "fingerprint": "158c8de93b24e7e12a8d98bd210e4e756a96f33f23d2f08da79026f9a71c071f",
+     "sequence_number": 2
+    }
+   },
+   {
+    "event_id": "evt-a6d3718e871d",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 14,
+    "event_type": "SHARE_VALIDATION_PASSED",
+    "timestamp": 1793347616.7470255,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "dependency_sequence": 1,
+     "relative_path": "src/beta.py"
+    }
+   },
+   {
+    "event_id": "evt-fffecd98ba2f",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 13,
+    "event_type": "TOOL_READ_OBSERVED",
+    "timestamp": 1793347616.7460089,
+    "agent_id": null,
+    "invocation_id": null,
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-91f44b415dea",
+    "metadata": {
+     "dependency_type": "FILE_READ",
+     "relative_path": "src/beta.py",
+     "fingerprint": "d36c30a428d4a5aea9bbf9892aaa603bdb6c9bb2f9160de689f85020d86a5c5e",
+     "sequence_number": 1
+    }
+   },
+   {
+    "event_id": "evt-a1e9478bba53",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 12,
+    "event_type": "SHARE_VALIDATION_PASSED",
+    "timestamp": 1793347616.7460089,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "dependency_sequence": 0,
+     "relative_path": "src/alpha.py"
+    }
+   },
+   {
+    "event_id": "evt-73be9c60ea95",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 11,
+    "event_type": "TOOL_READ_OBSERVED",
+    "timestamp": 1793347616.7284722,
+    "agent_id": null,
+    "invocation_id": null,
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-91f44b415dea",
+    "metadata": {
+     "dependency_type": "FILE_READ",
+     "relative_path": "src/alpha.py",
+     "fingerprint": "b7798a190a64fa9eab1680557048446f14b0511ecbd77f09b2bb98c47e537e2b",
+     "sequence_number": 0
+    }
+   },
+   {
+    "event_id": "evt-261a3b910d04",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 10,
+    "event_type": "TOOL_CALL_WAITING",
+    "timestamp": 1793347616.704437,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-726ea478f0a3",
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+     "validated_prefix_length": 0,
+     "wait_reason": "等待 Leader 的物理执行完成",
+     "mode": "online"
+    }
+   },
+   {
+    "event_id": "evt-824f8533c990",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 9,
+    "event_type": "SHARE_CANDIDATE_FOUND",
+    "timestamp": 1793347616.704437,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+     "share_group_id": "sg-205bb43b4bf1",
+     "tool_name": "ast_analyzer",
+     "joinable": true,
+     "matched_prefix_length": 0,
+     "validation_status": "MATCH",
+     "mode": "online"
+    }
+   },
+   {
+    "event_id": "evt-726ea478f0a3",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 8,
+    "event_type": "TOOL_CALL_REQUESTED",
+    "timestamp": 1793347616.704437,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": null,
+    "parent_event_id": null,
+    "metadata": {
+     "tool_name": "ast_analyzer",
+     "tool_version": "1.0.0",
+     "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+     "snapshot_id": "snap-6b57dc8ad944",
+     "shareable": true,
+     "mode": "online"
+    }
+   },
+   {
+    "event_id": "evt-91f44b415dea",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 7,
+    "event_type": "TOOL_EXECUTION_STARTED",
+    "timestamp": 1793347616.704437,
+    "agent_id": null,
+    "invocation_id": null,
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-14f74d683a12",
+    "metadata": {
+     "tool_name": "ast_analyzer",
+     "tool_version": "1.0.0",
+     "pid": 17000,
+     "snapshot_id": "snap-6b57dc8ad944",
+     "share_group_id": "sg-205bb43b4bf1",
+     "timeout_seconds": 60.0,
+     "pooled": false
+    }
+   },
+   {
+    "event_id": "evt-66c1422b2b83",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 6,
+    "event_type": "AGENT_INVOKED",
+    "timestamp": 1793347616.704437,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": null,
+    "physical_execution_id": null,
+    "parent_event_id": null,
+    "metadata": {
+     "parent_invocation_id": null,
+     "agent_label": "analysis-agent-b"
+    }
+   },
+   {
+    "event_id": "evt-02a847682a99",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 5,
+    "event_type": "AGENT_BOUND",
+    "timestamp": 1793347616.703893,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": null,
+    "logical_call_id": null,
+    "physical_execution_id": null,
+    "parent_event_id": null,
+    "metadata": {
+     "external_identity": "analysis-agent-b",
+     "agent_description": "scripted agent analysis-agent-b",
+     "registration_source": "scripted-agent"
+    }
+   },
+   {
+    "event_id": "evt-e7e2e9856b54",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 4,
+    "event_type": "SHARE_CANDIDATE_FOUND",
+    "timestamp": 1793347616.703893,
+    "agent_id": "agent-1e491035b8a7",
+    "invocation_id": "inv-3ad5ccc7e02f",
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+     "share_group_id": "sg-205bb43b4bf1",
+     "tool_name": "ast_analyzer",
+     "joinable": true,
+     "matched_prefix_length": 0,
+     "validation_status": null,
+     "mode": "online"
+    }
+   },
+   {
+    "event_id": "evt-14f74d683a12",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 3,
+    "event_type": "TOOL_CALL_REQUESTED",
+    "timestamp": 1793347616.6978824,
+    "agent_id": "agent-1e491035b8a7",
+    "invocation_id": "inv-3ad5ccc7e02f",
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": null,
+    "parent_event_id": null,
+    "metadata": {
+     "tool_name": "ast_analyzer",
+     "tool_version": "1.0.0",
+     "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+     "snapshot_id": "snap-6b57dc8ad944",
+     "shareable": true,
+     "mode": "online"
+    }
+   },
+   {
+    "event_id": "evt-38c2bae711aa",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 2,
+    "event_type": "AGENT_INVOKED",
+    "timestamp": 1793347616.6958668,
+    "agent_id": "agent-1e491035b8a7",
+    "invocation_id": "inv-3ad5ccc7e02f",
+    "logical_call_id": null,
+    "physical_execution_id": null,
+    "parent_event_id": null,
+    "metadata": {
+     "parent_invocation_id": null,
+     "agent_label": "analysis-agent-a"
+    }
+   },
+   {
+    "event_id": "evt-201e29fef374",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 1,
+    "event_type": "AGENT_BOUND",
+    "timestamp": 1793347616.6958668,
+    "agent_id": "agent-1e491035b8a7",
+    "invocation_id": null,
+    "logical_call_id": null,
+    "physical_execution_id": null,
+    "parent_event_id": null,
+    "metadata": {
+     "external_identity": "analysis-agent-a",
+     "agent_description": "scripted agent analysis-agent-a",
+     "registration_source": "scripted-agent"
+    }
+   },
+   {
+    "event_id": "evt-a9d052fcf53e",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 0,
+    "event_type": "WORKFLOW_STARTED",
+    "timestamp": 1793347616.6958668,
+    "agent_id": null,
+    "invocation_id": null,
+    "logical_call_id": null,
+    "physical_execution_id": null,
+    "parent_event_id": null,
+    "metadata": {
+     "scenario": "shared",
+     "mode": "online",
+     "random_seed": null,
+     "label": "scenario: full sharing",
+     "configuration": {}
+    }
+   }
+  ],
+  "recent_share_events": [
+   {
+    "event_id": "evt-930ecf525eb5",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 20,
+    "event_type": "SHARE_VALIDATION_PASSED",
+    "timestamp": 1793347616.7490094,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "dependency_sequence": 4,
+     "relative_path": "src/zeta_variant.py"
+    }
+   },
+   {
+    "event_id": "evt-c51afebcfe49",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 18,
+    "event_type": "SHARE_VALIDATION_PASSED",
+    "timestamp": 1793347616.748014,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "dependency_sequence": 3,
+     "relative_path": "src/pkg/helper.py"
+    }
+   },
+   {
+    "event_id": "evt-fce13696a923",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 16,
+    "event_type": "SHARE_VALIDATION_PASSED",
+    "timestamp": 1793347616.748014,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "dependency_sequence": 2,
+     "relative_path": "src/gamma.py"
+    }
+   },
+   {
+    "event_id": "evt-a6d3718e871d",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 14,
+    "event_type": "SHARE_VALIDATION_PASSED",
+    "timestamp": 1793347616.7470255,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "dependency_sequence": 1,
+     "relative_path": "src/beta.py"
+    }
+   },
+   {
+    "event_id": "evt-a1e9478bba53",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 12,
+    "event_type": "SHARE_VALIDATION_PASSED",
+    "timestamp": 1793347616.7460089,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "dependency_sequence": 0,
+     "relative_path": "src/alpha.py"
+    }
+   },
+   {
+    "event_id": "evt-261a3b910d04",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 10,
+    "event_type": "TOOL_CALL_WAITING",
+    "timestamp": 1793347616.704437,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": "evt-726ea478f0a3",
+    "metadata": {
+     "share_group_id": "sg-205bb43b4bf1",
+     "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+     "validated_prefix_length": 0,
+     "wait_reason": "等待 Leader 的物理执行完成",
+     "mode": "online"
+    }
+   },
+   {
+    "event_id": "evt-824f8533c990",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 9,
+    "event_type": "SHARE_CANDIDATE_FOUND",
+    "timestamp": 1793347616.704437,
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "logical_call_id": "call-8d28eb59399f",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+     "share_group_id": "sg-205bb43b4bf1",
+     "tool_name": "ast_analyzer",
+     "joinable": true,
+     "matched_prefix_length": 0,
+     "validation_status": "MATCH",
+     "mode": "online"
+    }
+   },
+   {
+    "event_id": "evt-e7e2e9856b54",
+    "workflow_id": "wf-a189c810a9dd",
+    "sequence": 4,
+    "event_type": "SHARE_CANDIDATE_FOUND",
+    "timestamp": 1793347616.703893,
+    "agent_id": "agent-1e491035b8a7",
+    "invocation_id": "inv-3ad5ccc7e02f",
+    "logical_call_id": "call-df9a19e7c113",
+    "physical_execution_id": "exec-557920b35a80",
+    "parent_event_id": null,
+    "metadata": {
+     "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+     "share_group_id": "sg-205bb43b4bf1",
+     "tool_name": "ast_analyzer",
+     "joinable": true,
+     "matched_prefix_length": 0,
+     "validation_status": null,
+     "mode": "online"
+    }
+   }
+  ],
+  "tools": [
+   {
+    "tool_name": "ast_analyzer",
+    "tool_version": "1.0.0",
+    "shareable": true,
+    "deterministic": true,
+    "read_only": true,
+    "dependency_tracking": true
+   },
+   {
+    "tool_name": "content_digest",
+    "tool_version": "1.0.0",
+    "shareable": true,
+    "deterministic": true,
+    "read_only": true,
+    "dependency_tracking": true
+   },
+   {
+    "tool_name": "dependency_analyzer",
+    "tool_version": "1.0.0",
+    "shareable": true,
+    "deterministic": true,
+    "read_only": true,
+    "dependency_tracking": true
+   },
+   {
+    "tool_name": "duplicate_blocks",
+    "tool_version": "1.0.0",
+    "shareable": true,
+    "deterministic": true,
+    "read_only": true,
+    "dependency_tracking": true
+   },
+   {
+    "tool_name": "fault_injector",
+    "tool_version": "1.0.0",
+    "shareable": false,
+    "deterministic": false,
+    "read_only": false,
+    "dependency_tracking": false
+   },
+   {
+    "tool_name": "import_graph",
+    "tool_version": "1.0.0",
+    "shareable": true,
+    "deterministic": true,
+    "read_only": true,
+    "dependency_tracking": true
+   },
+   {
+    "tool_name": "source_index",
+    "tool_version": "1.0.0",
+    "shareable": true,
+    "deterministic": true,
+    "read_only": true,
+    "dependency_tracking": true
+   }
+  ]
+ },
+ "workflows": {
+  "workflows": [
+   {
+    "workflow_id": "wf-a189c810a9dd",
+    "scenario": "shared",
+    "start_time": 1793347616.6958668,
+    "end_time": 1793347616.8179402,
+    "status": "COMPLETED",
+    "configuration": {},
+    "runtime_mode": "online",
+    "random_seed": null,
+    "label": "scenario: full sharing",
+    "error": null
+   }
+  ]
+ },
+ "workflow": {
+  "workflow": {
+   "workflow_id": "wf-a189c810a9dd",
+   "scenario": "shared",
+   "start_time": 1793347616.6958668,
+   "end_time": 1793347616.8179402,
+   "status": "COMPLETED",
+   "configuration": {},
+   "runtime_mode": "online",
+   "random_seed": null,
+   "label": "scenario: full sharing",
+   "error": null
+  },
+  "agents": [
+   {
+    "agent_id": "agent-1e491035b8a7",
+    "workflow_id": "wf-a189c810a9dd",
+    "external_identity": "analysis-agent-a",
+    "agent_description": "scripted agent analysis-agent-a",
+    "registration_source": "scripted-agent",
+    "metadata": {},
+    "created_at": 1793347616.6958668
+   },
+   {
+    "agent_id": "agent-f7e5798e53d7",
+    "workflow_id": "wf-a189c810a9dd",
+    "external_identity": "analysis-agent-b",
+    "agent_description": "scripted agent analysis-agent-b",
+    "registration_source": "scripted-agent",
+    "metadata": {},
+    "created_at": 1793347616.703893
+   }
+  ],
+  "invocations": [
+   {
+    "invocation_id": "inv-3ad5ccc7e02f",
+    "workflow_id": "wf-a189c810a9dd",
+    "agent_id": "agent-1e491035b8a7",
+    "start_time": 1793347616.6958668,
+    "end_time": 1793347616.8179402,
+    "parent_invocation_id": null,
+    "status": "COMPLETED",
+    "metadata": {}
+   },
+   {
+    "invocation_id": "inv-165edba14cd5",
+    "workflow_id": "wf-a189c810a9dd",
+    "agent_id": "agent-f7e5798e53d7",
+    "start_time": 1793347616.703893,
+    "end_time": 1793347616.8179402,
+    "parent_invocation_id": null,
+    "status": "COMPLETED",
+    "metadata": {}
+   }
+  ],
+  "logical_calls": [
+   {
+    "logical_call_id": "call-df9a19e7c113",
+    "workflow_id": "wf-a189c810a9dd",
+    "invocation_id": "inv-3ad5ccc7e02f",
+    "agent_id": "agent-1e491035b8a7",
+    "tool_name": "ast_analyzer",
+    "tool_version": "1.0.0",
+    "normalized_arguments": "{\"files\": [\"src/alpha.py\", \"src/beta.py\", \"src/gamma.py\", \"src/pkg/helper.py\", \"src/zeta_variant.py\"]}",
+    "workspace_snapshot_id": "snap-6b57dc8ad944",
+    "request_time": 1793347616.6978824,
+    "status": "COMPLETED",
+    "physical_execution_id": "exec-557920b35a80",
+    "result_reference": "C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\results\\wf-a189c810a9dd\\40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782.json",
+    "result_hash": "40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+    "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+    "share_group_id": "sg-205bb43b4bf1",
+    "error": null,
+    "completed_time": 1793347616.7772927,
+    "retry_count": 0
+   },
+   {
+    "logical_call_id": "call-8d28eb59399f",
+    "workflow_id": "wf-a189c810a9dd",
+    "invocation_id": "inv-165edba14cd5",
+    "agent_id": "agent-f7e5798e53d7",
+    "tool_name": "ast_analyzer",
+    "tool_version": "1.0.0",
+    "normalized_arguments": "{\"files\": [\"src/alpha.py\", \"src/beta.py\", \"src/gamma.py\", \"src/pkg/helper.py\", \"src/zeta_variant.py\"]}",
+    "workspace_snapshot_id": "snap-6b57dc8ad944",
+    "request_time": 1793347616.704437,
+    "status": "COMPLETED",
+    "physical_execution_id": "exec-557920b35a80",
+    "result_reference": "C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\results\\wf-a189c810a9dd\\40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782.json",
+    "result_hash": "40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+    "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+    "share_group_id": "sg-205bb43b4bf1",
+    "error": null,
+    "completed_time": 1793347616.8179402,
+    "retry_count": 0
+   }
+  ],
+  "physical_executions": [
+   {
+    "execution_id": "exec-557920b35a80",
+    "workflow_id": "wf-a189c810a9dd",
+    "tool_name": "ast_analyzer",
+    "tool_version": "1.0.0",
+    "arguments_hash": "d05e61b88ffbfe54248d63f5643b12c7f900ba795d1537a482faf755a84e3e86",
+    "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+    "source_snapshot_id": "snap-6b57dc8ad944",
+    "worker_pid": 17000,
+    "start_time": 1793347616.704437,
+    "finish_time": 1793347616.7593703,
+    "execution_status": "COMPLETED",
+    "cpu_time": 0.015625,
+    "peak_rss": 24166400,
+    "exit_status": "0",
+    "result_hash": "40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+    "result_reference": "C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\results\\wf-a189c810a9dd\\40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782.json",
+    "error": null,
+    "timeout_seconds": 60.0,
+    "share_group_id": "sg-205bb43b4bf1",
+    "attempt": 1,
+    "admission_reason": "admitted",
+    "queued_time": 0.000544,
+    "worker_root_pid": 48704,
+    "worker_command": "C:\\Users\\70454\\Desktop\\AgentFuse\\.venv\\Scripts\\python.exe -u -m agentfuse.runtime.worker_child"
+   }
+  ],
+  "share_groups": [
+   {
+    "share_group_id": "sg-205bb43b4bf1",
+    "workflow_id": "wf-a189c810a9dd",
+    "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+    "leader_execution_id": "exec-557920b35a80",
+    "leader_logical_call_id": "call-df9a19e7c113",
+    "creation_time": 1793347616.703893,
+    "closed_time": 1793347616.8179402,
+    "status": "COMPLETED",
+    "participant_count": 2,
+    "participant_calls": "[\"call-df9a19e7c113\", \"call-8d28eb59399f\"]",
+    "mode": "online",
+    "tool_name": "ast_analyzer",
+    "tool_version": "1.0.0"
+   }
+  ],
+  "share_participants": [
+   {
+    "share_group_id": "sg-205bb43b4bf1",
+    "logical_call_id": "call-df9a19e7c113",
+    "workflow_id": "wf-a189c810a9dd",
+    "agent_id": "agent-1e491035b8a7",
+    "invocation_id": "inv-3ad5ccc7e02f",
+    "snapshot_id": "snap-6b57dc8ad944",
+    "status": "COMPLETED",
+    "validated_prefix_length": 0,
+    "validation_status": "MATCH",
+    "attached_time": 1793347616.703893,
+    "detached_time": null,
+    "delivered_time": 1793347616.7772927,
+    "wait_duration": 0.07339978218078613,
+    "wait_reason": null,
+    "detach_reason": null,
+    "detach_kind": null,
+    "is_leader": 1
+   },
+   {
+    "share_group_id": "sg-205bb43b4bf1",
+    "logical_call_id": "call-8d28eb59399f",
+    "workflow_id": "wf-a189c810a9dd",
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "snapshot_id": "snap-6b57dc8ad944",
+    "status": "COMPLETED",
+    "validated_prefix_length": 5,
+    "validation_status": "MATCH",
+    "attached_time": 1793347616.704437,
+    "detached_time": null,
+    "delivered_time": 1793347616.8179402,
+    "wait_duration": 0.11350321769714355,
+    "wait_reason": "等待 Leader 的物理执行完成",
+    "detach_reason": null,
+    "detach_kind": null,
+    "is_leader": 0
+   }
+  ],
+  "dependencies": {
+   "exec-557920b35a80": [
+    {
+     "execution_id": "exec-557920b35a80",
+     "sequence_number": 0,
+     "dependency_type": "FILE_READ",
+     "relative_path": "src/alpha.py",
+     "fingerprint": "b7798a190a64fa9eab1680557048446f14b0511ecbd77f09b2bb98c47e537e2b",
+     "observed_time": 1793347616.7284722,
+     "snapshot_id": "snap-6b57dc8ad944"
+    },
+    {
+     "execution_id": "exec-557920b35a80",
+     "sequence_number": 1,
+     "dependency_type": "FILE_READ",
+     "relative_path": "src/beta.py",
+     "fingerprint": "d36c30a428d4a5aea9bbf9892aaa603bdb6c9bb2f9160de689f85020d86a5c5e",
+     "observed_time": 1793347616.7460089,
+     "snapshot_id": "snap-6b57dc8ad944"
+    },
+    {
+     "execution_id": "exec-557920b35a80",
+     "sequence_number": 2,
+     "dependency_type": "FILE_READ",
+     "relative_path": "src/gamma.py",
+     "fingerprint": "158c8de93b24e7e12a8d98bd210e4e756a96f33f23d2f08da79026f9a71c071f",
+     "observed_time": 1793347616.7470255,
+     "snapshot_id": "snap-6b57dc8ad944"
+    },
+    {
+     "execution_id": "exec-557920b35a80",
+     "sequence_number": 3,
+     "dependency_type": "FILE_READ",
+     "relative_path": "src/pkg/helper.py",
+     "fingerprint": "5a10f0520f5aec2bd0bf8b82fdcb947891df3ccd8ef6e7e99bb3d15454eda276",
+     "observed_time": 1793347616.748014,
+     "snapshot_id": "snap-6b57dc8ad944"
+    },
+    {
+     "execution_id": "exec-557920b35a80",
+     "sequence_number": 4,
+     "dependency_type": "FILE_READ",
+     "relative_path": "src/zeta_variant.py",
+     "fingerprint": "9b90b801884f964103efc7f61badca99afc4a8597a85ec61723ef009788465aa",
+     "observed_time": 1793347616.748014,
+     "snapshot_id": "snap-6b57dc8ad944"
+    }
+   ]
+  },
+  "validations": [
+   {
+    "validation_id": "val-c9296ad34d90",
+    "share_group_id": "sg-205bb43b4bf1",
+    "logical_call_id": "call-8d28eb59399f",
+    "execution_id": "exec-557920b35a80",
+    "dependency_sequence": 0,
+    "validation_status": "MATCH",
+    "validation_time": 1793347616.7460089,
+    "mismatch_reason": null,
+    "elapsed_ms": 0.019099970813840628
+   },
+   {
+    "validation_id": "val-a8d2cebbf670",
+    "share_group_id": "sg-205bb43b4bf1",
+    "logical_call_id": "call-8d28eb59399f",
+    "execution_id": "exec-557920b35a80",
+    "dependency_sequence": 1,
+    "validation_status": "MATCH",
+    "validation_time": 1793347616.7470255,
+    "mismatch_reason": null,
+    "elapsed_ms": 0.010699965059757233
+   },
+   {
+    "validation_id": "val-e576d1d5c32f",
+    "share_group_id": "sg-205bb43b4bf1",
+    "logical_call_id": "call-8d28eb59399f",
+    "execution_id": "exec-557920b35a80",
+    "dependency_sequence": 2,
+    "validation_status": "MATCH",
+    "validation_time": 1793347616.748014,
+    "mismatch_reason": null,
+    "elapsed_ms": 0.014699995517730713
+   },
+   {
+    "validation_id": "val-c2fd01dc7e0c",
+    "share_group_id": "sg-205bb43b4bf1",
+    "logical_call_id": "call-8d28eb59399f",
+    "execution_id": "exec-557920b35a80",
+    "dependency_sequence": 3,
+    "validation_status": "MATCH",
+    "validation_time": 1793347616.748014,
+    "mismatch_reason": null,
+    "elapsed_ms": 0.009000010322779417
+   },
+   {
+    "validation_id": "val-f7747a85a6a8",
+    "share_group_id": "sg-205bb43b4bf1",
+    "logical_call_id": "call-8d28eb59399f",
+    "execution_id": "exec-557920b35a80",
+    "dependency_sequence": 4,
+    "validation_status": "MATCH",
+    "validation_time": 1793347616.7490094,
+    "mismatch_reason": null,
+    "elapsed_ms": 0.008600007276982069
+   }
+  ],
+  "metrics": {
+   "workflow_id": "wf-a189c810a9dd",
+   "scenario": "shared",
+   "mode": "online",
+   "makespan": 0.122073,
+   "logical_calls": 2,
+   "physical_executions": 1,
+   "saved_executions": 1,
+   "eligible_calls": 2,
+   "shared_calls": 1,
+   "share_success_rate": 0.5,
+   "total_cpu_time": 0.015625,
+   "peak_rss": 24166400,
+   "share_groups": 1,
+   "detach_count": 0,
+   "rejected_candidates": 0,
+   "failed_calls": 0,
+   "validation_count": 5,
+   "validation_failures": 0,
+   "validation_ms": 0.0621,
+   "total_share_wait": 0.186903,
+   "avg_share_wait": 0.093451,
+   "first_conflict_at": null,
+   "follower_independent_at": null,
+   "detection_delay": null,
+   "detach_to_independent_ms": null,
+   "detach_lead_ms_max": null,
+   "detach_lead_ms_median": null,
+   "saved_wait_ms_max": null,
+   "saved_wait_ms_median": null,
+   "online_detach_before_finish": false,
+   "collected_at": 1793347616.8349342
+  }
+ },
+ "metrics": {
+  "workflow_id": "wf-a189c810a9dd",
+  "scenario": "shared",
+  "mode": "online",
+  "makespan": 0.122073,
+  "logical_calls": 2,
+  "physical_executions": 1,
+  "saved_executions": 1,
+  "eligible_calls": 2,
+  "shared_calls": 1,
+  "share_success_rate": 0.5,
+  "total_cpu_time": 0.015625,
+  "peak_rss": 24166400,
+  "share_groups": 1,
+  "detach_count": 0,
+  "rejected_candidates": 0,
+  "failed_calls": 0,
+  "validation_count": 5,
+  "validation_failures": 0,
+  "validation_ms": 0.0621,
+  "total_share_wait": 0.186903,
+  "avg_share_wait": 0.093451,
+  "first_conflict_at": null,
+  "follower_independent_at": null,
+  "detection_delay": null,
+  "detach_to_independent_ms": null,
+  "detach_lead_ms_max": null,
+  "detach_lead_ms_median": null,
+  "saved_wait_ms_max": null,
+  "saved_wait_ms_median": null,
+  "online_detach_before_finish": false,
+  "collected_at": 1793347616.8369384
+ },
+ "graph": {
+  "workflow_id": "wf-a189c810a9dd",
+  "nodes": [
+   {
+    "id": "workflow:wf-a189c810a9dd",
+    "kind": "workflow",
+    "label": "shared",
+    "workflow_id": "wf-a189c810a9dd",
+    "status": "COMPLETED",
+    "start_time": 1793347616.6958668,
+    "end_time": 1793347616.8179402,
+    "attributes": {
+     "mode": "online"
+    }
+   },
+   {
+    "id": "agent:agent-1e491035b8a7",
+    "kind": "agent",
+    "label": "analysis-agent-a",
+    "workflow_id": "wf-a189c810a9dd",
+    "status": null,
+    "start_time": 1793347616.6958668,
+    "end_time": null,
+    "attributes": {
+     "agent_description": "scripted agent analysis-agent-a",
+     "registration_source": "scripted-agent"
+    }
+   },
+   {
+    "id": "invocation:inv-3ad5ccc7e02f",
+    "kind": "invocation",
+    "label": "analysis-agent-a",
+    "workflow_id": "wf-a189c810a9dd",
+    "status": "COMPLETED",
+    "start_time": 1793347616.6958668,
+    "end_time": 1793347616.8179402,
+    "attributes": {
+     "agent_id": "agent-1e491035b8a7"
+    }
+   },
+   {
+    "id": "call:call-df9a19e7c113",
+    "kind": "logical_call",
+    "label": "ast_analyzer",
+    "workflow_id": "wf-a189c810a9dd",
+    "status": "COMPLETED",
+    "start_time": 1793347616.6978824,
+    "end_time": 1793347616.7772927,
+    "attributes": {
+     "tool_name": "ast_analyzer",
+     "tool_version": "1.0.0",
+     "agent_id": "agent-1e491035b8a7",
+     "invocation_id": "inv-3ad5ccc7e02f",
+     "snapshot_id": "snap-6b57dc8ad944",
+     "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6"
+    }
+   },
+   {
+    "id": "agent:agent-f7e5798e53d7",
+    "kind": "agent",
+    "label": "analysis-agent-b",
+    "workflow_id": "wf-a189c810a9dd",
+    "status": null,
+    "start_time": 1793347616.703893,
+    "end_time": null,
+    "attributes": {
+     "agent_description": "scripted agent analysis-agent-b",
+     "registration_source": "scripted-agent"
+    }
+   },
+   {
+    "id": "invocation:inv-165edba14cd5",
+    "kind": "invocation",
+    "label": "analysis-agent-b",
+    "workflow_id": "wf-a189c810a9dd",
+    "status": "COMPLETED",
+    "start_time": 1793347616.704437,
+    "end_time": 1793347616.8179402,
+    "attributes": {
+     "agent_id": "agent-f7e5798e53d7"
+    }
+   },
+   {
+    "id": "execution:exec-557920b35a80",
+    "kind": "physical_execution",
+    "label": "ast_analyzer",
+    "workflow_id": "wf-a189c810a9dd",
+    "status": "COMPLETED",
+    "start_time": 1793347616.704437,
+    "end_time": 1793347616.7752934,
+    "attributes": {
+     "tool_name": "ast_analyzer",
+     "pid": 17000,
+     "snapshot_id": "snap-6b57dc8ad944",
+     "share_group_id": "sg-205bb43b4bf1",
+     "cpu_time": 0.015625,
+     "peak_rss": 24166400,
+     "error": null
+    }
+   },
+   {
+    "id": "call:call-8d28eb59399f",
+    "kind": "logical_call",
+    "label": "ast_analyzer",
+    "workflow_id": "wf-a189c810a9dd",
+    "status": "COMPLETED",
+    "start_time": 1793347616.704437,
+    "end_time": 1793347616.8179402,
+    "attributes": {
+     "tool_name": "ast_analyzer",
+     "tool_version": "1.0.0",
+     "agent_id": "agent-f7e5798e53d7",
+     "invocation_id": "inv-165edba14cd5",
+     "snapshot_id": "snap-6b57dc8ad944",
+     "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6"
+    }
+   },
+   {
+    "id": "result:40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+    "kind": "tool_result",
+    "label": "result 40059b6431",
+    "workflow_id": "wf-a189c810a9dd",
+    "status": null,
+    "start_time": 1793347616.8179402,
+    "end_time": null,
+    "attributes": {
+     "result_hash": "40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+     "shared": true
+    }
+   }
+  ],
+  "edges": [
+   {
+    "source": "agent:agent-1e491035b8a7",
+    "target": "invocation:inv-3ad5ccc7e02f",
+    "kind": "AGENT_INVOKES",
+    "attributes": {}
+   },
+   {
+    "source": "invocation:inv-3ad5ccc7e02f",
+    "target": "call:call-df9a19e7c113",
+    "kind": "CALLS_TOOL",
+    "attributes": {}
+   },
+   {
+    "source": "agent:agent-f7e5798e53d7",
+    "target": "invocation:inv-165edba14cd5",
+    "kind": "AGENT_INVOKES",
+    "attributes": {}
+   },
+   {
+    "source": "call:call-df9a19e7c113",
+    "target": "execution:exec-557920b35a80",
+    "kind": "BOUND_TO_EXECUTION",
+    "attributes": {}
+   },
+   {
+    "source": "invocation:inv-165edba14cd5",
+    "target": "call:call-8d28eb59399f",
+    "kind": "CALLS_TOOL",
+    "attributes": {}
+   },
+   {
+    "source": "call:call-8d28eb59399f",
+    "target": "execution:exec-557920b35a80",
+    "kind": "SHARES_EXECUTION_WITH",
+    "attributes": {
+     "share_group_id": "sg-205bb43b4bf1"
+    }
+   },
+   {
+    "source": "execution:exec-557920b35a80",
+    "target": "result:40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+    "kind": "EXECUTION_PRODUCES_RESULT",
+    "attributes": {}
+   },
+   {
+    "source": "result:40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+    "target": "call:call-df9a19e7c113",
+    "kind": "RESULT_DELIVERED_TO",
+    "attributes": {}
+   },
+   {
+    "source": "result:40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+    "target": "call:call-8d28eb59399f",
+    "kind": "RESULT_DELIVERED_TO",
+    "attributes": {}
+   }
+  ],
+  "generated_at": 1793347616.8389413
+ },
+ "timeline": {
+  "workflow_id": "wf-a189c810a9dd",
+  "lanes": [
+   {
+    "id": "execution:exec-557920b35a80",
+    "kind": "execution",
+    "label": "ast_analyzer #b35a80",
+    "start": 1793347616.704437,
+    "end": 1793347616.7752934,
+    "markers": [
+     {
+      "type": "dependency_read",
+      "timestamp": 1793347616.7284722,
+      "logical_call_id": "call-df9a19e7c113",
+      "tool_name": "ast_analyzer",
+      "path": "src/alpha.py",
+      "dependency_type": "FILE_READ",
+      "fingerprint": "b7798a190a64fa9eab1680557048446f14b0511ecbd77f09b2bb98c47e537e2b"
+     },
+     {
+      "type": "dependency_read",
+      "timestamp": 1793347616.7460089,
+      "logical_call_id": "call-df9a19e7c113",
+      "tool_name": "ast_analyzer",
+      "path": "src/beta.py",
+      "dependency_type": "FILE_READ",
+      "fingerprint": "d36c30a428d4a5aea9bbf9892aaa603bdb6c9bb2f9160de689f85020d86a5c5e"
+     },
+     {
+      "type": "dependency_read",
+      "timestamp": 1793347616.7470255,
+      "logical_call_id": "call-df9a19e7c113",
+      "tool_name": "ast_analyzer",
+      "path": "src/gamma.py",
+      "dependency_type": "FILE_READ",
+      "fingerprint": "158c8de93b24e7e12a8d98bd210e4e756a96f33f23d2f08da79026f9a71c071f"
+     },
+     {
+      "type": "dependency_read",
+      "timestamp": 1793347616.748014,
+      "logical_call_id": "call-df9a19e7c113",
+      "tool_name": "ast_analyzer",
+      "path": "src/pkg/helper.py",
+      "dependency_type": "FILE_READ",
+      "fingerprint": "5a10f0520f5aec2bd0bf8b82fdcb947891df3ccd8ef6e7e99bb3d15454eda276"
+     },
+     {
+      "type": "dependency_read",
+      "timestamp": 1793347616.748014,
+      "logical_call_id": "call-df9a19e7c113",
+      "tool_name": "ast_analyzer",
+      "path": "src/zeta_variant.py",
+      "dependency_type": "FILE_READ",
+      "fingerprint": "9b90b801884f964103efc7f61badca99afc4a8597a85ec61723ef009788465aa"
+     }
+    ],
+    "segments": [
+     {
+      "type": "execution",
+      "start": 1793347616.704437,
+      "end": 1793347616.7752934
+     }
+    ],
+    "tool_name": "ast_analyzer",
+    "pid": 17000,
+    "snapshot_id": "snap-6b57dc8ad944",
+    "share_group_id": "sg-205bb43b4bf1",
+    "status": "COMPLETED",
+    "cpu_time": 0.015625,
+    "peak_rss": 24166400
+   },
+   {
+    "id": "invocation:inv-3ad5ccc7e02f",
+    "kind": "invocation",
+    "label": "analysis-agent-a #c7e02f",
+    "start": 1793347616.6958668,
+    "end": 1793347616.8179402,
+    "markers": [
+     {
+      "type": "requested",
+      "timestamp": 1793347616.6978824,
+      "logical_call_id": "call-df9a19e7c113",
+      "tool_name": "ast_analyzer"
+     },
+     {
+      "type": "delivered",
+      "timestamp": 1793347616.7772927,
+      "logical_call_id": "call-df9a19e7c113",
+      "tool_name": "ast_analyzer"
+     }
+    ],
+    "segments": [
+     {
+      "type": "invocation",
+      "start": 1793347616.6958668,
+      "end": 1793347616.8179402
+     }
+    ],
+    "agent_id": "agent-1e491035b8a7",
+    "parent_invocation_id": null
+   },
+   {
+    "id": "invocation:inv-165edba14cd5",
+    "kind": "invocation",
+    "label": "analysis-agent-b #a14cd5",
+    "start": 1793347616.704437,
+    "end": 1793347616.8179402,
+    "markers": [
+     {
+      "type": "requested",
+      "timestamp": 1793347616.704437,
+      "logical_call_id": "call-8d28eb59399f",
+      "tool_name": "ast_analyzer"
+     },
+     {
+      "type": "shared_wait",
+      "timestamp": 1793347616.704437,
+      "logical_call_id": "call-8d28eb59399f",
+      "tool_name": "ast_analyzer"
+     },
+     {
+      "type": "validation_passed",
+      "timestamp": 1793347616.7460089,
+      "logical_call_id": "call-8d28eb59399f",
+      "tool_name": "ast_analyzer",
+      "reason": null,
+      "dependency_sequence": 0
+     },
+     {
+      "type": "validation_passed",
+      "timestamp": 1793347616.7470255,
+      "logical_call_id": "call-8d28eb59399f",
+      "tool_name": "ast_analyzer",
+      "reason": null,
+      "dependency_sequence": 1
+     },
+     {
+      "type": "validation_passed",
+      "timestamp": 1793347616.748014,
+      "logical_call_id": "call-8d28eb59399f",
+      "tool_name": "ast_analyzer",
+      "reason": null,
+      "dependency_sequence": 2
+     },
+     {
+      "type": "validation_passed",
+      "timestamp": 1793347616.748014,
+      "logical_call_id": "call-8d28eb59399f",
+      "tool_name": "ast_analyzer",
+      "reason": null,
+      "dependency_sequence": 3
+     },
+     {
+      "type": "validation_passed",
+      "timestamp": 1793347616.7490094,
+      "logical_call_id": "call-8d28eb59399f",
+      "tool_name": "ast_analyzer",
+      "reason": null,
+      "dependency_sequence": 4
+     },
+     {
+      "type": "delivered",
+      "timestamp": 1793347616.8179402,
+      "logical_call_id": "call-8d28eb59399f",
+      "tool_name": "ast_analyzer"
+     }
+    ],
+    "segments": [
+     {
+      "type": "invocation",
+      "start": 1793347616.704437,
+      "end": 1793347616.8179402
+     }
+    ],
+    "agent_id": "agent-f7e5798e53d7",
+    "parent_invocation_id": null
+   }
+  ],
+  "start_time": 1793347616.6958668,
+  "end_time": 1793347616.8179402,
+  "events": 27
+ },
+ "executions": {
+  "executions": [
+   {
+    "execution_id": "exec-557920b35a80",
+    "workflow_id": "wf-a189c810a9dd",
+    "tool_name": "ast_analyzer",
+    "tool_version": "1.0.0",
+    "arguments_hash": "d05e61b88ffbfe54248d63f5643b12c7f900ba795d1537a482faf755a84e3e86",
+    "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+    "source_snapshot_id": "snap-6b57dc8ad944",
+    "worker_pid": 17000,
+    "start_time": 1793347616.704437,
+    "finish_time": 1793347616.7593703,
+    "execution_status": "COMPLETED",
+    "cpu_time": 0.015625,
+    "peak_rss": 24166400,
+    "exit_status": "0",
+    "result_hash": "40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+    "result_reference": "C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\results\\wf-a189c810a9dd\\40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782.json",
+    "error": null,
+    "timeout_seconds": 60.0,
+    "share_group_id": "sg-205bb43b4bf1",
+    "attempt": 1,
+    "admission_reason": "admitted",
+    "queued_time": 0.000544,
+    "worker_root_pid": 48704,
+    "worker_command": "C:\\Users\\70454\\Desktop\\AgentFuse\\.venv\\Scripts\\python.exe -u -m agentfuse.runtime.worker_child"
+   }
+  ]
+ },
+ "execution": {
+  "execution": {
+   "execution_id": "exec-557920b35a80",
+   "workflow_id": "wf-a189c810a9dd",
+   "tool_name": "ast_analyzer",
+   "tool_version": "1.0.0",
+   "arguments_hash": "d05e61b88ffbfe54248d63f5643b12c7f900ba795d1537a482faf755a84e3e86",
+   "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+   "source_snapshot_id": "snap-6b57dc8ad944",
+   "worker_pid": 17000,
+   "start_time": 1793347616.704437,
+   "finish_time": 1793347616.7593703,
+   "execution_status": "COMPLETED",
+   "cpu_time": 0.015625,
+   "peak_rss": 24166400,
+   "exit_status": "0",
+   "result_hash": "40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+   "result_reference": "C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\results\\wf-a189c810a9dd\\40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782.json",
+   "error": null,
+   "timeout_seconds": 60.0,
+   "share_group_id": "sg-205bb43b4bf1",
+   "attempt": 1,
+   "admission_reason": "admitted",
+   "queued_time": 0.000544,
+   "worker_root_pid": 48704,
+   "worker_command": "C:\\Users\\70454\\Desktop\\AgentFuse\\.venv\\Scripts\\python.exe -u -m agentfuse.runtime.worker_child"
+  },
+  "resource_samples": [
+   {
+    "sample_id": 1,
+    "workflow_id": "wf-a189c810a9dd",
+    "execution_id": "exec-557920b35a80",
+    "timestamp": 1793347616.7284722,
+    "rss_bytes": 19578880,
+    "cpu_seconds": null,
+    "system_cpu_percent": null
+   },
+   {
+    "sample_id": 2,
+    "workflow_id": "wf-a189c810a9dd",
+    "execution_id": "exec-557920b35a80",
+    "timestamp": 1793347616.7752934,
+    "rss_bytes": 24166400,
+    "cpu_seconds": null,
+    "system_cpu_percent": null
+   }
+  ],
+  "peak_rss": 24166400
+ },
+ "dependencies": {
+  "execution": {
+   "execution_id": "exec-557920b35a80",
+   "workflow_id": "wf-a189c810a9dd",
+   "tool_name": "ast_analyzer",
+   "tool_version": "1.0.0",
+   "arguments_hash": "d05e61b88ffbfe54248d63f5643b12c7f900ba795d1537a482faf755a84e3e86",
+   "candidate_key": "d783daf8e5b4b6d913f26af8d4066e820f7f8d4ebc7c046456582bead346c8b6",
+   "source_snapshot_id": "snap-6b57dc8ad944",
+   "worker_pid": 17000,
+   "start_time": 1793347616.704437,
+   "finish_time": 1793347616.7593703,
+   "execution_status": "COMPLETED",
+   "cpu_time": 0.015625,
+   "peak_rss": 24166400,
+   "exit_status": "0",
+   "result_hash": "40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782",
+   "result_reference": "C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\results\\wf-a189c810a9dd\\40059b6431ff2a7a1fc7854f2e0d56f9650d7c08e06322d89f8f2e173f183782.json",
+   "error": null,
+   "timeout_seconds": 60.0,
+   "share_group_id": "sg-205bb43b4bf1",
+   "attempt": 1,
+   "admission_reason": "admitted",
+   "queued_time": 0.000544,
+   "worker_root_pid": 48704,
+   "worker_command": "C:\\Users\\70454\\Desktop\\AgentFuse\\.venv\\Scripts\\python.exe -u -m agentfuse.runtime.worker_child"
+  },
+  "share_group_id": "sg-205bb43b4bf1",
+  "dependencies": [
+   {
+    "sequence_number": 0,
+    "dependency_type": "FILE_READ",
+    "relative_path": "src/alpha.py",
+    "leader_fingerprint": "b7798a190a64fa9eab1680557048446f14b0511ecbd77f09b2bb98c47e537e2b",
+    "observed_time": 1793347616.7284722,
+    "validations": [
+     {
+      "logical_call_id": "call-8d28eb59399f",
+      "validation_status": "MATCH",
+      "mismatch_reason": null,
+      "validation_time": 1793347616.7460089,
+      "elapsed_ms": 0.019099970813840628
+     }
+    ]
+   },
+   {
+    "sequence_number": 1,
+    "dependency_type": "FILE_READ",
+    "relative_path": "src/beta.py",
+    "leader_fingerprint": "d36c30a428d4a5aea9bbf9892aaa603bdb6c9bb2f9160de689f85020d86a5c5e",
+    "observed_time": 1793347616.7460089,
+    "validations": [
+     {
+      "logical_call_id": "call-8d28eb59399f",
+      "validation_status": "MATCH",
+      "mismatch_reason": null,
+      "validation_time": 1793347616.7470255,
+      "elapsed_ms": 0.010699965059757233
+     }
+    ]
+   },
+   {
+    "sequence_number": 2,
+    "dependency_type": "FILE_READ",
+    "relative_path": "src/gamma.py",
+    "leader_fingerprint": "158c8de93b24e7e12a8d98bd210e4e756a96f33f23d2f08da79026f9a71c071f",
+    "observed_time": 1793347616.7470255,
+    "validations": [
+     {
+      "logical_call_id": "call-8d28eb59399f",
+      "validation_status": "MATCH",
+      "mismatch_reason": null,
+      "validation_time": 1793347616.748014,
+      "elapsed_ms": 0.014699995517730713
+     }
+    ]
+   },
+   {
+    "sequence_number": 3,
+    "dependency_type": "FILE_READ",
+    "relative_path": "src/pkg/helper.py",
+    "leader_fingerprint": "5a10f0520f5aec2bd0bf8b82fdcb947891df3ccd8ef6e7e99bb3d15454eda276",
+    "observed_time": 1793347616.748014,
+    "validations": [
+     {
+      "logical_call_id": "call-8d28eb59399f",
+      "validation_status": "MATCH",
+      "mismatch_reason": null,
+      "validation_time": 1793347616.748014,
+      "elapsed_ms": 0.009000010322779417
+     }
+    ]
+   },
+   {
+    "sequence_number": 4,
+    "dependency_type": "FILE_READ",
+    "relative_path": "src/zeta_variant.py",
+    "leader_fingerprint": "9b90b801884f964103efc7f61badca99afc4a8597a85ec61723ef009788465aa",
+    "observed_time": 1793347616.748014,
+    "validations": [
+     {
+      "logical_call_id": "call-8d28eb59399f",
+      "validation_status": "MATCH",
+      "mismatch_reason": null,
+      "validation_time": 1793347616.7490094,
+      "elapsed_ms": 0.008600007276982069
+     }
+    ]
+   }
+  ],
+  "participants": [
+   {
+    "share_group_id": "sg-205bb43b4bf1",
+    "logical_call_id": "call-df9a19e7c113",
+    "workflow_id": "wf-a189c810a9dd",
+    "agent_id": "agent-1e491035b8a7",
+    "invocation_id": "inv-3ad5ccc7e02f",
+    "snapshot_id": "snap-6b57dc8ad944",
+    "status": "COMPLETED",
+    "validated_prefix_length": 0,
+    "validation_status": "MATCH",
+    "attached_time": 1793347616.703893,
+    "detached_time": null,
+    "delivered_time": 1793347616.7772927,
+    "wait_duration": 0.07339978218078613,
+    "wait_reason": null,
+    "detach_reason": null,
+    "detach_kind": null,
+    "is_leader": 1
+   },
+   {
+    "share_group_id": "sg-205bb43b4bf1",
+    "logical_call_id": "call-8d28eb59399f",
+    "workflow_id": "wf-a189c810a9dd",
+    "agent_id": "agent-f7e5798e53d7",
+    "invocation_id": "inv-165edba14cd5",
+    "snapshot_id": "snap-6b57dc8ad944",
+    "status": "COMPLETED",
+    "validated_prefix_length": 5,
+    "validation_status": "MATCH",
+    "attached_time": 1793347616.704437,
+    "detached_time": null,
+    "delivered_time": 1793347616.8179402,
+    "wait_duration": 0.11350321769714355,
+    "wait_reason": "等待 Leader 的物理执行完成",
+    "detach_reason": null,
+    "detach_kind": null,
+    "is_leader": 0
+   }
+  ],
+  "summary": {
+   "dependency_count": 5,
+   "validation_count": 5,
+   "validation_failures": 0
+  }
+ },
+ "tools": {
+  "tools": [
+   {
+    "tool_name": "ast_analyzer",
+    "tool_version": "1.0.0",
+    "deterministic": true,
+    "read_only": true,
+    "shareable": true,
+    "description": "Parse Python sources and summarise their structure.",
+    "implementation_reference": "agentfuse.tools.ast_analyzer:python_ast_analyzer",
+    "resource_estimate": {
+     "cpu_seconds": 0.3,
+     "memory_mb": 64.0
+    },
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "files": {
+       "type": "array"
+      }
+     },
+     "required": [
+      "files"
+     ]
+    }
+   },
+   {
+    "tool_name": "content_digest",
+    "tool_version": "1.0.0",
+    "deterministic": true,
+    "read_only": true,
+    "shareable": true,
+    "description": "Hash files and perform deterministic CPU work.",
+    "implementation_reference": "agentfuse.tools.digest_analyzer:content_digest_analyzer",
+    "resource_estimate": {
+     "cpu_seconds": 1.0,
+     "memory_mb": 64.0
+    },
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "files": {
+       "type": "array"
+      },
+      "rounds": {
+       "type": "integer"
+      }
+     },
+     "required": [
+      "files"
+     ]
+    }
+   },
+   {
+    "tool_name": "dependency_analyzer",
+    "tool_version": "1.0.0",
+    "deterministic": true,
+    "read_only": true,
+    "shareable": true,
+    "description": "Extract module import relations from Python sources.",
+    "implementation_reference": "agentfuse.tools.dependency_analyzer:source_dependency_analyzer",
+    "resource_estimate": {
+     "cpu_seconds": 0.3,
+     "memory_mb": 64.0
+    },
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "files": {
+       "type": "array"
+      }
+     },
+     "required": [
+      "files"
+     ]
+    }
+   },
+   {
+    "tool_name": "duplicate_blocks",
+    "tool_version": "1.0.0",
+    "deterministic": true,
+    "read_only": true,
+    "shareable": true,
+    "description": "Find duplicated code blocks inside a set of source files.",
+    "implementation_reference": "agentfuse.tools.duplicate_blocks:duplicate_block_finder",
+    "resource_estimate": {
+     "cpu_seconds": 0.5,
+     "memory_mb": 64.0
+    },
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "files": {
+       "type": "array"
+      },
+      "block_size": {
+       "type": "integer"
+      }
+     },
+     "required": [
+      "files"
+     ]
+    }
+   },
+   {
+    "tool_name": "fault_injector",
+    "tool_version": "1.0.0",
+    "deterministic": false,
+    "read_only": false,
+    "shareable": false,
+    "description": "Injects a failure, a crash or a hang (test fixture).",
+    "implementation_reference": "agentfuse.tools.fault_injector:fault_injector",
+    "resource_estimate": {
+     "cpu_seconds": 1.0,
+     "memory_mb": 32.0
+    },
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "mode": {
+       "type": "string"
+      },
+      "seconds": {
+       "type": "number"
+      }
+     },
+     "required": []
+    }
+   },
+   {
+    "tool_name": "import_graph",
+    "tool_version": "1.0.0",
+    "deterministic": true,
+    "read_only": true,
+    "shareable": true,
+    "description": "Build the module import graph of a source tree.",
+    "implementation_reference": "agentfuse.tools.import_graph:import_graph_builder",
+    "resource_estimate": {
+     "cpu_seconds": 0.4,
+     "memory_mb": 72.0
+    },
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "root": {
+       "type": "string"
+      },
+      "extensions": {
+       "type": "array"
+      }
+     },
+     "required": []
+    }
+   },
+   {
+    "tool_name": "source_index",
+    "tool_version": "1.0.0",
+    "deterministic": true,
+    "read_only": true,
+    "shareable": true,
+    "description": "Index the source files of a directory (read only).",
+    "implementation_reference": "agentfuse.tools.source_index:source_file_index",
+    "resource_estimate": {
+     "cpu_seconds": 0.2,
+     "memory_mb": 48.0
+    },
+    "input_schema": {
+     "type": "object",
+     "properties": {
+      "root": {
+       "type": "string"
+      },
+      "extensions": {
+       "type": "array"
+      },
+      "max_files": {
+       "type": "integer"
+      }
+     },
+     "required": []
+    }
+   }
+  ]
+ },
+ "scenarios": {
+  "scenarios": [
+   "cancel-failure",
+   "different-workspace",
+   "divergent",
+   "multi-agent",
+   "shared",
+   "shared-heavy"
+  ],
+  "catalogue": [
+   {
+    "name": "shared",
+    "title": "完全共享",
+    "description": "两个 Agent 从同一个快照发起完全相同的 AST 分析请求。",
+    "expectation": "2 个逻辑调用只产生 1 次物理执行，两个调用得到相同结果。",
+    "workload": {
+     "tool": "ast_analyzer",
+     "files": 5
+    },
+    "measures": [
+     "makespan",
+     "physical_executions",
+     "share_success_rate"
+    ]
+   },
+   {
+    "name": "shared-heavy",
+    "title": "完全共享（CPU 密集负载）",
+    "description": "两个 Agent 请求同一份内容摘要计算，工具包含真实 CPU 负载。",
+    "expectation": "2 个逻辑调用只产生 1 次物理执行，节省整段计算时间。",
+    "workload": {
+     "tool": "content_digest",
+     "files": 5,
+     "rounds": 3000
+    },
+    "measures": [
+     "makespan",
+     "physical_executions",
+     "total_cpu_time"
+    ]
+   },
+   {
+    "name": "different-workspace",
+    "title": "不同工作区但依赖等价",
+    "description": "两个分支来自同一快照，分支 A 只修改 README，工具只分析 src/*.py。",
+    "expectation": "快照不同但被读取的依赖一致 -> 允许共享。",
+    "workload": {
+     "tool": "ast_analyzer",
+     "files": 5,
+     "branch_change": "README.md"
+    },
+    "measures": [
+     "makespan",
+     "physical_executions",
+     "detach_count"
+    ]
+   },
+   {
+    "name": "divergent",
+    "title": "动态依赖冲突",
+    "description": "两个分支在 src/zeta_variant.py 上内容不同，冲突文件按排序位于最后。",
+    "expectation": "Follower 在 Leader 运行期间被分离，双方各自得到正确结果。",
+    "workload": {
+     "tool": "content_digest",
+     "files": 5,
+     "rounds": 1500
+    },
+    "measures": [
+     "makespan",
+     "detach_count",
+     "validation_count",
+     "detach_lead_ms_max"
+    ]
+   },
+   {
+    "name": "multi-agent",
+    "title": "并发多 Agent 与汇合",
+    "description": "Supervisor 启动三个 Worker（A、B、C），Aggregator 在结果到齐后汇合。",
+    "expectation": "4 个逻辑调用产生 3 次物理执行（A 与 B 共享）。",
+    "workload": {
+     "tools": [
+      "ast_analyzer",
+      "ast_analyzer",
+      "dependency_analyzer",
+      "source_index"
+     ]
+    },
+    "measures": [
+     "makespan",
+     "physical_executions",
+     "invocations"
+    ]
+   },
+   {
+    "name": "cancel-failure",
+    "title": "取消与失败语义",
+    "description": "Follower 取消、Leader 逻辑调用取消、执行超时、worker 崩溃、共享失败。",
+    "expectation": "不产生错误结果、不永久等待、不泄漏 worker 进程。",
+    "workload": {
+     "tool": "fault_injector",
+     "modes": [
+      "cancel",
+      "timeout",
+      "crash",
+      "failure"
+     ]
+    },
+    "measures": [
+     "failed_calls",
+     "detach_count",
+     "leaked_processes"
+    ]
+   }
+  ]
+ },
+ "benchmarks": {
+  "runs": []
+ },
+ "_ids": {
+  "workflow": "wf-a189c810a9dd",
+  "execution": "exec-557920b35a80"
+ }
+}

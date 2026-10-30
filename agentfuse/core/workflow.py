@@ -56,9 +56,12 @@ class WorkflowRuntime:
         self.graph = ExecutionGraph(workflow_id=self.workflow_id)
         #: default workspace snapshot used by adapters that do not specify one
         self.default_snapshot_id: str | None = None
-        #: the seeded random source of this workflow - every stochastic
+        #: the seeded random source of this workflow.  Every stochastic
         #: decision of the run has to use it, otherwise the seed would not
-        #: have any effect and the run would not be reproducible
+        #: have any effect and the run would not be reproducible.  The source
+        #: is **not** installed globally: seeding ``random`` would change the
+        #: behaviour of the whole process, including the code that embeds
+        #: AgentFuse.
         self.rng = random.Random(random_seed)
 
         self._unsubscribe = event_bus.subscribe(self._on_event)
@@ -80,10 +83,6 @@ class WorkflowRuntime:
     def start(self) -> None:
         self.start_time = time.time()
         self.status = WorkflowStatus.RUNNING
-        if self.random_seed is not None:
-            # the global random source is seeded as well - a tool or an
-            # adapter that uses ``random`` directly stays reproducible
-            random.seed(self.random_seed)
         self._persist_workflow()
         self.event_bus.publish(
             EventType.WORKFLOW_STARTED,

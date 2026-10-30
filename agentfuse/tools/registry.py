@@ -20,7 +20,7 @@ from .base import (
 from .ast_analyzer import python_ast_analyzer
 from .dependency_analyzer import source_dependency_analyzer
 from .duplicate_blocks import duplicate_block_finder
-from .fixtures import raw_reader, test_tools_enabled
+from .fixtures import random_reader, raw_reader, test_tools_enabled
 from .digest_analyzer import content_digest_analyzer
 from .fault_injector import fault_injector
 from .import_graph import import_graph_builder
@@ -307,6 +307,25 @@ def build_default_registry() -> ToolRegistry:
                 implementation_reference="agentfuse.tools.fixtures:raw_reader",
                 env_signature={"scope": "workspace-filesystem"},
                 description="Test fixture: reads the workspace without the reader.",
+            )
+        )
+        # a tool that draws random numbers: it declares it and is therefore
+        # never shared (requirement 7.4)
+        registry.register(
+            ToolSpec(
+                tool_name="random_reader",
+                tool_version="1.0.0",
+                deterministic=True,
+                read_only=True,
+                dependency_tracking=True,
+                uses_random=True,
+                resource_estimate={"cpu_seconds": 0.1, "memory_mb": 32.0},
+                input_schema={"type": "object", "properties": {}, "required": []},
+                output_schema={"type": "object"},
+                implementation=random_reader,
+                implementation_reference="agentfuse.tools.fixtures:random_reader",
+                env_signature={"scope": "workspace-filesystem"},
+                description="Test fixture: reads the workspace and draws a number.",
             )
         )
         # a second version of the same tool: the version is part of the

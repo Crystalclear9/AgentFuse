@@ -150,3 +150,38 @@ async def test_a_controlled_tool_is_shared(app, snapshot):
     )
     executions = app.repository.list_executions(workflow.workflow_id)
     assert len(executions) == 1
+
+
+async def test_the_seed_reaches_the_tool_as_its_random_source(app, snapshot, monkeypatch):
+    """The seed of the workflow is the source of the call's random numbers.
+
+    The same call always draws the same values, two different calls never
+    share them - that is what makes a call that uses randomness reproducible
+    without making it shareable.
+    """
+
+    monkeypatch.setenv("AGENTFUSE_TEST_TOOLS", "1")
+    app.coordinator.registry = build_default_registry()
+    app.coordinator.worker_pool_size = 0
+
+    # the fixture tool draws a random number and reports it - the worker
+    # knows it as well, because it is registered in the default registry
+    workflow = app.create_workflow("test-seed", random_seed=4242)
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    first = await app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="random_reader",
+        arguments={},
+        snapshot_id=snapshot.snapshot_id,
+    )
+    second = await app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="random_reader",
+        arguments={},
+        snapshot_id=snapshot.snapshot_id,
+    )
+    # the tool is not shareable (it uses randomness)
+    assert first.physical_execution_id != second.physical_execution_id
+    assert first.result["random"] != second.result["random"]

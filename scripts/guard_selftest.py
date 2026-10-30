@@ -146,8 +146,15 @@ MUTATIONS: list[dict[str, Any]] = [
         "name": "取消不再记录为取消",
         "clause": "10.4",
         "file": "agentfuse/runtime/cancellation.py",
-        "old": "            _cancelled_outcome(reason)",
-        "new": "            _timeout_outcome(reason)",
+        "old": (
+            "        if kind == ERROR_TIMEOUT:\n"
+            "            execution.outcome.set_result(_timeout_outcome(reason))\n"
+            "        else:\n"
+            "            execution.outcome.set_result(_cancelled_outcome(reason))"
+        ),
+        "new": (
+            "        execution.outcome.set_result(_timeout_outcome(reason))"
+        ),
         "guards": [
             [
                 sys.executable,
@@ -155,6 +162,74 @@ MUTATIONS: list[dict[str, Any]] = [
                 "pytest",
                 "tests/integration/test_concurrency.py::"
                 "test_cancelling_every_participant_terminates_the_execution",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "前端不再渲染真实数据",
+        "clause": "14",
+        "file": "agentfuse/web/app.js",
+        "old": '  $("tool-table").querySelector("tbody").innerHTML = rows;',
+        "new": '  $("tool-table-broken").querySelector("tbody").innerHTML = rows;',
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/frontend/test_frontend.py",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "超时不再记录为超时",
+        "clause": "10.1",
+        "file": "agentfuse/runtime/cancellation.py",
+        "old": """        if kind == ERROR_TIMEOUT:
+            execution.outcome.set_result(_timeout_outcome(reason))
+        else:
+            execution.outcome.set_result(_cancelled_outcome(reason))""",
+        "new": """        execution.outcome.set_result(_cancelled_outcome(reason))""",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
+    {
+        "name": "候选键包含 workspace snapshot",
+        "clause": "8.1",
+        "file": "agentfuse/sharing/candidate.py",
+        "old": """            "arguments": arguments,
+            "environment": spec.environment_signature(),""",
+        "new": """            "arguments": arguments,
+            "snapshot_id": "the-snapshot-must-not-be-part-of-the-key",
+            "environment": spec.environment_signature(),""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_candidate.py",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "种子不再到达工具",
+        "clause": "7.4",
+        "file": "agentfuse/runtime/worker.py",
+        "old": """    return random.Random(f"{seed}:{call_id}")""",
+        "new": """    return random.Random()""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_tools.py",
                 "-q",
             ],
         ],

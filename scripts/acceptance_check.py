@@ -93,6 +93,36 @@ def main() -> int:
                   multi.metrics["logical_calls"] == 4
                   and multi.metrics["physical_executions"] == 3)
 
+            # every scenario of the requirement has to run for real
+            from agentfuse.scenarios.definitions import (
+                scenario_cancel_failure,
+                scenario_different_workspace,
+                scenario_shared_heavy,
+            )
+
+            heavy = await scenario_shared_heavy(app, RuntimeMode.ONLINE, {"rounds": 400})
+            check("CPU 密集场景共享一次执行",
+                  heavy.metrics["physical_executions"] == 1
+                  and heavy.metrics["logical_calls"] == 2
+                  and heavy.results[0].result_hash == heavy.results[1].result_hash,
+                  f"executions={heavy.metrics['physical_executions']}")
+
+            workspace = await scenario_different_workspace(app, RuntimeMode.ONLINE, {})
+            check("不同工作区仍能共享",
+                  workspace.metrics["physical_executions"] == 1
+                  and workspace.metrics["detach_count"] == 0,
+                  f"executions={workspace.metrics['physical_executions']}")
+
+            failures = await scenario_cancel_failure(
+                app, RuntimeMode.ONLINE, {"timeout_seconds": 0.5}
+            )
+            check("取消与失败场景覆盖全部情形",
+                  failures.notes["follower_cancel"]["follower_result"] == {"cancelled": True}
+                  and failures.notes["leader_cancel"]["cancelled_was_the_leader"] is True
+                  and "timed out" in failures.notes["timeout"]["error"]
+                  and failures.notes["crash"]["kind"] in ("worker_crash", "internal_error"),
+                  "取消/超时/崩溃")
+
             calls = app.repository.list_logical_calls(shared.workflow_id)
             executions = app.repository.list_executions(shared.workflow_id)
             runtime_ids["workflow"] = shared.workflow_id

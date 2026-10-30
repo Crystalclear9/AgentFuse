@@ -18,6 +18,7 @@ import time
 from typing import Any
 
 from ..core.state import ExecutionStatus
+from .protocol import ERROR_CANCELLED, ERROR_TIMEOUT
 
 try:  # pragma: no cover - psutil is a hard dependency of the runtime
     import psutil
@@ -144,7 +145,9 @@ def terminate_worker(
     return gone
 
 
-async def terminate_execution(execution: Any, reason: str) -> None:
+async def terminate_execution(
+    execution: Any, reason: str, kind: str = ERROR_CANCELLED
+) -> None:
     """Terminate one execution and record the cancellation.
 
     The outcome is set **before** the process is killed: the exit of the
@@ -166,9 +169,10 @@ async def terminate_execution(execution: Any, reason: str) -> None:
         execution.timeout_task.cancel()
         execution.timeout_task = None
     if not execution.outcome.done():
-        execution.outcome.set_result(
-            _cancelled_outcome(reason)
-        )
+        if kind == ERROR_TIMEOUT:
+            execution.outcome.set_result(_timeout_outcome(reason))
+        else:
+            execution.outcome.set_result(_cancelled_outcome(reason))
     await asyncio.to_thread(
         terminate_worker,
         execution.process,
