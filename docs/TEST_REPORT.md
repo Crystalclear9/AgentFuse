@@ -129,6 +129,7 @@ python scripts/run_ci_like.py --matrix
 | venv（有 launcher 存根） | 153 passed, 1 skipped |
 | 基础解释器（= CI 环境，无存根） | 153 passed, 1 skipped（6 种池/并发组合全通过） |
 | WSL2 / Ubuntu-22.04 | 154 passed |
+| **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **16 / 16 job 全部成功** |
 
 ## 3.6 CI 第二次运行的失败（run #4）
 
@@ -138,6 +139,15 @@ python scripts/run_ci_like.py --matrix
 |---|---|---|
 | 5 个 Windows job：`test_concurrency.py::test_no_worker_processes_are_leaked` 报「worker processes are still running」 | 旧的泄漏断言**只看 pid**；CI 上 pid 被操作系统重用 → 误报 | 改为**进程身份校验**（pid + `create_time`），只有身份一致的进程才算泄漏 |
 | 3 个 macOS job：`资源数据被采集` 报 `peak_rss=0` | `_finalize_execution` 中 **`_sample_final_rss()` 在 `_persist_execution()` 之后调用** → 最后一次 RSS 采样没落库。Windows 上工具大约足够慢（monitor 线程周期采样到了），macOS 上执行太快 → 采样值丢失 = 0 | 让 `_sample_final_rss()` **先执行**、再落库；采样失败时回退到 launcher/child pid |
+
+## 3.7 CI 的三次修复记录
+
+| 运行 | 失败 job | 根因 | 修复 |
+|---|---|---|---|
+| #3 | 9 / 16 | 测试假设“Windows 必有 launcher 存根”（CI 用 setup-python 的真实解释器，无存根）；`discover_children` 在无存根时阻塞满 1 秒 | 改为平台无关的不变量断言；用 `sys.base_prefix` 判定是否可能有存根（**1010 ms → 5 ms**） |
+| #4 | 8 / 16 | macOS：`_sample_final_rss()` 在 `_persist_execution()` **之后** 调用 → 最后一次 RSS 采样丢失 = 0；Windows：旧泄漏断言只看 pid → pid 被复用误报 | 采样先落库再写行；泄漏断言校验进程身份（pid + `create_time`） |
+| #5 | 3 / 16（Windows 验收） | runner 的 stdout 编码是 **cp1252** → 打印中文报告时 `UnicodeEncodeError` 崩溃；终止后立即校验进程是否消失产生误报 | 所有脚本强制 UTF-8 输出；CI 额外设置 `PYTHONIOENCODING`/`PYTHONUTF8`；终止校验改为重试直到进程真的消失 |
+| **#6** | **0 / 16** | 全部通过 | — |
 
 ## 4. 跨平台验证发现并修复的真实缺陷
 

@@ -439,6 +439,25 @@ Windows 上的 venv 使用 **launcher 打手**：`Popen.pid` 是 launcher，真�
 
 ---
 
+## 阶段 22 — CI 三轮修复（P0）
+
+CI 的三次运行暴露了三类不同的问题。通过 **git 凭据管理器的 token
+读取 job 日志**实现了精确定位（日志 API 需要鉴权，页面需登录）。
+
+| 轮次 | 失败 | 根因 | 修复 |
+|---|---|---|---|
+| #3 | 9/16 | 测试错误假设 launcher 存根；`discover_children` 无存根时阻塞 1 秒 | 平台无关不变量断言；`sys.base_prefix` 判定（1010 ms → 5 ms） |
+| #4 | 8/16 | macOS：RSS 最后采样在落库之后丢失；Windows：泄漏断言只看 pid | 采样先落库；断言校验进程身份（pid + create_time） |
+| #5 | 3/16 | runner stdout 编码 cp1252 → 打印中文崩溃；终止校验过快产生误报 | 所有脚本强制 UTF-8；CI 设 `PYTHONIOENCODING`；终止校验改为重试 |
+| **#6** | **0/16** | 全部通过 | — |
+
+**新增的自动化能力**：
+
+* `scripts/run_ci_like.py` —用基础解释器 + `PYTHONPATH` 本地仓库**在本地复现 runner 环境**，无需等待 CI 即可跑完整矩阵；
+* `scripts/acceptance_check.py` 写出 `.agentfuse/reports/acceptance.json` —失败时可从 artifact 直接诊断；
+* `scripts/audit_requirements.py` 改为在**临时数据库**上核对 schema 定义，不再依赖上一次运行的数据目录；且不再启动 worker 进程；
+* CI：审计提到测试之前（静态最快），数据始终上传，soak 扩到 10 分钟。
+
 ## 下一阶段建议（P3）
 
 1. 跨会话持久化结果缓存（需要持久化依赖账本 + 快照内容寻址）。
