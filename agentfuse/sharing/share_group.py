@@ -134,8 +134,8 @@ class ShareGroup:
     candidate_key: str
     tool_name: str
     tool_version: str
-    leader_execution_id: str
-    leader_logical_call_id: str
+    leader_execution_id: str | None = None
+    leader_logical_call_id: str | None = None
     creation_time: float = field(default_factory=time.time)
     closed_time: float | None = None
     status: ShareGroupStatus = ShareGroupStatus.CREATED

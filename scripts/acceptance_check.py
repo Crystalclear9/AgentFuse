@@ -101,6 +101,22 @@ def main() -> int:
             check("事件协议落库",
                   len(events) > 5
                   and any(e["event_type"] == "TOOL_READ_OBSERVED" for e in events))
+
+            # --- referential integrity ------------------------------------
+            database = app.repository.db
+            check("数据库写入零错误",
+                  database.write_errors == 0,
+                  f"errors={database.write_errors}: {(database.last_error or '')[:200]}")
+            violations = database.foreign_key_violations()
+            check("外键约束无违规", not violations, f"violations={violations[:5]}")
+            foreign_keys = database.foreign_keys()
+            check("外键约束已声明",
+                  len(foreign_keys) >= 14,
+                  f"declared={len(foreign_keys)}")
+            check("调用与执行原子落库",
+                  all(call["physical_execution_id"] for call in calls)
+                  and all(execution["result_reference"] for execution in executions),
+                  f"calls={[c['physical_execution_id'] for c in calls]}")
         finally:
             await app.close()
 

@@ -20,6 +20,7 @@ from .base import (
 from .ast_analyzer import python_ast_analyzer
 from .dependency_analyzer import source_dependency_analyzer
 from .duplicate_blocks import duplicate_block_finder
+from .fixtures import raw_reader, test_tools_enabled
 from .digest_analyzer import content_digest_analyzer
 from .fault_injector import fault_injector
 from .import_graph import import_graph_builder
@@ -112,6 +113,7 @@ def build_default_registry() -> ToolRegistry:
             },
             implementation=source_file_index,
             implementation_reference=describe_implementation(source_file_index),
+            dependency_tracking=True,
             env_signature={"scope": "workspace-filesystem"},
             description="Index the source files of a directory (read only).",
         )
@@ -138,6 +140,7 @@ def build_default_registry() -> ToolRegistry:
             },
             implementation=python_ast_analyzer,
             implementation_reference=describe_implementation(python_ast_analyzer),
+            dependency_tracking=True,
             argument_normalizer=sort_file_arguments,
             env_signature={"scope": "workspace-filesystem", "parser": "ast"},
             description="Parse Python sources and summarise their structure.",
@@ -165,6 +168,7 @@ def build_default_registry() -> ToolRegistry:
             },
             implementation=source_dependency_analyzer,
             implementation_reference=describe_implementation(source_dependency_analyzer),
+            dependency_tracking=True,
             argument_normalizer=sort_file_arguments,
             env_signature={"scope": "workspace-filesystem", "parser": "ast"},
             description="Extract module import relations from Python sources.",
@@ -192,6 +196,7 @@ def build_default_registry() -> ToolRegistry:
             },
             implementation=content_digest_analyzer,
             implementation_reference=describe_implementation(content_digest_analyzer),
+            dependency_tracking=True,
             argument_normalizer=sort_file_arguments,
             env_signature={"scope": "workspace-filesystem", "algorithm": "sha256"},
             description="Hash files and perform deterministic CPU work.",
@@ -223,6 +228,7 @@ def build_default_registry() -> ToolRegistry:
             },
             implementation=import_graph_builder,
             implementation_reference=describe_implementation(import_graph_builder),
+            dependency_tracking=True,
             env_signature={"scope": "workspace-filesystem", "parser": "ast"},
             description="Build the module import graph of a source tree.",
         )
@@ -252,6 +258,7 @@ def build_default_registry() -> ToolRegistry:
             },
             implementation=duplicate_block_finder,
             implementation_reference=describe_implementation(duplicate_block_finder),
+            dependency_tracking=True,
             argument_normalizer=sort_file_arguments,
             env_signature={"scope": "workspace-filesystem", "algorithm": "sha256"},
             description="Find duplicated code blocks inside a set of source files.",
@@ -277,10 +284,31 @@ def build_default_registry() -> ToolRegistry:
             output_schema={"type": "object"},
             implementation=fault_injector,
             implementation_reference=describe_implementation(fault_injector),
+            dependency_tracking=False,
             env_signature={"scope": "fault-injection"},
             description="Injects a failure, a crash or a hang (test fixture).",
         )
     )
+
+    if test_tools_enabled():
+        # the fixture tools verify the dependency tracking contract - they are
+        # only available when they are explicitly requested
+        registry.register(
+            ToolSpec(
+                tool_name="raw_reader",
+                tool_version="1.0.0",
+                deterministic=True,
+                read_only=True,
+                dependency_tracking=True,  # the tool *claims* a complete ledger
+                resource_estimate={"cpu_seconds": 0.1, "memory_mb": 32.0},
+                input_schema={"type": "object", "properties": {}, "required": []},
+                output_schema={"type": "object"},
+                implementation=raw_reader,
+                implementation_reference="agentfuse.tools.fixtures:raw_reader",
+                env_signature={"scope": "workspace-filesystem"},
+                description="Test fixture: reads the workspace without the reader.",
+            )
+        )
 
     return registry
 

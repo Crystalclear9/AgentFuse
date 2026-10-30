@@ -189,3 +189,154 @@ def test_completed_workflows_are_not_recovered(tmp_path):
     assert repository.recover_interrupted_workflows() == []
     assert repository.get_workflow("wf-done")["status"] == "COMPLETED"
     db.close()
+
+
+# ----------------------------------------------------------------------
+# foreign keys and transactions
+# ----------------------------------------------------------------------
+def test_the_schema_declares_the_foreign_keys(tmp_path):
+    """Every relation of the schema is backed by a real foreign key."""
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+
+    declared = db.foreign_keys()
+    tables = {row[0] for row in declared}
+    assert {"agents", "agent_invocations", "logical_tool_calls", "share_groups",
+            "share_participants", "dependency_records", "validation_records"} <= tables
+    assert len(declared) >= 14
+    db.close()
+
+
+def test_a_foreign_key_violation_is_rejected(tmp_path):
+    """A row that references a missing workflow must not be stored."""
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+
+    db.write(
+        "INSERT INTO agents (agent_id, workflow_id, created_at) "
+        "VALUES ('agent-x', 'wf-missing', 1.0)"
+    )
+    db.flush()
+
+    assert db.write_errors >= 1, "the violation must be reported"
+    assert "FOREIGN KEY" in (db.last_error or "")
+    assert db.query("SELECT * FROM agents") == []
+    db.close()
+
+
+def test_the_migration_to_v5_keeps_the_data(tmp_path):
+    """The rebuild that adds the foreign keys must not lose a single row."""
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+    repository = Repository(db)
+
+    db.write(
+        "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+        "VALUES ('wf-keep', 'demo', 1.0, 'RUNNING', 'online')"
+    )
+    db.write(
+        "INSERT INTO agents (agent_id, workflow_id, created_at) "
+        "VALUES ('agent-keep', 'wf-keep', 1.0)"
+    )
+    db.write(
+        "INSERT INTO physical_executions (execution_id, workflow_id, tool_name, tool_version, "
+        "arguments_hash, execution_status, worker_root_pid, worker_command) "
+        "VALUES ('exec-keep', 'wf-keep', 'ast_analyzer', '1.0.0', 'hash', 'RUNNING', 42, 'cmd')"
+    )
+    db.flush()
+
+    # pretend that the database was created before the foreign keys existed
+    conn = sqlite3.connect(db.path)
+    try:
+        for table in ("agents", "agent_invocations", "logical_tool_calls",
+                      "physical_executions", "share_groups", "share_participants",
+                      "dependency_records", "validation_records", "resource_samples"):
+            conn.execute(f"ALTER TABLE {table} RENAME TO {table}_old")
+            conn.execute(
+                f"CREATE TABLE {table} AS SELECT * FROM {table}_old"
+            )
+            conn.execute(f"DROP TABLE {table}_old")
+        conn.execute("PRAGMA user_version = 4")
+        conn.commit()
+    finally:
+        conn.close()
+    db.close()
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+
+    assert db.schema_version() == SCHEMA_VERSION
+    assert len(db.foreign_keys()) >= 14, "the rebuild must add the foreign keys"
+    assert repository.get_workflow("wf-keep") is not None
+    assert db.query("SELECT * FROM agents") != []
+    execution = db.query_one("SELECT * FROM physical_executions WHERE execution_id = ?",
+                             ("exec-keep",))
+    assert execution is not None
+    assert execution["worker_root_pid"] == 42
+    assert execution["worker_command"] == "cmd"
+    db.close()
+
+
+def test_a_transaction_is_committed_at_once(tmp_path):
+    """The statements of a transaction are committed together."""
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+
+    db.transaction(
+        [
+            (
+                "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+                "VALUES ('wf-tx', 'demo', 1.0, 'RUNNING', 'online')",
+                (),
+            ),
+            (
+                "INSERT INTO agents (agent_id, workflow_id, created_at) "
+                "VALUES ('agent-tx', 'wf-tx', 1.0)",
+                (),
+            ),
+        ]
+    )
+    db.flush()
+
+    assert db.write_errors == 0
+    assert db.query("SELECT * FROM agents WHERE agent_id = 'agent-tx'") != []
+    db.close()
+
+
+def test_a_failing_transaction_does_not_kill_the_writer(tmp_path):
+    """A broken transaction must not stop the writer thread."""
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+
+    db.transaction(
+        [
+            (
+                "INSERT INTO agents (agent_id, workflow_id, created_at) "
+                "VALUES ('agent-orphan', 'wf-missing', 1.0)",
+                (),
+            ),
+        ]
+    )
+    db.flush()
+    assert db.write_errors >= 1
+
+    # the writer is still alive
+    db.write(
+        "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+        "VALUES ('wf-after', 'demo', 1.0, 'RUNNING', 'online')"
+    )
+    db.flush()
+    assert db.write_errors == 1, "the second write must succeed"
+    assert db.query("SELECT * FROM workflows WHERE workflow_id = 'wf-after'") != []
+    db.close()

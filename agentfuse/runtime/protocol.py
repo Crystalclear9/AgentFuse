@@ -18,6 +18,7 @@ MSG_RESULT = "result"
 MSG_ERROR = "error"
 MSG_LOG = "log"
 MSG_EOF = "eof"
+MSG_DEPENDENCY_BYPASS = "dependency_bypass"
 
 ERROR_TOOL = "tool_error"
 ERROR_INTERNAL = "internal_error"
@@ -58,4 +59,14 @@ def error_message(kind: str, message: str, traceback_text: str, cpu_time: float)
         "message": message,
         "traceback": traceback_text,
         "cpu_time": cpu_time,
+    }
+
+
+def dependency_bypass_message(paths: list[str]) -> dict[str, Any]:
+    """The tool read the workspace without the controlled reader."""
+
+    return {
+        "t": MSG_DEPENDENCY_BYPASS,
+        "paths": list(paths),
+        "dependency_complete": False,
     }

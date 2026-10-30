@@ -131,6 +131,10 @@ class LogicalCall:
     physical_execution_id: str | None = None
     result: Any = None
     result_hash: str | None = None
+    #: the path of the stored result payload (the digest lives in tool_results)
+    result_reference: str | None = None
+    #: the event that requested the call - the causal parent of its events
+    request_event_id: str | None = None
     error: str | None = None
     completed_time: float | None = None
     retry_count: int = 0
@@ -322,7 +326,7 @@ class RuntimeCoordinator:
         )
         self._calls[call.logical_call_id] = call
         self._persist_call(call)
-        self.event_bus.publish(
+        requested_event = self.event_bus.publish(
             EventType.TOOL_CALL_REQUESTED,
             workflow_id=workflow_id,
             agent_id=agent_id,
@@ -337,6 +341,8 @@ class RuntimeCoordinator:
                 "mode": str(self.mode),
             },
         )
+        # everything that happens for this call is a child of the request
+        call.request_event_id = requested_event.event_id
 
         mode = self.mode_for(workflow_id)
         sharing_enabled = mode is not RuntimeMode.BASELINE and spec.shareable
@@ -386,6 +392,7 @@ class RuntimeCoordinator:
                 invocation_id=call.invocation_id,
                 logical_call_id=call.logical_call_id,
                 physical_execution_id=call.physical_execution_id,
+                parent_event_id=call.request_event_id,
                 metadata={"reason": reason},
             )
             if not call.future.done():
@@ -583,6 +590,7 @@ class RuntimeCoordinator:
                     invocation_id=call.invocation_id,
                     logical_call_id=call.logical_call_id,
                     physical_execution_id=group.leader_execution_id,
+                    parent_event_id=call.request_event_id,
                     metadata={
                         "share_group_id": group.share_group_id,
                         "reason": reason,
@@ -633,7 +641,7 @@ class RuntimeCoordinator:
             candidate_key=call.candidate_key,
             tool_name=call.tool_name,
             tool_version=call.tool_version,
-            leader_execution_id="",
+            leader_execution_id=None,
             leader_logical_call_id=call.logical_call_id,
             status=ShareGroupStatus.CREATED,
             mode=str(mode),
@@ -690,6 +698,7 @@ class RuntimeCoordinator:
             invocation_id=call.invocation_id,
             logical_call_id=call.logical_call_id,
             physical_execution_id=group.leader_execution_id,
+            parent_event_id=call.request_event_id,
             metadata={
                 "share_group_id": group.share_group_id,
                 "candidate_key": call.candidate_key,
@@ -724,8 +733,7 @@ class RuntimeCoordinator:
         execution.ledger = DependencyLedger(execution.execution_id, call.snapshot_id)
         self._executions[execution.execution_id] = execution
         call.physical_execution_id = execution.execution_id
-        self._persist_call(call)
-        self._persist_execution(execution)
+        self._persist_call_with_execution(call, execution)
         return execution
 
     def _start_independent_locked(self, call: LogicalCall) -> None:
@@ -824,11 +832,15 @@ class RuntimeCoordinator:
         if group is not None and group.status is ShareGroupStatus.CREATED:
             group.transition(ShareGroupStatus.EXECUTING)
 
-        self.event_bus.publish(
+        leader_call = (
+            self._calls.get(execution.leader_call_id) if execution.leader_call_id else None
+        )
+        started_event = self.event_bus.publish(
             EventType.TOOL_EXECUTION_STARTED,
             workflow_id=execution.workflow_id,
             physical_execution_id=execution.execution_id,
             logical_call_id=execution.leader_call_id,
+            parent_event_id=leader_call.request_event_id if leader_call else None,
             metadata={
                 "tool_name": execution.tool_name,
                 "tool_version": execution.tool_version,
@@ -839,6 +851,7 @@ class RuntimeCoordinator:
                 "pooled": handle.jobs_served > 1,
             },
         )
+        execution.start_event_id = started_event.event_id
         self._persist_execution(execution)
         execution.timeout_task = asyncio.create_task(self._timeout_watch(execution))
 
@@ -1221,6 +1234,7 @@ class RuntimeCoordinator:
                 workflow_id=execution.workflow_id,
                 physical_execution_id=execution.execution_id,
                 logical_call_id=execution.leader_call_id,
+                parent_event_id=execution.start_event_id,
                 metadata={
                     "dependency_type": record.dependency_type,
                     "relative_path": record.relative_path,
@@ -1290,6 +1304,19 @@ class RuntimeCoordinator:
         execution = self._executions.get(execution_id)
         if execution is None or execution.outcome.done():
             return
+        bypass = list(message.get("dependency_bypass") or [])
+        if bypass:
+            self.event_bus.publish(
+                EventType.DEPENDENCY_BYPASS,
+                workflow_id=execution.workflow_id,
+                physical_execution_id=execution.execution_id,
+                logical_call_id=execution.leader_call_id,
+                metadata={
+                    "paths": bypass[:10],
+                    "tool_name": execution.tool_name,
+                    "scope": "the tool read the workspace without the controlled reader",
+                },
+            )
         execution.outcome.set_result(
             ExecutionOutcome(
                 ok=True,
@@ -1297,6 +1324,10 @@ class RuntimeCoordinator:
                 result_hash=message.get("result_hash"),
                 cpu_time=float(message.get("cpu_time") or 0.0),
                 exit_status="0",
+                dependency_complete=not bypass and bool(
+                    message.get("dependency_complete", True)
+                ),
+                dependency_bypass=bypass,
             )
         )
 
@@ -1394,6 +1425,7 @@ class RuntimeCoordinator:
                 workflow_id=execution.workflow_id,
                 physical_execution_id=execution.execution_id,
                 logical_call_id=execution.leader_call_id,
+                parent_event_id=execution.start_event_id,
                 metadata={
                     "status": str(execution.status),
                     "cpu_time": execution.cpu_time,
@@ -1426,6 +1458,10 @@ class RuntimeCoordinator:
             group.transition(ShareGroupStatus.VALIDATING)
 
         ledger = self._ledger_of(group)
+        # A tool that read the workspace without the controlled reader produced
+        # an incomplete dependency ledger.  Its result must not be shared with
+        # anybody - the participants run independently instead.
+        incomplete_ledger = not outcome.dependency_complete
         for participant in list(group.participants.values()):
             if participant.status in (
                 ParticipantStatus.COMPLETED,
@@ -1441,6 +1477,13 @@ class RuntimeCoordinator:
                         call, outcome.payload, outcome.result_hash, execution.execution_id
                     )
                 self._complete_participant(group, participant)
+                continue
+            if incomplete_ledger:
+                self._detach_participant_locked(
+                    group,
+                    participant,
+                    "the tool read the workspace without the controlled reader",
+                )
                 continue
             if self.mode_for(group.workflow_id) is RuntimeMode.DEFERRED:
                 status, reason, matched = self.validator.validate_prefix(
@@ -1598,6 +1641,7 @@ class RuntimeCoordinator:
         )
         self._persist_participant(group, participant)
         self._persist_group(group)
+        participant_call = self._calls.get(participant.logical_call_id)
         self.event_bus.publish(
             EventType.SHARE_PARTICIPANT_DETACHED,
             workflow_id=group.workflow_id,
@@ -1605,6 +1649,9 @@ class RuntimeCoordinator:
             invocation_id=participant.invocation_id,
             logical_call_id=participant.logical_call_id,
             physical_execution_id=group.leader_execution_id,
+            parent_event_id=(
+                participant_call.request_event_id if participant_call else None
+            ),
             metadata={
                 "share_group_id": group.share_group_id,
                 "reason": reason,
@@ -1678,6 +1725,12 @@ class RuntimeCoordinator:
         call.status = LogicalCallStatus.COMPLETED
         call.result = payload
         call.result_hash = result_hash or stored.result_hash
+        call.result_reference = stored.payload_path
+        execution = self._executions.get(execution_id)
+        if execution is not None:
+            execution.result_reference = stored.payload_path
+            # the execution row was written before the result existed
+            self._persist_execution(execution)
         call.completed_time = time.time()
         call.error = None
         call.physical_execution_id = execution_id
@@ -1689,6 +1742,7 @@ class RuntimeCoordinator:
             invocation_id=call.invocation_id,
             logical_call_id=call.logical_call_id,
             physical_execution_id=execution_id,
+            parent_event_id=execution.start_event_id if execution else call.request_event_id,
             metadata={
                 "result_hash": call.result_hash,
                 "result_reference": stored.payload_path,
@@ -1727,6 +1781,7 @@ class RuntimeCoordinator:
             invocation_id=call.invocation_id,
             logical_call_id=call.logical_call_id,
             physical_execution_id=call.physical_execution_id,
+            parent_event_id=call.request_event_id,
             metadata={"reason": message, "kind": kind},
         )
         call.future.set_exception(
@@ -1737,61 +1792,78 @@ class RuntimeCoordinator:
     # persistence helpers
     # ------------------------------------------------------------------
     def _persist_call(self, call: LogicalCall) -> None:
+        self.repository.save_logical_call(self._logical_call_record(call))
+
+    @staticmethod
+    def _logical_call_record(call: LogicalCall):
         from ..storage.models import LogicalToolCallRecord
 
-        self.repository.save_logical_call(
-            LogicalToolCallRecord(
-                logical_call_id=call.logical_call_id,
-                workflow_id=call.workflow_id,
-                invocation_id=call.invocation_id,
-                agent_id=call.agent_id,
-                tool_name=call.tool_name,
-                tool_version=call.tool_version,
-                normalized_arguments=json.dumps(call.arguments, ensure_ascii=False, sort_keys=True),
-                workspace_snapshot_id=call.snapshot_id,
-                request_time=call.request_time,
-                status=str(call.status),
-                physical_execution_id=call.physical_execution_id,
-                result_reference=None,
-                result_hash=call.result_hash,
-                candidate_key=call.candidate_key,
-                share_group_id=call.share_group_id,
-                error=call.error,
-                completed_time=call.completed_time,
-                retry_count=call.retry_count,
-            )
+        return LogicalToolCallRecord(
+            logical_call_id=call.logical_call_id,
+            workflow_id=call.workflow_id,
+            invocation_id=call.invocation_id,
+            agent_id=call.agent_id,
+            tool_name=call.tool_name,
+            tool_version=call.tool_version,
+            normalized_arguments=json.dumps(call.arguments, ensure_ascii=False, sort_keys=True),
+            workspace_snapshot_id=call.snapshot_id,
+            request_time=call.request_time,
+            status=str(call.status),
+            physical_execution_id=call.physical_execution_id,
+            result_reference=call.result_reference,
+            result_hash=call.result_hash,
+            candidate_key=call.candidate_key,
+            share_group_id=call.share_group_id,
+            error=call.error,
+            completed_time=call.completed_time,
+            retry_count=call.retry_count,
         )
 
     def _persist_execution(self, execution: PhysicalExecution) -> None:
+        self.repository.save_execution(self._execution_record(execution))
+
+    def _persist_call_with_execution(
+        self, call: LogicalCall, execution: PhysicalExecution
+    ) -> None:
+        """Persist the call and its execution in one transaction.
+
+        The logical call references the physical execution - a crash between
+        the two writes would leave the database in an inconsistent state.
+        """
+
+        self.repository.save_call_with_execution(
+            self._logical_call_record(call), self._execution_record(execution)
+        )
+
+    @staticmethod
+    def _execution_record(execution: PhysicalExecution):
         from ..storage.models import PhysicalExecutionRecord
 
-        self.repository.save_execution(
-            PhysicalExecutionRecord(
-                execution_id=execution.execution_id,
-                workflow_id=execution.workflow_id,
-                tool_name=execution.tool_name,
-                tool_version=execution.tool_version,
-                arguments_hash=execution.arguments_hash,
-                candidate_key=execution.candidate_key,
-                source_snapshot_id=execution.snapshot_id,
-                worker_pid=execution.pid,
-                start_time=execution.start_time,
-                finish_time=execution.finish_time,
-                execution_status=str(execution.status),
-                cpu_time=execution.cpu_time,
-                peak_rss=execution.peak_rss,
-                exit_status=execution.exit_status,
-                result_hash=execution.result_hash,
-                result_reference=None,
-                error=execution.error,
-                timeout_seconds=execution.timeout_seconds,
-                share_group_id=execution.share_group_id,
-                attempt=execution.attempt,
-                admission_reason=execution.admission_reason,
-                queued_time=execution.queued_time,
-                worker_root_pid=execution.worker_root_pid,
-                worker_command=execution.worker_command,
-            )
+        return PhysicalExecutionRecord(
+            execution_id=execution.execution_id,
+            workflow_id=execution.workflow_id,
+            tool_name=execution.tool_name,
+            tool_version=execution.tool_version,
+            arguments_hash=execution.arguments_hash,
+            candidate_key=execution.candidate_key,
+            source_snapshot_id=execution.snapshot_id,
+            worker_pid=execution.pid,
+            start_time=execution.start_time,
+            finish_time=execution.finish_time,
+            execution_status=str(execution.status),
+            cpu_time=execution.cpu_time,
+            peak_rss=execution.peak_rss,
+            exit_status=execution.exit_status,
+            result_hash=execution.result_hash,
+            result_reference=execution.result_reference,
+            error=execution.error,
+            timeout_seconds=execution.timeout_seconds,
+            share_group_id=execution.share_group_id,
+            attempt=execution.attempt,
+            admission_reason=execution.admission_reason,
+            queued_time=execution.queued_time,
+            worker_root_pid=execution.worker_root_pid,
+            worker_command=execution.worker_command,
         )
 
     def _persist_group(self, group: ShareGroup) -> None:

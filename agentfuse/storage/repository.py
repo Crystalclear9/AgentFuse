@@ -51,10 +51,15 @@ class Repository:
     def save_workflow(self, record: WorkflowRecord) -> None:
         self.db.write(
             """
-            INSERT OR REPLACE INTO workflows
+            INSERT INTO workflows
             (workflow_id, scenario, start_time, end_time, status, configuration,
              runtime_mode, random_seed, label, error)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(workflow_id) DO UPDATE SET
+                scenario=excluded.scenario, start_time=excluded.start_time,
+                end_time=excluded.end_time, status=excluded.status,
+                configuration=excluded.configuration, runtime_mode=excluded.runtime_mode,
+                random_seed=excluded.random_seed, label=excluded.label, error=excluded.error
             """,
             (
                 record.workflow_id,
@@ -92,10 +97,15 @@ class Repository:
     def save_agent(self, record: AgentRecord) -> None:
         self.db.write(
             """
-            INSERT OR REPLACE INTO agents
+            INSERT INTO agents
             (agent_id, workflow_id, external_identity, agent_description,
              registration_source, metadata, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(agent_id) DO UPDATE SET
+                workflow_id=excluded.workflow_id, external_identity=excluded.external_identity,
+                agent_description=excluded.agent_description,
+                registration_source=excluded.registration_source, metadata=excluded.metadata,
+                created_at=excluded.created_at
             """,
             (
                 record.agent_id,
@@ -122,10 +132,15 @@ class Repository:
     def save_invocation(self, record: AgentInvocationRecord) -> None:
         self.db.write(
             """
-            INSERT OR REPLACE INTO agent_invocations
+            INSERT INTO agent_invocations
             (invocation_id, workflow_id, agent_id, start_time, end_time,
              parent_invocation_id, status, metadata)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(invocation_id) DO UPDATE SET
+                workflow_id=excluded.workflow_id, agent_id=excluded.agent_id,
+                start_time=excluded.start_time, end_time=excluded.end_time,
+                parent_invocation_id=excluded.parent_invocation_id,
+                status=excluded.status, metadata=excluded.metadata
             """,
             (
                 record.invocation_id,
@@ -155,14 +170,32 @@ class Repository:
     # logical tool calls
     # ------------------------------------------------------------------
     def save_logical_call(self, record: LogicalToolCallRecord) -> None:
-        self.db.write(
+        self.db.write(*self._logical_call_row(record))
+
+    @staticmethod
+    def _logical_call_row(record: LogicalToolCallRecord) -> tuple[str, tuple[Any, ...]]:
+        """Return the statement of a logical call (used for transactions)."""
+
+        return (
             """
-            INSERT OR REPLACE INTO logical_tool_calls
+            INSERT INTO logical_tool_calls
             (logical_call_id, workflow_id, invocation_id, agent_id, tool_name, tool_version,
              normalized_arguments, workspace_snapshot_id, request_time, status,
              physical_execution_id, result_reference, result_hash, candidate_key,
              share_group_id, error, completed_time, retry_count)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(logical_call_id) DO UPDATE SET
+                workflow_id=excluded.workflow_id, invocation_id=excluded.invocation_id,
+                agent_id=excluded.agent_id, tool_name=excluded.tool_name,
+                tool_version=excluded.tool_version,
+                normalized_arguments=excluded.normalized_arguments,
+                workspace_snapshot_id=excluded.workspace_snapshot_id,
+                request_time=excluded.request_time, status=excluded.status,
+                physical_execution_id=excluded.physical_execution_id,
+                result_reference=excluded.result_reference, result_hash=excluded.result_hash,
+                candidate_key=excluded.candidate_key, share_group_id=excluded.share_group_id,
+                error=excluded.error, completed_time=excluded.completed_time,
+                retry_count=excluded.retry_count
             """,
             (
                 record.logical_call_id,
@@ -203,15 +236,35 @@ class Repository:
     # physical executions
     # ------------------------------------------------------------------
     def save_execution(self, record: PhysicalExecutionRecord) -> None:
-        self.db.write(
+        self.db.write(*self._execution_row(record))
+
+    @staticmethod
+    def _execution_row(record: PhysicalExecutionRecord) -> tuple[str, tuple[Any, ...]]:
+        """Return the statement of a physical execution (used for transactions)."""
+
+        return (
             """
-            INSERT OR REPLACE INTO physical_executions
+            INSERT INTO physical_executions
             (execution_id, workflow_id, tool_name, tool_version, arguments_hash, candidate_key,
              source_snapshot_id, worker_pid, start_time, finish_time, execution_status,
              cpu_time, peak_rss, exit_status, result_hash, result_reference, error,
              timeout_seconds, share_group_id, attempt, admission_reason, queued_time,
              worker_root_pid, worker_command)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(execution_id) DO UPDATE SET
+                workflow_id=excluded.workflow_id, tool_name=excluded.tool_name,
+                tool_version=excluded.tool_version, arguments_hash=excluded.arguments_hash,
+                candidate_key=excluded.candidate_key,
+                source_snapshot_id=excluded.source_snapshot_id, worker_pid=excluded.worker_pid,
+                start_time=excluded.start_time, finish_time=excluded.finish_time,
+                execution_status=excluded.execution_status, cpu_time=excluded.cpu_time,
+                peak_rss=excluded.peak_rss, exit_status=excluded.exit_status,
+                result_hash=excluded.result_hash, result_reference=excluded.result_reference,
+                error=excluded.error, timeout_seconds=excluded.timeout_seconds,
+                share_group_id=excluded.share_group_id, attempt=excluded.attempt,
+                admission_reason=excluded.admission_reason, queued_time=excluded.queued_time,
+                worker_root_pid=excluded.worker_root_pid,
+                worker_command=excluded.worker_command
             """,
             (
                 record.execution_id,
@@ -241,6 +294,20 @@ class Repository:
             ),
         )
 
+    def save_call_with_execution(
+        self,
+        call: LogicalToolCallRecord,
+        execution: PhysicalExecutionRecord,
+    ) -> None:
+        """Persist a logical call and its physical execution **atomically**.
+
+        The call references the execution, therefore both rows have to be
+        written in one transaction - otherwise a crash in between would leave
+        the call pointing at an execution that does not exist.
+        """
+
+        self.db.transaction([self._logical_call_row(call), self._execution_row(execution)])
+
     def get_execution(self, execution_id: str) -> dict[str, Any] | None:
         row = self.db.query_one(
             "SELECT * FROM physical_executions WHERE execution_id = ?", (execution_id,)
@@ -260,11 +327,19 @@ class Repository:
     def save_share_group(self, record: ShareGroupRecord) -> None:
         self.db.write(
             """
-                INSERT OR REPLACE INTO share_groups
+                INSERT INTO share_groups
                 (share_group_id, workflow_id, candidate_key, leader_execution_id,
                  leader_logical_call_id, creation_time, closed_time, status,
                  participant_count, participant_calls, mode, tool_name, tool_version)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(share_group_id) DO UPDATE SET
+                    workflow_id=excluded.workflow_id, candidate_key=excluded.candidate_key,
+                    leader_execution_id=excluded.leader_execution_id,
+                    leader_logical_call_id=excluded.leader_logical_call_id,
+                    creation_time=excluded.creation_time, closed_time=excluded.closed_time,
+                    status=excluded.status, participant_count=excluded.participant_count,
+                    participant_calls=excluded.participant_calls, mode=excluded.mode,
+                    tool_name=excluded.tool_name, tool_version=excluded.tool_version
                 """,
                 (
                     record.share_group_id,
@@ -293,11 +368,20 @@ class Repository:
     def save_participant(self, record: ShareParticipantRecord) -> None:
         self.db.write(
             """
-            INSERT OR REPLACE INTO share_participants
+            INSERT INTO share_participants
             (share_group_id, logical_call_id, workflow_id, agent_id, invocation_id, snapshot_id,
              status, validated_prefix_length, validation_status, attached_time, detached_time,
              delivered_time, wait_duration, detach_reason, is_leader)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(share_group_id, logical_call_id) DO UPDATE SET
+                workflow_id=excluded.workflow_id, agent_id=excluded.agent_id,
+                invocation_id=excluded.invocation_id, snapshot_id=excluded.snapshot_id,
+                status=excluded.status,
+                validated_prefix_length=excluded.validated_prefix_length,
+                validation_status=excluded.validation_status,
+                attached_time=excluded.attached_time, detached_time=excluded.detached_time,
+                delivered_time=excluded.delivered_time, wait_duration=excluded.wait_duration,
+                detach_reason=excluded.detach_reason, is_leader=excluded.is_leader
             """,
             (
                 record.share_group_id,
@@ -372,10 +456,14 @@ class Repository:
     def save_dependency(self, record: DependencyRecord) -> None:
         self.db.write(
             """
-            INSERT OR REPLACE INTO dependency_records
+            INSERT INTO dependency_records
             (execution_id, sequence_number, dependency_type, relative_path, fingerprint,
              observed_time, snapshot_id)
             VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(execution_id, sequence_number) DO UPDATE SET
+                dependency_type=excluded.dependency_type,
+                relative_path=excluded.relative_path, fingerprint=excluded.fingerprint,
+                observed_time=excluded.observed_time, snapshot_id=excluded.snapshot_id
             """,
             (
                 record.execution_id,

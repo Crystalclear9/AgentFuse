@@ -26,10 +26,11 @@ from typing import Any, Callable
 
 from ..tools.base import ToolContext, ToolError
 from ..tools.registry import build_default_registry
-from ..workspace.reader import WorkspaceReader
+from ..workspace.reader import WorkspaceReader, install_access_audit_hook
 from .protocol import (
     ERROR_INTERNAL,
     ERROR_TOOL,
+    dependency_bypass_message,
     error_message,
     result_message,
 )
@@ -52,6 +53,10 @@ def execute_tool(payload: dict[str, Any], reporter: DependencyReporter) -> dict[
     Every dependency observed by the controlled reader is passed to
     ``reporter`` *before* the tool continues, which is what makes the online
     dependency validation of the share coordinator possible.
+
+    While the tool runs an audit hook watches for workspace reads that bypass
+    the controlled reader.  Such an execution has an incomplete dependency
+    ledger and is therefore never shared.
     """
 
     started = time.time()
@@ -74,6 +79,7 @@ def execute_tool(payload: dict[str, Any], reporter: DependencyReporter) -> dict[
         snapshot_id=payload.get("snapshot_id"),
     )
     context = ToolContext(reader=reader, arguments=payload.get("arguments") or {})
+    violations = install_access_audit_hook(payload["snapshot_root"])
 
     try:
         result = spec.implementation(context)
@@ -91,10 +97,18 @@ def execute_tool(payload: dict[str, Any], reporter: DependencyReporter) -> dict[
 
     from ..sharing.result_delivery import compute_result_hash
 
-    return result_message(
+    message = result_message(
         payload=result,
         result_hash=compute_result_hash(result),
         cpu_time=time.process_time() - cpu_start,
         elapsed=time.time() - started,
         rss_end=_current_rss(),
     )
+    if violations:
+        # the tool read the workspace without the controlled reader: the
+        # dependency ledger is incomplete, the execution must not be shared
+        message["dependency_bypass"] = sorted(set(violations))
+        message["dependency_complete"] = False
+    else:
+        message["dependency_complete"] = True
+    return message

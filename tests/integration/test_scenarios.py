@@ -65,7 +65,9 @@ async def test_the_cancel_failure_scenario_covers_every_case(app):
     notes = result.notes
     assert notes["follower_cancel"]["follower_result"] == {"cancelled": True}
     assert notes["follower_cancel"]["leader_result"]
-    assert notes["leader_cancel"]["leader_result"] == {"cancelled": True}
+    assert notes["leader_cancel"]["leader_result"]["cancelled"] is True
+    # the cancellation has to hit the *leader* of the share group
+    assert notes["leader_cancel"]["cancelled_was_the_leader"] is True
     assert notes["leader_cancel"]["follower_received_result"]
     assert "timed out" in notes["timeout"]["error"]
     assert notes["crash"]["kind"] in ("worker_crash", "internal_error")

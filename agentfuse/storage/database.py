@@ -47,7 +47,7 @@ _SCHEMA: tuple[str, ...] = (
     """
     CREATE TABLE IF NOT EXISTS agents (
         agent_id            TEXT PRIMARY KEY,
-        workflow_id         TEXT NOT NULL,
+        workflow_id          TEXT NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
         external_identity   TEXT,
         agent_description   TEXT,
         registration_source TEXT,
@@ -58,8 +58,8 @@ _SCHEMA: tuple[str, ...] = (
     """
     CREATE TABLE IF NOT EXISTS agent_invocations (
         invocation_id        TEXT PRIMARY KEY,
-        workflow_id          TEXT NOT NULL,
-        agent_id             TEXT NOT NULL,
+        workflow_id          TEXT NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+        agent_id             TEXT NOT NULL REFERENCES agents(agent_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
         start_time           REAL NOT NULL,
         end_time             REAL,
         parent_invocation_id TEXT,
@@ -70,7 +70,7 @@ _SCHEMA: tuple[str, ...] = (
     """
     CREATE TABLE IF NOT EXISTS logical_tool_calls (
         logical_call_id       TEXT PRIMARY KEY,
-        workflow_id          TEXT NOT NULL,
+        workflow_id          TEXT NOT NULL REFERENCES workflows(workflow_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
         invocation_id        TEXT,
         agent_id             TEXT,
         tool_name            TEXT NOT NULL,
@@ -79,7 +79,7 @@ _SCHEMA: tuple[str, ...] = (
         workspace_snapshot_id TEXT,
         request_time         REAL NOT NULL,
         status               TEXT NOT NULL,
-        physical_execution_id TEXT,
+        physical_execution_id TEXT REFERENCES physical_executions(execution_id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED,
         result_reference     TEXT,
         result_hash          TEXT,
         candidate_key        TEXT,
@@ -92,7 +92,7 @@ _SCHEMA: tuple[str, ...] = (
     """
     CREATE TABLE IF NOT EXISTS physical_executions (
         execution_id      TEXT PRIMARY KEY,
-        workflow_id       TEXT,
+        workflow_id          TEXT REFERENCES workflows(workflow_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
         tool_name         TEXT NOT NULL,
         tool_version      TEXT NOT NULL,
         arguments_hash    TEXT NOT NULL,
@@ -120,14 +120,15 @@ _SCHEMA: tuple[str, ...] = (
     """
     CREATE TABLE IF NOT EXISTS share_groups (
         share_group_id        TEXT PRIMARY KEY,
-        workflow_id           TEXT,
+        workflow_id          TEXT REFERENCES workflows(workflow_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
         candidate_key         TEXT NOT NULL,
-        leader_execution_id   TEXT,
+        leader_execution_id  TEXT REFERENCES physical_executions(execution_id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED,
         leader_logical_call_id TEXT,
         creation_time         REAL NOT NULL,
         closed_time           REAL,
         status                TEXT NOT NULL,
         participant_count     INTEGER DEFAULT 0,
+            participant_calls     TEXT,
         mode                  TEXT,
         tool_name             TEXT,
         tool_version          TEXT
@@ -135,8 +136,8 @@ _SCHEMA: tuple[str, ...] = (
     """,
     """
     CREATE TABLE IF NOT EXISTS share_participants (
-        share_group_id        TEXT NOT NULL,
-        logical_call_id       TEXT NOT NULL,
+        share_group_id       TEXT NOT NULL REFERENCES share_groups(share_group_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+        logical_call_id      TEXT NOT NULL REFERENCES logical_tool_calls(logical_call_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
         workflow_id           TEXT,
         agent_id              TEXT,
         invocation_id         TEXT,
@@ -167,7 +168,7 @@ _SCHEMA: tuple[str, ...] = (
     """,
     """
     CREATE TABLE IF NOT EXISTS dependency_records (
-        execution_id    TEXT NOT NULL,
+        execution_id         TEXT NOT NULL REFERENCES physical_executions(execution_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
         sequence_number INTEGER NOT NULL,
         dependency_type TEXT NOT NULL,
         relative_path   TEXT NOT NULL,
@@ -180,8 +181,8 @@ _SCHEMA: tuple[str, ...] = (
     """
     CREATE TABLE IF NOT EXISTS validation_records (
         validation_id      TEXT PRIMARY KEY,
-        share_group_id     TEXT NOT NULL,
-        logical_call_id    TEXT NOT NULL,
+        share_group_id       TEXT NOT NULL REFERENCES share_groups(share_group_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
+        logical_call_id      TEXT NOT NULL REFERENCES logical_tool_calls(logical_call_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
         execution_id       TEXT,
         dependency_sequence INTEGER,
         validation_status  TEXT NOT NULL,
@@ -209,7 +210,7 @@ _SCHEMA: tuple[str, ...] = (
     CREATE TABLE IF NOT EXISTS resource_samples (
         sample_id    INTEGER PRIMARY KEY AUTOINCREMENT,
         workflow_id  TEXT,
-        execution_id TEXT,
+        execution_id         TEXT REFERENCES physical_executions(execution_id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED,
         timestamp    REAL NOT NULL,
         rss_bytes    INTEGER,
         cpu_seconds  REAL,
@@ -268,12 +269,84 @@ _SCHEMA: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS idx_participant_call ON share_participants(logical_call_id)",
 )
 
+#: The schema as one text - the table definitions are taken from here so
+#: that the create statements and the migrations cannot drift apart.
+_SCHEMA_TEXT = "\n".join(_SCHEMA)
+
 _INSERT_EVENT = """
 INSERT OR REPLACE INTO runtime_events
 (event_id, workflow_id, sequence, event_type, timestamp, agent_id, invocation_id,
  logical_call_id, physical_execution_id, parent_event_id, metadata)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
+
+#: The tables that own a relation.  SQLite cannot add a foreign key to an
+#: existing table, therefore the migration rebuilds them.  The definitions are
+#: taken from the schema above so that the two cannot drift apart.
+_REBUILD_TABLES = (
+    "agents",
+    "agent_invocations",
+    "logical_tool_calls",
+    "physical_executions",
+    "share_groups",
+    "share_participants",
+    "dependency_records",
+    "validation_records",
+    "resource_samples",
+)
+
+#: The tables that carry a foreign key - used by the consistency check.
+_FOREIGN_KEY_TABLES = _REBUILD_TABLES
+
+
+def _table_definition(table: str) -> str:
+    """Return the CREATE TABLE statement of a table from the schema."""
+
+    marker = f"CREATE TABLE IF NOT EXISTS {table} ("
+    index = _SCHEMA_TEXT.find(marker)
+    if index < 0:  # pragma: no cover - defensive
+        raise KeyError(f"no schema definition for {table}")
+    # find the matching closing parenthesis - the definitions contain nested
+    # parentheses (the foreign key references)
+    depth = 0
+    position = index + len(marker) - 1
+    while position < len(_SCHEMA_TEXT):
+        character = _SCHEMA_TEXT[position]
+        if character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+            if depth == 0:
+                break
+        position += 1
+    return _SCHEMA_TEXT[index : position + 1] + ";"
+
+
+def _table_columns(definition: str) -> list[str]:
+    """Return the column names of a CREATE TABLE statement."""
+
+    columns: list[str] = []
+    for line in definition.splitlines()[1:-1]:
+        stripped = line.strip().rstrip(",")
+        if not stripped or stripped.upper().startswith("PRIMARY KEY"):
+            continue
+        columns.append(stripped.split()[0])
+    return columns
+
+
+def _rebuild_statements() -> tuple[str, ...]:
+    """Build the statements that recreate the tables with their foreign keys."""
+
+    statements: list[str] = []
+    for table in _REBUILD_TABLES:
+        definition = _table_definition(table)
+        columns = ", ".join(_table_columns(definition))
+        statements.append(f"ALTER TABLE {table} RENAME TO {table}_legacy")
+        statements.append(definition.replace(f"CREATE TABLE IF NOT EXISTS {table}", f"CREATE TABLE {table}"))
+        statements.append(f"INSERT INTO {table} ({columns}) SELECT {columns} FROM {table}_legacy")
+        statements.append(f"DROP TABLE {table}_legacy")
+    return tuple(statements)
+
 
 #: Ordered schema migrations.  ``(target_version, statements)``.
 #: A migration is applied when the database is older than ``target_version``.
@@ -298,10 +371,14 @@ _MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
             "ALTER TABLE physical_executions ADD COLUMN worker_command TEXT",
         ),
     ),
+    (
+        5,
+        _rebuild_statements(),
+    ),
 )
 
 
-def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+def _table_columns_of(conn: sqlite3.Connection, table: str) -> set[str]:
     """Return the column names of an existing table."""
 
     try:
@@ -338,6 +415,10 @@ class Database:
         self._local = threading.local()
         self._write_conn: sqlite3.Connection | None = None
         self._closed = False
+        #: number of statements that could not be persisted - a foreign key
+        #: violation or a constraint error shows up here
+        self.write_errors = 0
+        self.last_error: str | None = None
 
     # ------------------------------------------------------------------
     # lifecycle
@@ -355,11 +436,7 @@ class Database:
                     if current >= version:
                         continue
                     self._backup(conn)
-                    for statement in statements:
-                        table, column = _parse_alter(statement)
-                        if column and column in _table_columns(conn, table):
-                            continue
-                        conn.execute(statement)
+                    self._apply_migration(conn, statements)
                     current = version
                 conn.execute(
                     "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', ?)",
@@ -370,6 +447,33 @@ class Database:
             # the connection has to be released - an open handle would keep the
             # file locked on Windows
             conn.close()
+
+    @staticmethod
+    def _apply_migration(
+        conn: sqlite3.Connection, statements: tuple[str, ...]
+    ) -> None:
+        """Apply the statements of one migration.
+
+        The foreign key enforcement is switched off while the tables are
+        rebuilt - the rename / copy / drop cycle would otherwise fail.
+        """
+
+        foreign_keys = conn.execute("PRAGMA foreign_keys").fetchone()[0]
+        legacy_alter = conn.execute("PRAGMA legacy_alter_table").fetchone()[0]
+        try:
+            conn.execute("PRAGMA foreign_keys=OFF")
+            # without the legacy behaviour SQLite rewrites the foreign key
+            # references of the *other* tables when a table is renamed - that
+            # would point them at the temporary "_legacy" tables
+            conn.execute("PRAGMA legacy_alter_table=ON")
+            for statement in statements:
+                table, column = _parse_alter(statement)
+                if column and column in _table_columns_of(conn, table):
+                    continue
+                conn.execute(statement)
+        finally:
+            conn.execute(f"PRAGMA legacy_alter_table={'ON' if legacy_alter else 'OFF'}")
+            conn.execute(f"PRAGMA foreign_keys={'ON' if foreign_keys else 'OFF'}")
 
     def _backup(self, conn: sqlite3.Connection) -> Path | None:
         """Copy the database file before a migration is applied."""
@@ -481,6 +585,21 @@ class Database:
         for sql, params in rows:
             self.write(sql, params)
 
+    def transaction(self, rows: Iterable[tuple[str, Sequence[Any]]]) -> None:
+        """Persist a group of statements in **one** transaction.
+
+        A state transition that touches several tables must not be split
+        across two transactions - otherwise a crash in between would leave the
+        runtime with an inconsistent state.
+        """
+
+        statements = [(sql, tuple(params)) for sql, params in rows]
+        if not statements:
+            return
+        if self._closed:
+            return
+        self._queue.put(("__tx__", statements))
+
     def insert_event(self, event: dict[str, Any]) -> None:
         import json
 
@@ -528,6 +647,26 @@ class Database:
             return None
         return row[0]
 
+    def foreign_key_violations(self) -> list[tuple[Any, ...]]:
+        """Return the rows that violate a foreign key constraint.
+
+        An empty list means that the stored data is referentially consistent.
+        """
+
+        self.flush()
+        conn = self._read_conn()
+        return [tuple(row) for row in conn.execute("PRAGMA foreign_key_check").fetchall()]
+
+    def foreign_keys(self) -> list[tuple[Any, ...]]:
+        """Return the foreign key constraints of the database."""
+
+        conn = self._read_conn()
+        rows: list[tuple[Any, ...]] = []
+        for table in _FOREIGN_KEY_TABLES:
+            for row in conn.execute(f"PRAGMA foreign_key_list({table})").fetchall():
+                rows.append((table, *tuple(row)))
+        return rows
+
     # ------------------------------------------------------------------
     # writer thread
     # ------------------------------------------------------------------
@@ -560,6 +699,19 @@ class Database:
                 last_flush = time.monotonic()
                 continue
 
+            if isinstance(item, tuple) and item[0] == "__tx__":
+                # an explicit transaction: the statements are committed
+                # together, independently of the batch size.  The statements
+                # that are already queued are committed first - otherwise the
+                # transaction could reference a row that is not committed yet.
+                if pending:
+                    self._commit(pending)
+                    pending = []
+                statements: list[tuple[str, tuple[Any, ...]]] = item[1]
+                self._commit(statements)
+                last_flush = time.monotonic()
+                continue
+
             pending.append(item)
             if len(pending) >= self._batch_size:
                 self._commit(pending)
@@ -576,13 +728,28 @@ class Database:
     def _commit(self, pending: list[tuple[str, tuple[Any, ...]]]) -> None:
         if not pending or self._write_conn is None:
             return
-        with self._write_conn:
-            for sql, params in pending:
-                try:
-                    self._write_conn.execute(sql, params)
-                except sqlite3.Error:  # pragma: no cover - keep the writer alive
-                    import logging
+        try:
+            with self._write_conn:
+                for sql, params in pending:
+                    try:
+                        self._write_conn.execute(sql, params)
+                    except sqlite3.Error as exc:
+                        # a statement that violates a constraint must not vanish
+                        # silently - the counter is checked by the acceptance test
+                        self.write_errors += 1
+                        self.last_error = f"{type(exc).__name__}: {exc} | {sql} | {params}"
+                        import logging
 
-                    logging.getLogger("agentfuse.storage").exception(
-                        "failed to persist statement: %s", sql[:120]
-                    )
+                        logging.getLogger("agentfuse.storage").error(
+                            "could not persist statement: %s", self.last_error[:400]
+                        )
+        except sqlite3.Error as exc:
+            # a deferred foreign key is checked when the transaction is
+            # committed - the failure must not take the writer thread down
+            self.write_errors += 1
+            self.last_error = f"transaction failed: {type(exc).__name__}: {exc}"
+            import logging
+
+            logging.getLogger("agentfuse.storage").error(
+                "could not commit transaction: %s", self.last_error
+            )

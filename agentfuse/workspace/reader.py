@@ -18,7 +18,9 @@ presented as an operating system level sandbox (see
 from __future__ import annotations
 
 import os
+import threading
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable
@@ -32,6 +34,74 @@ from .fingerprint import (
 )
 
 DependencyReporter = Callable[[str, str, str], None]
+
+
+class WorkspaceAccessViolation(RuntimeError):
+    """A tool read a workspace file without using the controlled reader.
+
+    Such an execution cannot be shared: its dependency ledger would be
+    incomplete, therefore the share coordinator has to fall back to an
+    independent execution.
+    """
+
+
+#: Thread local flag that marks the controlled accesses of the reader.
+_ACCESS = threading.local()
+
+
+@contextmanager
+def controlled_access():
+    """Mark a file access as performed by the controlled reader."""
+
+    previous = getattr(_ACCESS, "active", False)
+    _ACCESS.active = True
+    try:
+        yield
+    finally:
+        _ACCESS.active = previous
+
+
+def in_controlled_access() -> bool:
+    """True while the controlled reader performs a file access."""
+
+    return bool(getattr(_ACCESS, "active", False))
+
+
+def install_access_audit_hook(snapshot_root: str | os.PathLike[str]) -> list[str]:
+    """Detect workspace reads that bypass the controlled reader.
+
+    The hook uses the CPython audit interface (``sys.addaudithook``): every
+    ``open`` of a file inside the snapshot that does not happen inside
+    :func:`controlled_access` is recorded.  The returned list is filled while
+    the tool runs.
+
+    This is what turns the declaration of a tool into an *enforced* contract:
+    a tool that reads the workspace directly is detected at runtime and its
+    execution is never shared.
+    """
+
+    import sys
+
+    root = os.path.realpath(str(snapshot_root)).lower()
+    violations: list[str] = []
+
+    def hook(event: str, args: tuple[Any, ...]) -> None:
+        if event not in ("open", "os.open"):
+            return
+        if in_controlled_access():
+            return
+        target = args[0]
+        if not isinstance(target, (str, bytes, os.PathLike)):
+            return
+        try:
+            path = os.path.realpath(os.fsdecode(target)).lower()
+        except Exception:  # pragma: no cover - defensive
+            return
+        if path.startswith(root + os.sep) or path == root:
+            violations.append(os.fsdecode(target))
+
+    sys.addaudithook(hook)
+    return violations
 
 
 class WorkspaceBoundaryError(RuntimeError):
@@ -136,10 +206,11 @@ class WorkspaceReader:
     # ------------------------------------------------------------------
     def read_bytes(self, path: str | os.PathLike[str]) -> bytes:
         relative, target = self._resolve(path)
-        if not target.is_file():
-            self._report("PATH_NOT_EXISTS", relative, fingerprint_existence(False))
-            raise FileNotFoundError(f"file not found in workspace: {relative}")
-        data = target.read_bytes()
+        with controlled_access():
+            if not target.is_file():
+                self._report("PATH_NOT_EXISTS", relative, fingerprint_existence(False))
+                raise FileNotFoundError(f"file not found in workspace: {relative}")
+            data = target.read_bytes()
         self._report("FILE_READ", relative, fingerprint_bytes(data))
         return data
 
@@ -153,10 +224,11 @@ class WorkspaceReader:
 
     def list_dir(self, path: str | os.PathLike[str] = ".") -> list[dict[str, Any]]:
         relative, target = self._resolve(path)
-        if not target.is_dir():
-            self._report("PATH_NOT_EXISTS", relative, fingerprint_existence(False))
-            raise NotADirectoryError(f"directory not found in workspace: {relative}")
-        entries = directory_listing_from_disk(target)
+        with controlled_access():
+            if not target.is_dir():
+                self._report("PATH_NOT_EXISTS", relative, fingerprint_existence(False))
+                raise NotADirectoryError(f"directory not found in workspace: {relative}")
+            entries = directory_listing_from_disk(target)
         self._report("DIRECTORY_LIST", relative, fingerprint_directory_listing(entries))
         return [
             {"name": name, "kind": kind, "path": f"{relative}/{name}" if relative != "." else name}
@@ -165,7 +237,8 @@ class WorkspaceReader:
 
     def exists(self, path: str | os.PathLike[str]) -> bool:
         relative, target = self._resolve(path)
-        present = target.exists()
+        with controlled_access():
+            present = target.exists()
         self._report(
             "PATH_EXISTS" if present else "PATH_NOT_EXISTS",
             relative,

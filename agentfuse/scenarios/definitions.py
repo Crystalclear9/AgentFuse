@@ -400,27 +400,81 @@ async def scenario_cancel_failure(
     }
 
     # -- case 2: the leader's logical call is cancelled, the follower waits ---
+    # The order has to be deterministic: the agent below must really *lead*
+    # the share group, otherwise the cancellation would hit a follower and the
+    # case would be identical to case 1.
+    leader_ready = asyncio.Event()
+
     async def cancelling_leader(context: Any) -> Any:
-        task = asyncio.create_task(context.call_tool("content_digest", {"files": files, "rounds": rounds}))
-        await asyncio.sleep(0.05)
-        for call in coordinator.calls_for_invocation(context.invocation_id):
-            await coordinator.cancel_logical_call(call.logical_call_id, "leader cancelled")
+        task = asyncio.create_task(
+            context.call_tool("content_digest", {"files": files, "rounds": rounds})
+        )
+        leader_call = None
+        for _ in range(400):
+            await asyncio.sleep(0.005)
+            for call in coordinator.calls_for_invocation(context.invocation_id):
+                group = (
+                    coordinator.get_group(call.share_group_id)
+                    if call.share_group_id
+                    else None
+                )
+                if group is None:
+                    continue
+                for participant in group.participants.values():
+                    if (
+                        participant.is_leader
+                        and participant.logical_call_id == call.logical_call_id
+                    ):
+                        leader_call = call
+                        break
+                if leader_call is not None:
+                    break
+            if leader_call is not None:
+                break
+        leader_ready.set()
+        if leader_call is None:
+            for call in coordinator.calls_for_invocation(context.invocation_id):
+                leader_call = call
+                break
+        # wait until the follower has joined the group, then cancel the leader
+        # immediately - the execution must still be running.
+        group = (
+            coordinator.get_group(leader_call.share_group_id)
+            if leader_call is not None and leader_call.share_group_id
+            else None
+        )
+        for _ in range(400):
+            await asyncio.sleep(0.005)
+            if group is not None and len(group.participants) >= 2:
+                break
+        if leader_call is not None:
+            await coordinator.cancel_logical_call(
+                leader_call.logical_call_id, "leader cancelled"
+            )
         try:
             await task
         except asyncio.CancelledError:
-            return {"cancelled": True}
-        return {"cancelled": False}
+            return {"cancelled": True, "was_leader": leader_call is not None}
+        return {"cancelled": False, "was_leader": leader_call is not None}
+
+    async def joining_follower(context: Any) -> Any:
+        # the follower only joins after the leader exists
+        await leader_ready.wait()
+        return await context.call_tool(
+            "content_digest", {"files": files, "rounds": rounds}
+        )
 
     leader2 = ScriptedAgent("cancelled-leader", [CallableStep(cancelling_leader)])
-    follower2 = ScriptedAgent(
-        "surviving-follower", [ToolStep("content_digest", {"files": files, "rounds": rounds})]
-    )
+    follower2 = ScriptedAgent("surviving-follower", [CallableStep(joining_follower)])
     results_b = await asyncio.gather(
         leader2.run(workflow, adapter), follower2.run(workflow, adapter)
     )
     notes["leader_cancel"] = {
         "leader_result": results_b[0],
         "follower_received_result": bool(results_b[1]),
+        "cancelled_was_the_leader": bool(
+            isinstance(results_b[0], dict) and results_b[0].get("was_leader")
+        ),
     }
 
     # -- case 3: an execution times out -------------------------------------

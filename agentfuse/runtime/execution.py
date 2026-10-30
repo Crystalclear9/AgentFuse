@@ -32,6 +32,10 @@ class ExecutionOutcome:
     cpu_time: float = 0.0
     exit_status: str = "0"
     traceback: str | None = None
+    #: False when the tool read the workspace without the controlled reader -
+    #: the dependency ledger is incomplete, the result must not be shared.
+    dependency_complete: bool = True
+    dependency_bypass: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -57,6 +61,10 @@ class PhysicalExecution:
     exit_status: str | None = None
     result: Any = None
     result_hash: str | None = None
+    #: the path of the stored result payload
+    result_reference: str | None = None
+    #: the event that started the execution - the causal parent of its events
+    start_event_id: str | None = None
     error: str | None = None
     timeout_seconds: float = 60.0
     attempt: int = 1

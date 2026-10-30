@@ -71,12 +71,19 @@ class ToolSpec:
     env_signature: dict[str, Any] = field(default_factory=dict)
     description: str = ""
     argument_normalizer: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    #: True when the tool reads the workspace **exclusively** through the
+    #: controlled :class:`~agentfuse.workspace.reader.WorkspaceReader`.  A tool
+    #: whose dependency tracking cannot be confirmed must set this to False -
+    #: such a tool is never allowed into the share coordinator because its
+    #: dependency ledger would be incomplete.
+    dependency_tracking: bool = True
 
     @property
     def shareable(self) -> bool:
-        """Only deterministic, read-only tools may enter the share coordinator."""
+        """Only deterministic, read-only tools with a complete dependency
+        tracking may enter the share coordinator."""
 
-        return bool(self.deterministic and self.read_only)
+        return bool(self.deterministic and self.read_only and self.dependency_tracking)
 
     @property
     def estimated_memory_mb(self) -> float:
