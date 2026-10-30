@@ -9,6 +9,8 @@ import pytest
 from agentfuse.core.state import EventType
 from agentfuse.scenarios.common import (
     DEMO_FILES,
+    create_branch,
+    mutate_variant_source,
     wait_for_event,
     wait_for_first_dependency,
 )
@@ -333,6 +335,44 @@ async def test_a_failing_execution_releases_the_participants(app, snapshot):
         assert "not found" in str(result) or "does not exist" in str(result)
 
 
+async def test_the_participants_of_a_failed_group_are_failed(app, snapshot):
+    """§10.1 - every waiting participant receives a clear status change.
+
+    A participant must never stay in the waiting state when the shared
+    execution failed - the database would show a group that failed while its
+    participants still wait for a result that will never arrive.
+    """
+
+    workflow = app.create_workflow("test-failed-participants")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    missing = ["src/does_not_exist.py"]
+    await asyncio.gather(
+        *[
+            app.coordinator.submit_tool_call(
+                workflow_id=workflow.workflow_id,
+                tool_name="ast_analyzer",
+                arguments={"files": missing},
+                snapshot_id=snapshot.snapshot_id,
+            )
+            for _ in range(3)
+        ],
+        return_exceptions=True,
+    )
+
+    groups = app.repository.list_share_groups(workflow.workflow_id)
+    assert groups, "the calls must have formed a share group"
+    participants = app.repository.list_participants(workflow.workflow_id)
+    assert participants, "the group must have participants"
+    for participant in participants:
+        assert participant["status"] == "FAILED", (
+            "a participant of a failed group must be FAILED, not "
+            f"{participant['status']}"
+        )
+        assert participant["detach_reason"]
+
+
 async def test_a_crashing_worker_is_detected(app, snapshot):
     workflow = app.create_workflow("test-crash")
     workflow.default_snapshot_id = snapshot.snapshot_id
@@ -448,3 +488,127 @@ async def test_no_worker_processes_are_leaked(app, snapshot):
             continue
         survivors.append(pid)
     assert not survivors, f"worker processes are still running: {survivors}"
+
+
+async def test_a_detached_follower_never_gets_a_second_execution(app, snapshot):
+    """§8.2 - a logical call belongs to at most one running execution.
+
+    The follower is separated while the leader is still computing.  When the
+    leader then fails with a retryable error, the failure must not start a
+    second execution for the follower: it already owns one of its own.
+    """
+
+    branch = create_branch(app, snapshot, mutate_variant_source, "branch-b")
+    workflow = app.create_workflow("test-no-second-execution")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 60000}
+    leader = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+            timeout_seconds=1.0,
+        )
+    )
+    # the follower joins while the leader is reading
+    await wait_for_first_dependency(app.event_bus, workflow.workflow_id)
+    follower = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=branch.snapshot_id,
+            timeout_seconds=60.0,
+        )
+    )
+    await asyncio.gather(leader, follower, return_exceptions=True)
+
+    calls = app.repository.list_logical_calls(workflow.workflow_id)
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert len(calls) == 2
+
+    # the executions a call started - the events are the runtime's own truth
+    started: dict[str, list[str]] = {}
+    for event in app.repository.list_events(workflow.workflow_id):
+        if event["event_type"] != EventType.TOOL_EXECUTION_STARTED:
+            continue
+        started.setdefault(str(event["logical_call_id"]), []).append(
+            str(event["physical_execution_id"])
+        )
+
+    # the follower was separated and owns an execution of its own - it must
+    # not get a second one when the leader fails
+    separated = [
+        participant
+        for participant in app.repository.list_participants(workflow.workflow_id)
+        if participant["detach_kind"] == "after_join"
+    ]
+    assert separated, "the follower must have been separated"
+    follower_call_id = separated[0]["logical_call_id"]
+    assert len(started.get(follower_call_id, [])) == 1, (
+        "the separated follower must own exactly one physical execution, "
+        f"it owns {started.get(follower_call_id)}"
+    )
+    assert all(
+        execution["execution_status"] != "RUNNING"
+        for execution in executions
+        if execution["execution_id"] in started.get(follower_call_id, [])
+    ), "no execution of the follower may be left running"
+
+
+async def test_every_call_owns_at_most_one_running_execution(app, snapshot):
+    """§8.2 - the invariant holds after a normal shared execution as well."""
+
+    workflow = app.create_workflow("test-one-execution-per-call")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 200}
+    await asyncio.gather(
+        *[
+            app.coordinator.submit_tool_call(
+                workflow_id=workflow.workflow_id,
+                tool_name="content_digest",
+                arguments=arguments,
+                snapshot_id=snapshot.snapshot_id,
+            )
+            for _ in range(4)
+        ]
+    )
+
+    calls = app.repository.list_logical_calls(workflow.workflow_id)
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert len(calls) == 4
+    for call in calls:
+        assert call["physical_execution_id"], "every call has its own execution"
+    # the shared execution is used by all four calls
+    assert len({call["physical_execution_id"] for call in calls}) == 1
+    assert len(executions) == 1
+
+
+async def test_a_runtime_failure_is_not_reported_as_a_worker_crash(app, snapshot):
+    """§10.1 - the failure kinds have to be distinguishable.
+
+    A runtime that cannot start the computation did not lose a worker - it
+    is a runtime error, not a crash.
+    """
+
+    workflow = app.create_workflow("test-internal-error")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    with pytest.raises(Exception) as error:
+        await app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="ast_analyzer",
+            arguments={"files": list(DEMO_FILES)},
+            # the snapshot does not exist -> the worker cannot be started
+            snapshot_id="snap-does-not-exist",
+        )
+    assert getattr(error.value, "kind", None) == "internal_error", (
+        "a runtime failure must not be reported as a worker crash: "
+        f"{getattr(error.value, 'kind', None)}"
+    )

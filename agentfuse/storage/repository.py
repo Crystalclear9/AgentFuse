@@ -99,13 +99,14 @@ class Repository:
             """
             INSERT INTO agents
             (agent_id, workflow_id, external_identity, agent_description,
-             registration_source, metadata, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+             registration_source, metadata, created_at, identity_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(agent_id) DO UPDATE SET
                 workflow_id=excluded.workflow_id, external_identity=excluded.external_identity,
                 agent_description=excluded.agent_description,
                 registration_source=excluded.registration_source, metadata=excluded.metadata,
-                created_at=excluded.created_at
+                created_at=excluded.created_at,
+                identity_status=excluded.identity_status
             """,
             (
                 record.agent_id,
@@ -115,6 +116,7 @@ class Repository:
                 record.registration_source,
                 _dumps(record.metadata),
                 record.created_at,
+                record.identity_status,
             ),
         )
 

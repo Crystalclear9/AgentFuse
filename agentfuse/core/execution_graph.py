@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 from .events import RuntimeEvent
+from .state import AgentIdentityStatus
 
 NODE_WORKFLOW = "workflow"
 NODE_AGENT = "agent"
@@ -174,23 +175,65 @@ class ExecutionGraph:
 
     def _on_agent_bound(self, event: RuntimeEvent) -> None:
         if not event.agent_id:
+            # The identity of the agent could not be established.  The event is
+            # not dropped - it is recorded as an undetermined identity
+            # (requirement 5.2).
+            self.add_node(
+                GraphNode(
+                    node_id=f"agent:undetermined:{event.event_id}",
+                    kind=NODE_AGENT,
+                    label="undetermined agent",
+                    workflow_id=event.workflow_id,
+                    status="UNDETERMINED",
+                    start_time=event.timestamp,
+                    attributes={
+                        "identity_status": "UNDETERMINED",
+                        "placeholder": True,
+                    },
+                )
+            )
             return
+        identity_status = str(
+            event.metadata.get("identity_status") or AgentIdentityStatus.CONFIRMED
+        )
         self.add_node(
             GraphNode(
                 node_id=f"agent:{event.agent_id}",
                 kind=NODE_AGENT,
                 label=str(event.metadata.get("external_identity") or event.agent_id),
                 workflow_id=event.workflow_id,
+                status=(
+                    "UNDETERMINED"
+                    if identity_status == str(AgentIdentityStatus.UNDETERMINED)
+                    else "CONFIRMED"
+                ),
                 start_time=event.timestamp,
                 attributes={
                     "agent_description": event.metadata.get("agent_description"),
                     "registration_source": event.metadata.get("registration_source"),
+                    "identity_status": identity_status,
                 },
             )
         )
 
     def _on_agent_invoked(self, event: RuntimeEvent) -> None:
-        if not event.invocation_id or not event.agent_id:
+        if not event.invocation_id:
+            return
+        if not event.agent_id:
+            # The invocation is recorded, but it is **not** connected to an
+            # agent: the identity could not be established and two events of
+            # an unknown agent must never be merged (requirement 5.2).
+            self.add_node(
+                GraphNode(
+                    node_id=f"invocation:{event.invocation_id}",
+                    kind=NODE_INVOCATION,
+                    label="invocation of an undetermined agent",
+                    workflow_id=event.workflow_id,
+                    status="UNDETERMINED",
+                    start_time=event.timestamp,
+                    attributes={"identity_status": "UNDETERMINED"},
+                )
+            )
             return
         self.add_node(
             GraphNode(

@@ -25,6 +25,22 @@ class WorkflowStatus(StrEnum):
     INTERRUPTED = "INTERRUPTED"
 
 
+class AgentIdentityStatus(StrEnum):
+    """How sure is the runtime about the identity of an agent?
+
+    ``CONFIRMED``
+        the identity was established at an observed registration boundary -
+        the adapter could name the agent.
+    ``UNDETERMINED``
+        the adapter could **not** confirm that two events belong to the same
+        agent.  Such an agent is never merged with another one (requirement
+        5.2).
+    """
+
+    CONFIRMED = "CONFIRMED"
+    UNDETERMINED = "UNDETERMINED"
+
+
 class InvocationStatus(StrEnum):
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"

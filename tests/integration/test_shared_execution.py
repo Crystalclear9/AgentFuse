@@ -357,3 +357,78 @@ async def test_the_share_group_records_its_participants(app, snapshot):
     calls = {call["logical_call_id"] for call in app.repository.list_logical_calls(workflow.workflow_id)}
     assert set(json.loads(groups[0]["participant_calls"])) == calls
     assert groups[0]["participant_count"] == len(calls)
+
+
+async def test_an_undetermined_agent_identity_is_recorded(app, snapshot):
+    """§5.2 - the adapter may say that the identity is not confirmed.
+
+    The agent is then stored with the status ``UNDETERMINED`` and the
+    execution graph shows it - it is never merged with another agent.
+    """
+
+    workflow = app.create_workflow("test-undetermined-identity")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+    adapter = ScriptedAdapter(workflow)
+
+    confirmed = await adapter.bind_agent(external_identity="agent-a")
+    undetermined = await adapter.bind_agent(
+        external_identity="agent-b", identity_confirmed=False
+    )
+    assert confirmed.agent_id != undetermined.agent_id
+
+    agents = app.repository.list_agents(workflow.workflow_id)
+    statuses = {row["external_identity"]: row["identity_status"] for row in agents}
+    assert statuses["agent-a"] == "CONFIRMED"
+    assert statuses["agent-b"] == "UNDETERMINED"
+
+    # the graph shows the state and keeps the two agents apart
+    payload = workflow.graph.to_dict()
+    agent_nodes = [node for node in payload["nodes"] if node["kind"] == "agent"]
+    assert len(agent_nodes) == 2
+    assert any(
+        node["attributes"].get("identity_status") == "UNDETERMINED"
+        for node in agent_nodes
+    )
+
+
+async def test_a_finished_share_group_is_closed(app, snapshot):
+    """§4.8 - a share group supports join, validate, detach and **close**."""
+
+    workflow = app.create_workflow("test-group-closed")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES)}
+    await asyncio.gather(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="ast_analyzer",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="ast_analyzer",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+    )
+
+    groups = app.repository.list_share_groups(workflow.workflow_id)
+    assert len(groups) == 1
+    assert groups[0]["status"] == "CLOSED", (
+        "a finished share group must be closed, not "
+        f"{groups[0]['status']}"
+    )
+    assert groups[0]["closed_time"]
+
+    # a later call with the same candidate key must not join the closed group
+    await app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="ast_analyzer",
+        arguments=arguments,
+        snapshot_id=snapshot.snapshot_id,
+    )
+    groups = app.repository.list_share_groups(workflow.workflow_id)
+    assert len(groups) == 2, "the closed group must not be reused"

@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 _SCHEMA: tuple[str, ...] = (
     """
@@ -52,7 +52,8 @@ _SCHEMA: tuple[str, ...] = (
         agent_description   TEXT,
         registration_source TEXT,
         metadata            TEXT,
-        created_at          REAL NOT NULL
+        created_at          REAL NOT NULL,
+        identity_status     TEXT DEFAULT 'CONFIRMED'
     )
     """,
     """
@@ -420,6 +421,12 @@ _MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         7,
         (
             "ALTER TABLE share_participants ADD COLUMN detach_kind TEXT",
+        ),
+    ),
+    (
+        8,
+        (
+            "ALTER TABLE agents ADD COLUMN identity_status TEXT DEFAULT 'CONFIRMED'",
         ),
     ),
 )

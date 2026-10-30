@@ -46,8 +46,15 @@ class AgentAdapter(ABC):
         agent_description: str | None = None,
         registration_source: str | None = None,
         metadata: dict[str, Any] | None = None,
+        identity_confirmed: bool = True,
     ) -> AgentHandle:
-        """Bind an internal agent identity at an observed registration boundary."""
+        """Bind an internal agent identity at an observed registration boundary.
+
+        ``identity_confirmed=False`` says that the adapter could not confirm
+        the identity of the agent.  The runtime then keeps the identity in the
+        ``UNDETERMINED`` state and never merges the agent with another one
+        (requirement 5.2).
+        """
 
     @abstractmethod
     async def begin_invocation(

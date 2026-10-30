@@ -152,6 +152,18 @@ class ShareGroup:
     participants: dict[str, Participant] = field(default_factory=dict)
     mode: str = "online"
 
+    def close(self) -> None:
+        """Close the group.
+
+        A group that has served its purpose is closed: it keeps the state of
+        what happened, and a later call with the same candidate key starts a
+        **new** group instead of joining a finished one (requirement 4.8).
+        """
+
+        if self.status in (ShareGroupStatus.COMPLETED, ShareGroupStatus.FAILED):
+            self.transition(ShareGroupStatus.CLOSED)
+            self.closed_time = time.time()
+
     def transition(self, target: ShareGroupStatus) -> None:
         if target == self.status:
             return

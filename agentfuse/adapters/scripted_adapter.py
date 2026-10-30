@@ -27,12 +27,14 @@ class ScriptedAdapter(AgentAdapter):
         agent_description: str | None = None,
         registration_source: str | None = None,
         metadata: dict[str, Any] | None = None,
+        identity_confirmed: bool = True,
     ) -> AgentHandle:
         return self.workflow.bind_agent(
             external_identity=external_identity,
             agent_description=agent_description,
             registration_source=registration_source,
             metadata=metadata,
+            identity_confirmed=identity_confirmed,
         )
 
     async def begin_invocation(

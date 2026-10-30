@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from agentfuse.core.events import EventBus
+from agentfuse.core.events import EventBus, RuntimeEvent
 from agentfuse.core.execution_graph import ExecutionGraph
 from agentfuse.core.state import EventType
 
@@ -102,3 +102,79 @@ def test_the_graph_records_shared_executions():
     kinds = {edge["kind"] for edge in graph.to_dict()["edges"]}
     assert "BOUND_TO_EXECUTION" in kinds
     assert "SHARES_EXECUTION_WITH" in kinds
+
+
+def test_an_undetermined_identity_is_kept_and_never_merged():
+    """§5.2 - an identity that could not be confirmed stays undetermined.
+
+    Two events that may or may not belong to the same agent must not be
+    merged - and they must not disappear either.
+    """
+
+    graph = ExecutionGraph()
+    graph.apply_event(
+        RuntimeEvent(
+            event_id="evt-1",
+            workflow_id="wf-1",
+            event_type=EventType.AGENT_BOUND,
+            timestamp=1.0,
+            sequence=0,
+            agent_id=None,
+            metadata={"identity_status": "UNDETERMINED"},
+        )
+    )
+    graph.apply_event(
+        RuntimeEvent(
+            event_id="evt-2",
+            workflow_id="wf-1",
+            event_type=EventType.AGENT_BOUND,
+            timestamp=2.0,
+            sequence=1,
+            agent_id=None,
+            metadata={"identity_status": "UNDETERMINED"},
+        )
+    )
+    undetermined = [
+        node
+        for node in graph.nodes.values()
+        if node.attributes.get("identity_status") == "UNDETERMINED"
+    ]
+    assert len(undetermined) == 2, "two unknown identities must stay two nodes"
+    assert len({node.node_id for node in undetermined}) == 2
+
+
+def test_an_undetermined_invocation_is_not_connected_to_an_agent():
+    graph = ExecutionGraph()
+    graph.apply_event(
+        RuntimeEvent(
+            event_id="evt-3",
+            workflow_id="wf-1",
+            event_type=EventType.AGENT_INVOKED,
+            timestamp=1.0,
+            sequence=0,
+            invocation_id="inv-1",
+            agent_id=None,
+        )
+    )
+    assert "invocation:inv-1" in graph.nodes
+    assert not graph.edges, "an unknown agent must not produce an edge"
+    node = graph.nodes["invocation:inv-1"]
+    assert node.status == "UNDETERMINED"
+
+
+def test_a_confirmed_agent_carries_its_identity_status():
+    graph = ExecutionGraph()
+    graph.apply_event(
+        RuntimeEvent(
+            event_id="evt-4",
+            workflow_id="wf-1",
+            event_type=EventType.AGENT_BOUND,
+            timestamp=1.0,
+            sequence=0,
+            agent_id="agent-1",
+            metadata={"external_identity": "worker-1", "identity_status": "CONFIRMED"},
+        )
+    )
+    node = graph.nodes["agent:agent-1"]
+    assert node.attributes["identity_status"] == "CONFIRMED"
+    assert node.status == "CONFIRMED"

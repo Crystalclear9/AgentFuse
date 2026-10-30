@@ -22,6 +22,9 @@ class AgentHandle:
     registration_source: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     bound_at: float = field(default_factory=time.time)
+    #: ``CONFIRMED`` or ``UNDETERMINED`` - an agent whose identity could not
+    #: be established is never merged with another one (requirement 5.2)
+    identity_status: str = "CONFIRMED"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -32,6 +35,7 @@ class AgentHandle:
             "registration_source": self.registration_source,
             "metadata": self.metadata,
             "bound_at": self.bound_at,
+            "identity_status": self.identity_status,
         }
 
 

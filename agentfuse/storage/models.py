@@ -37,6 +37,8 @@ class AgentRecord:
     registration_source: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: float = 0.0
+    #: ``CONFIRMED`` or ``UNDETERMINED`` (requirement 5.2)
+    identity_status: str = "CONFIRMED"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -16,7 +16,13 @@ from ..core.agent_context import AgentHandle, InvocationHandle
 from ..core.events import EventBus
 from ..core.execution_graph import ExecutionGraph
 from ..core.ids import new_id
-from ..core.state import EventType, InvocationStatus, RuntimeMode, WorkflowStatus
+from ..core.state import (
+    AgentIdentityStatus,
+    EventType,
+    InvocationStatus,
+    RuntimeMode,
+    WorkflowStatus,
+)
 from ..storage.models import AgentInvocationRecord, AgentRecord, WorkflowRecord
 
 
@@ -125,7 +131,16 @@ class WorkflowRuntime:
         agent_description: str | None = None,
         registration_source: str | None = None,
         metadata: dict[str, Any] | None = None,
+        identity_confirmed: bool = True,
     ) -> AgentHandle:
+        """Bind an internal agent identity at an observed boundary.
+
+        ``identity_confirmed=False`` says that the adapter could **not**
+        establish the identity of the agent.  Such an agent is recorded with
+        the status ``UNDETERMINED`` and is never merged with another one
+        (requirement 5.2).
+        """
+
         handle = AgentHandle(
             agent_id=new_id("agent"),
             workflow_id=self.workflow_id,
@@ -133,6 +148,11 @@ class WorkflowRuntime:
             agent_description=agent_description,
             registration_source=registration_source,
             metadata=dict(metadata or {}),
+            identity_status=(
+                str(AgentIdentityStatus.CONFIRMED)
+                if identity_confirmed
+                else str(AgentIdentityStatus.UNDETERMINED)
+            ),
         )
         self.agents[handle.agent_id] = handle
         self.repository.save_agent(
@@ -144,6 +164,7 @@ class WorkflowRuntime:
                 registration_source=handle.registration_source,
                 metadata=handle.metadata,
                 created_at=handle.bound_at,
+                identity_status=handle.identity_status,
             )
         )
         self.event_bus.publish(
@@ -154,6 +175,7 @@ class WorkflowRuntime:
                 "external_identity": handle.external_identity,
                 "agent_description": handle.agent_description,
                 "registration_source": handle.registration_source,
+                "identity_status": handle.identity_status,
             },
         )
         return handle
