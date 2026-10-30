@@ -103,8 +103,8 @@ uv pip install --python .agentfuse/wsl/venv/bin/python -e ".[dev]"
 .agentfuse/wsl/venv/bin/python scripts/acceptance_check.py
 ```
 
-实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 189 passed /
-WSL2 190 passed，两平台验收自检均 36/36）。
+实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 197 passed /
+WSL2 197 passed，两平台验收自检均 39/39）。
 
 > 跨平台实测发现并修复了一个 Linux 专属缺陷：父进程未 `wait()` 回收 worker
 > 导致僵尸进程堆积。详见 TEST_REPORT §4。
