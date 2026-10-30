@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
+from agentfuse.core.state import EventType
 from agentfuse.runtime.scheduler import LocalResourceController
 from agentfuse.scenarios.common import DEMO_FILES, create_branch
 
@@ -53,6 +54,78 @@ async def test_the_resource_snapshot_exposes_the_limits():
     assert snapshot["effective_rss_limit_mb"] == 256
     assert snapshot["rss_limit_exceeded"] is False
     assert snapshot["pending"] == []
+
+
+async def test_a_shared_call_does_not_consume_a_second_worker_slot(app, snapshot):
+    """§9.2 / §17.5 - a shared call occupies exactly one execution slot.
+
+    The admission is granted per **physical execution**, therefore a follower
+    that joins a running group must not take a second slot.  The scheduler is
+    observed while the shared execution runs.
+    """
+
+    app.scheduler.max_workers = 1
+    workflow = app.create_workflow("test-shared-slot")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    observed: list[dict] = []
+
+    def observer(event):
+        if event.event_type == EventType.TOOL_READ_OBSERVED:
+            observed.append(app.scheduler.snapshot())
+
+    app.event_bus.subscribe(observer)
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 800}
+    await asyncio.gather(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+    )
+
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert len(executions) == 1, "the two calls must share one physical execution"
+
+    assert observed, "the shared execution must have been observed"
+    # while the shared execution runs, exactly one slot is occupied and
+    # nothing waits for a second one
+    assert all(item["running"] == 1 for item in observed), (
+        "a shared call must not occupy a second worker slot"
+    )
+    assert all(item["waiting"] == 0 for item in observed)
+    # and the whole share group consumed exactly one admission
+    assert app.scheduler.snapshot()["admitted_total"] == 1
+
+
+async def test_the_resource_samples_are_written_for_the_real_worker(app, snapshot):
+    """§9.3 - the RSS is measured on the process that really computes."""
+
+    workflow = app.create_workflow("test-resource-samples")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    await app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="content_digest",
+        arguments={"files": list(DEMO_FILES), "rounds": 400},
+        snapshot_id=snapshot.snapshot_id,
+    )
+
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert executions[0]["peak_rss"], "the peak RSS must be recorded"
+    samples = app.repository.list_resource_samples(executions[0]["execution_id"])
+    assert samples, "the resource samples must be stored"
+    assert all(sample["rss_bytes"] for sample in samples)
 
 
 # ----------------------------------------------------------------------

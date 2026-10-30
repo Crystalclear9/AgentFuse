@@ -7,7 +7,25 @@ import asyncio
 import pytest
 
 from agentfuse.core.state import EventType
-from agentfuse.scenarios.common import DEMO_FILES
+from agentfuse.scenarios.common import (
+    DEMO_FILES,
+    wait_for_event,
+    wait_for_first_dependency,
+)
+
+
+def _process_alive(pid: int | None) -> bool:
+    """True when the process with the given pid still exists."""
+
+    if not pid:
+        return False
+    try:
+        import psutil
+
+        process = psutil.Process(int(pid))
+        return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
+    except Exception:
+        return False
 
 
 async def test_many_concurrent_identical_calls_create_one_execution(app, snapshot):
@@ -171,10 +189,123 @@ async def test_cancelling_every_participant_terminates_the_execution(app, snapsh
 
     executions = app.repository.list_executions(workflow.workflow_id)
     assert executions
+    # the execution must really have been terminated - a completed or failed
+    # execution would mean that the workers kept running
     assert all(
-        execution["execution_status"] in ("CANCELLED", "TIMEOUT", "CRASHED", "COMPLETED", "FAILED")
-        for execution in executions
+        execution["execution_status"] == "CANCELLED" for execution in executions
+    ), [execution["execution_status"] for execution in executions]
+    # and the worker processes must be gone
+    for execution in executions:
+        assert not _process_alive(execution["worker_pid"])
+        assert not _process_alive(execution["worker_root_pid"])
+
+
+async def test_a_follower_that_joins_while_the_leader_ends_gets_no_shared_result(
+    app, snapshot
+):
+    """§17.4 - the follower joins while the leader is finishing.
+
+    The race window is the commit phase of the share group: the leader has
+    finished, the group is validating and the result is about to be
+    delivered.  A follower that arrives in that window must not receive the
+    result of the leader.
+    """
+
+    workflow = app.create_workflow("test-join-during-commit")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 3000}
+    leader_task = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
     )
+
+    # the follower submits its call exactly when the leader's execution ends
+    await wait_for_event(
+        app.event_bus,
+        EventType.TOOL_EXECUTION_FINISHED,
+        workflow_id=workflow.workflow_id,
+        timeout=30.0,
+    )
+    follower = await app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="content_digest",
+        arguments=arguments,
+        snapshot_id=snapshot.snapshot_id,
+    )
+    leader = await leader_task
+
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert len(executions) == 2, (
+        "a call that arrives while the leader finishes must run on its own"
+    )
+    # the follower did not reuse the leader's result
+    assert follower.physical_execution_id != leader.physical_execution_id
+
+
+async def test_a_follower_that_cancels_during_the_delivery_gets_one_result(app, snapshot):
+    """§17.4 - the follower cancels while the result is being returned.
+
+    The cancellation and the delivery happen under the same lock; the call
+    must receive the result at most once and the leader must not be affected.
+    """
+
+    workflow = app.create_workflow("test-cancel-during-delivery")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 400}
+    delivered: list[str] = []
+
+    def observer(event):
+        if event.event_type == EventType.TOOL_RESULT_DELIVERED:
+            delivered.append(str(event.logical_call_id))
+
+    app.event_bus.subscribe(observer)
+
+    leader_task = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    await wait_for_first_dependency(app.event_bus, workflow.workflow_id)
+    follower_task = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    await asyncio.sleep(0.05)
+
+    # the follower cancels while the leader is still computing
+    for call in list(app.coordinator.active_calls(workflow.workflow_id)):
+        if not call.share_group_id:
+            continue
+        group = app.coordinator.get_group(call.share_group_id)
+        if group is None:
+            continue
+        participant = group.participants.get(call.logical_call_id)
+        if participant is not None and not participant.is_leader:
+            await app.coordinator.cancel_logical_call(call.logical_call_id, "cancelled")
+
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(follower_task, timeout=30)
+    leader = await asyncio.wait_for(leader_task, timeout=30)
+
+    # the leader still received its result
+    assert leader.result_hash
+    # and no call was delivered twice
+    assert len(delivered) == len(set(delivered))
 
 
 async def test_a_failing_execution_releases_the_participants(app, snapshot):
@@ -215,6 +346,13 @@ async def test_a_crashing_worker_is_detected(app, snapshot):
             snapshot_id=snapshot.snapshot_id,
         )
     assert "exit" in str(error.value).lower() or "crash" in str(error.value).lower()
+
+    # the crashed worker must be reaped - not only detected
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert executions
+    assert executions[0]["execution_status"] in ("CRASHED", "FAILED")
+    assert not _process_alive(executions[0]["worker_pid"])
+    assert not _process_alive(executions[0]["worker_root_pid"])
 
 
 async def test_a_hanging_worker_is_terminated_by_the_timeout(app, snapshot):

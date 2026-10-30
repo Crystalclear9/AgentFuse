@@ -1501,6 +1501,11 @@ class RuntimeCoordinator:
             elif outcome.kind == ERROR_TIMEOUT:
                 execution.status = ExecutionStatus.TIMEOUT
                 execution.error = outcome.message
+            elif outcome.kind == ERROR_CANCELLED:
+                # a cancellation is recorded as a cancellation - not as a
+                # timeout (requirement 10.4)
+                execution.status = ExecutionStatus.CANCELLED
+                execution.error = outcome.message
             elif outcome.kind == ERROR_TOOL:
                 execution.status = ExecutionStatus.FAILED
                 execution.error = outcome.message

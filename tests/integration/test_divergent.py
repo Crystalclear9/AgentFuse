@@ -174,6 +174,78 @@ async def test_a_late_joiner_validates_the_existing_ledger(app, snapshot):
     assert len(executions) == 2, "the second call must not reuse a finished execution"
 
 
+async def test_a_late_joiner_validates_the_early_dependencies(app, snapshot):
+    """§17.3 - a participant that joins in the middle must not miss the
+    dependencies that the leader already observed.
+
+    The join time validation compares the existing ledger with the
+    follower's own snapshot: the validated prefix has to cover **all** the
+    entries the leader had read at that moment.
+    """
+
+    workflow = app.create_workflow("test-late-join-prefix")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 4000}
+    leader_task = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+
+    # the follower joins after the leader has read several dependencies
+    reads = 0
+
+    def observer(event):
+        nonlocal reads
+        if event.event_type == EventType.TOOL_READ_OBSERVED:
+            reads += 1
+
+    app.event_bus.subscribe(observer)
+    while reads < 2:
+        await asyncio.sleep(0.01)
+
+    follower = await app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="content_digest",
+        arguments=arguments,
+        snapshot_id=snapshot.snapshot_id,
+    )
+    leader = await leader_task
+
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert len(executions) == 1, "the follower joined the running group"
+
+    participants = app.repository.list_participants(workflow.workflow_id)
+    follower_rows = [row for row in participants if not row["is_leader"]]
+    assert follower_rows, "the follower must be a participant of the group"
+    follower_row = follower_rows[0]
+    # the follower validated the dependencies the leader had read before the
+    # join - it did not start from zero
+    assert follower_row["validated_prefix_length"] >= 2, (
+        "a late joiner must validate the existing ledger"
+    )
+    assert follower_row["validation_status"] == str(ValidationStatus.MATCH)
+
+    # and the validation is recorded in the validation records
+    validations = app.repository.list_validations()
+    follower_validations = [
+        validation
+        for validation in validations
+        if validation["logical_call_id"] == follower_row["logical_call_id"]
+    ]
+    assert follower_validations, "the join time validation must be recorded"
+    assert all(
+        validation["validation_status"] == str(ValidationStatus.MATCH)
+        for validation in follower_validations
+    )
+    assert follower.result_hash == leader.result_hash
+
+
 async def test_a_rejected_candidate_is_recorded_as_detached(app, snapshot):
     """A join that the validation refuses must leave a DETACHED participant.
 

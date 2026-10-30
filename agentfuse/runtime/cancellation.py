@@ -167,7 +167,7 @@ async def terminate_execution(execution: Any, reason: str) -> None:
         execution.timeout_task = None
     if not execution.outcome.done():
         execution.outcome.set_result(
-            _timeout_outcome(reason)
+            _cancelled_outcome(reason)
         )
     await asyncio.to_thread(
         terminate_worker,
@@ -175,6 +175,30 @@ async def terminate_execution(execution: Any, reason: str) -> None:
         execution.pid,
         worker_pid=getattr(handle, "worker_pid", None),
         child_pids=list(getattr(handle, "child_pids", ()) or ()),
+    )
+
+
+def _cancelled_outcome(reason: str) -> Any:
+    """The outcome of an execution that was terminated on purpose.
+
+    A cancellation is **not** a timeout: requirement 10.4 asks for the
+    cancellation to be recorded as such.
+    """
+
+    from .execution import ExecutionOutcome
+    from .protocol import ERROR_CANCELLED
+
+    return ExecutionOutcome(
+        ok=False, kind=ERROR_CANCELLED, message=reason, exit_status="cancelled"
+    )
+
+
+def _timeout_outcome(reason: str) -> Any:
+    from .execution import ExecutionOutcome
+    from .protocol import ERROR_TIMEOUT
+
+    return ExecutionOutcome(
+        ok=False, kind=ERROR_TIMEOUT, message=reason, exit_status="timeout"
     )
 
 

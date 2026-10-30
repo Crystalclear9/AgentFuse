@@ -309,6 +309,24 @@ def build_default_registry() -> ToolRegistry:
                 description="Test fixture: reads the workspace without the reader.",
             )
         )
+        # a second version of the same tool: the version is part of the
+        # candidate key, therefore two versions never share an execution
+        registry.register(
+            ToolSpec(
+                tool_name="raw_reader",
+                tool_version="2.0.0",
+                deterministic=True,
+                read_only=True,
+                dependency_tracking=True,
+                resource_estimate={"cpu_seconds": 0.1, "memory_mb": 32.0},
+                input_schema={"type": "object", "properties": {}, "required": []},
+                output_schema={"type": "object"},
+                implementation=raw_reader,
+                implementation_reference="agentfuse.tools.fixtures:raw_reader",
+                env_signature={"scope": "workspace-filesystem"},
+                description="Test fixture: the second version of the raw reader.",
+            )
+        )
 
     return registry
 

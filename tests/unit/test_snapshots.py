@@ -78,6 +78,24 @@ def test_compare_snapshots_reports_the_differences(store, source, tmp_path):
     assert comparison["identical"] is False
 
 
+def test_compare_snapshots_reports_removed_and_changed_files(store, source, tmp_path):
+    """§17.6 - a deleted file and a changed file are both recorded."""
+
+    base = store.create_workspace(source)
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "README.md").write_text("readme\n", encoding="utf-8")
+    (other / "src").mkdir()
+    # src/a.py was deleted, src/b.py was changed
+    (other / "src" / "b.py").write_text("b = 3\n", encoding="utf-8")
+    changed = store.create_workspace(other)
+
+    comparison = store.compare_snapshots(base.snapshot_id, changed.snapshot_id)
+    assert comparison["removed"] == ["src/a.py"]
+    assert "src/b.py" in comparison["modified"]
+    assert comparison["identical"] is False
+
+
 def test_deleting_a_snapshot_removes_the_tree(store, source):
     info = store.create_workspace(source)
     store.delete_snapshot(info.snapshot_id)
