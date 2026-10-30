@@ -20,16 +20,16 @@
 | 内存预算 | 1024 MiB |
 | 单次执行超时 | 60 s（故障注入场景另行指定） |
 | 随机种子 | 固定（`--seed`），所有模式一致 |
-| 重复次数 | 每个场景 7 次，报告中给出均值与标准差 |
+| 重复次数 | 每个场景 5 次，报告中给出均值与标准差 |
 
 复现命令：
 
 ```bash
 # 资源充裕（2 个并发执行）
-agentfuse compare --scenario shared --repeat 7 --modes baseline online deferred --json
+agentfuse compare --scenario shared --repeat 5 --modes baseline online deferred --json
 
 # 资源受限（1 个并发执行）—— 共享执行真正节省时间的地方
-agentfuse compare --scenario shared-heavy --repeat 7 --workers 1 --modes baseline online --json
+agentfuse compare --scenario shared-heavy --repeat 5 --workers 1 --modes baseline online --json
 
 # 性能回归守卫（对比 benchmarks/baseline.json）
 python scripts/check_regression.py
@@ -128,56 +128,67 @@ Leader 拥有自己的物理执行，不计入分子 —— 这是保守口径�
 
 ### 6.1 worker = 2（资源充裕）
 
-| 场景 | 模式 | makespan 均值 (s) | 标准差 | 物理执行 | CPU (s) | 峰值 RSS (MiB) | 共享成功率 | 分离 | 验证次数 |
-|---|---|---|---|---|---|---|---|---|---|
-| shared | baseline | 0.068 | 0.024 | 2.0 | 0.011 | 12.3 | 0% | 0 | 0 |
-| shared | **online** | **0.053** | 0.010 | **1.0** | 0.004 | 6.5 | 50% | 0 | 5 |
-| shared | deferred | 0.043 | 0.009 | 1.0 | 0.004 | 0.0 | 50% | 0 | 1 |
-| shared-heavy | baseline | 0.322 | 0.024 | 2.0 | **0.480** | 22.5 | 0% | 0 | 0 |
-| shared-heavy | **online** | **0.307** | 0.022 | **1.0** | **0.237** | 23.1 | 50% | 0 | 5 |
-| shared-heavy | deferred | 0.288 | 0.017 | 1.0 | 0.239 | 23.1 | 50% | 0 | 1 |
-| different-workspace | baseline | 0.069 | 0.022 | 2.0 | 0.009 | 19.7 | 0% | 0 | 0 |
-| different-workspace | **online** | **0.065** | 0.002 | **1.0** | 0.004 | 6.6 | 50% | 0 | 5 |
-| different-workspace | deferred | 0.046 | 0.014 | 1.0 | 0.000 | 3.3 | 50% | 0 | 1 |
-| multi-agent | baseline | 0.137 | 0.019 | 4.0 | 0.027 | 19.8 | 0% | 0 | 0 |
-| multi-agent | **online** | **0.122** | 0.011 | **3.0** | 0.007 | 13.2 | 25% | 0 | 5 |
-| multi-agent | deferred | 0.123 | 0.006 | 3.0 | 0.007 | 19.8 | 25% | 0 | 1 |
-| divergent | baseline | **0.188** | 0.024 | 2.0 | 0.263 | 23.2 | 0% | 0 | 0 |
-| divergent | online | 0.274 | 0.037 | 2.0 | 0.252 | 23.2 | 0% | **1** | 4 |
-| divergent | deferred | 0.339 | 0.057 | 2.0 | 0.250 | 23.2 | 0% | **1** | 1 |
+| 场景 | 模式 | makespan 均值 (s) | 标准差 | 物理执行 | CPU (s) | 峰值 RSS (MiB) | 共享成功率 | 分离 | 验证次数 | 提前分离(ms) | 加速比 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| shared | baseline | 0.106 | 0.039 | 2.0 | 0.013 | 23.2 | 0% | 0 | 0 | 0.0 | 0.00x |
+| shared | online | 0.068 | 0.007 | 1.0 | 0.003 | 23.1 | 50% | 0 | 5 | 0.0 | 1.57x |
+| shared | deferred | 0.056 | 0.008 | 1.0 | 0.000 | 23.1 | 50% | 0 | 1 | 0.0 | 1.91x |
+| shared-heavy | baseline | 0.329 | 0.050 | 2.0 | 0.491 | 23.2 | 0% | 0 | 0 | 0.0 | 0.00x |
+| shared-heavy | online | 0.318 | 0.040 | 1.0 | 0.247 | 23.2 | 50% | 0 | 5 | 0.0 | 1.03x |
+| shared-heavy | deferred | 0.352 | 0.071 | 1.0 | 0.256 | 23.2 | 50% | 0 | 1 | 0.0 | 0.93x |
+| different-workspace | baseline | 0.103 | 0.020 | 2.0 | 0.009 | 23.3 | 0% | 0 | 0 | 0.0 | 0.00x |
+| different-workspace | online | 0.116 | 0.023 | 1.0 | 0.003 | 23.3 | 50% | 0 | 5 | 0.0 | 0.88x |
+| different-workspace | deferred | 0.112 | 0.028 | 1.0 | 0.006 | 23.3 | 50% | 0 | 1 | 0.0 | 0.92x |
+| multi-agent | baseline | 0.221 | 0.039 | 4.0 | 0.013 | 23.5 | 0% | 0 | 0 | 0.0 | 0.00x |
+| multi-agent | online | 0.276 | 0.058 | 3.0 | 0.016 | 23.5 | 25% | 0 | 5 | 0.0 | 0.80x |
+| multi-agent | deferred | 0.184 | 0.050 | 3.0 | 0.016 | 23.5 | 25% | 0 | 1 | 0.0 | 1.21x |
+| divergent | baseline | 0.413 | 0.023 | 2.0 | 0.606 | 23.7 | 0% | 0 | 0 | 0.0 | 0.00x |
+| divergent | online | 0.495 | 0.066 | 2.0 | 0.600 | 23.7 | 0% | 1 | 1 | 235.9 | 0.83x |
+| divergent | deferred | 0.761 | 0.058 | 2.0 | 0.584 | 23.5 | 0% | 1 | 1 | -49.2 | 0.54x |
 
-* 加速比（online）：shared **1.27x**、shared-heavy 1.05x、different-workspace 1.06x、
-  multi-agent 1.12x、**divergent 0.69x（更慢）**
-* 正确性：**所有场景、所有模式 7/7 次与 baseline 完全一致，0 次不一致**
-* `shared-heavy` 的 **CPU 时间从 0.480 s 降到 0.237 s（减半）** —— 这是共享执行
-  真正省下的计算量；makespan 只缩短 5%，因为两次计算本来就能并行。
+* 加速比（online / baseline）：shared **1.57x**、shared-heavy 1.03x、
+  different-workspace 0.88x、multi-agent 0.80x、**divergent 0.83x（更慢）**
+* 正确性：所有场景、所有模式 **5/5 次与 baseline 完全一致，0 次不一致**
+* `shared-heavy` 的 **CPU 时间从 0.491 s 降到 0.247 s（减半）** —— 这是共享执行
+  真正省下的计算量；makespan 只缩短 3%，因为两次计算本来就能并行。
+* **在线分离收益**：`divergent` 场景里，online 模式在 Leader 结束前
+  **235.9 ms** 就发现了冲突（"提前分离"列为正），deferred 模式则是在 Leader
+  **结束之后**才校验（**-49.2 ms**）。这正是 §13.3 要求的两种模式的等待时间
+  对比。
 
 ### 6.2 worker = 1（资源受限）
 
-| 场景 | 模式 | makespan 均值 (s) | 标准差 | 物理执行 | CPU (s) | 共享成功率 | 分离 | 加速比 |
-|---|---|---|---|---|---|---|---|---|
-| shared | baseline | 0.081 | 0.022 | 2.0 | 0.002 | 0% | 0 | — |
-| shared | **online** | **0.063** | 0.001 | **1.0** | 0.007 | 50% | 0 | **1.29x** |
-| shared-heavy | baseline | 0.511 | 0.029 | 2.0 | **0.449** | 0% | 0 | — |
-| shared-heavy | **online** | **0.269** | 0.011 | **1.0** | **0.223** | 50% | 0 | **1.90x** |
-| different-workspace | baseline | 0.069 | 0.007 | 2.0 | 0.009 | 0% | 0 | — |
-| different-workspace | **online** | **0.063** | 0.012 | **1.0** | 0.007 | 50% | 0 | **1.09x** |
-| multi-agent | baseline | 0.157 | 0.029 | 4.0 | 0.009 | 0% | 0 | — |
-| multi-agent | **online** | **0.130** | 0.013 | **3.0** | 0.007 | 25% | 0 | **1.20x** |
-| divergent | baseline | 0.293 | 0.010 | 2.0 | 0.217 | 0% | 0 | — |
-| divergent | online | 0.287 | 0.008 | 2.0 | 0.225 | 0% | 1 | 1.02x |
+| 场景 | 模式 | makespan 均值 (s) | 标准差 | 物理执行 | CPU (s) | 共享成功率 | 分离 | 验证次数 | 提前分离(ms) | 加速比 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| shared | baseline | 0.113 | 0.027 | 2.0 | 0.009 | 0% | 0 | 0 | 0.0 | 0.00x |
+| shared | online | 0.100 | 0.045 | 1.0 | 0.000 | 50% | 0 | 5 | 0.0 | 1.13x |
+| shared | deferred | 0.076 | 0.006 | 1.0 | 0.000 | 50% | 0 | 1 | 0.0 | 1.48x |
+| shared-heavy | baseline | 0.630 | 0.078 | 2.0 | 0.506 | 0% | 0 | 0 | 0.0 | 0.00x |
+| shared-heavy | online | 0.374 | 0.041 | 1.0 | 0.266 | 50% | 0 | 5 | 0.0 | 1.68x |
+| shared-heavy | deferred | 0.376 | 0.029 | 1.0 | 0.275 | 50% | 0 | 1 | 0.0 | 1.67x |
+| different-workspace | baseline | 0.147 | 0.041 | 2.0 | 0.009 | 0% | 0 | 0 | 0.0 | 0.00x |
+| different-workspace | online | 0.106 | 0.015 | 1.0 | 0.006 | 50% | 0 | 5 | 0.0 | 1.38x |
+| different-workspace | deferred | 0.100 | 0.038 | 1.0 | 0.006 | 50% | 0 | 1 | 0.0 | 1.47x |
+| multi-agent | baseline | 0.288 | 0.049 | 4.0 | 0.022 | 0% | 0 | 0 | 0.0 | 0.00x |
+| multi-agent | online | 0.236 | 0.039 | 3.0 | 0.013 | 25% | 0 | 5 | 0.0 | 1.22x |
+| multi-agent | deferred | 0.285 | 0.083 | 3.0 | 0.028 | 25% | 0 | 1 | 0.0 | 1.01x |
+| divergent | baseline | 0.729 | 0.064 | 2.0 | 0.566 | 0% | 0 | 0 | 0.0 | 0.00x |
+| divergent | online | 0.711 | 0.042 | 2.0 | 0.559 | 0% | 1 | 1 | 222.6 | 1.03x |
+| divergent | deferred | 0.722 | 0.060 | 2.0 | 0.562 | 0% | 1 | 1 | -50.6 | 1.01x |
 
-* 正确性：同样 **7/7 次与 baseline 完全一致**
-* 收益最大的是 **CPU 密集场景（1.90x）**：baseline 必须把两次计算排队串行执行，
+* 正确性：同样 **5/5 次与 baseline 完全一致**
+* 收益最大的是 **CPU 密集场景（1.68x）**：baseline 必须把两次计算排队串行执行，
   共享模式只算一次。
+* `divergent` 在资源受限时回到 **1.03x**：两个分支的输入本来就不同，没有任何
+  计算可以复用 —— 收益只能来自"更早发现冲突"，而在线模式确实提前了 **222.6 ms**。
 
 ### 6.3 divergent —— 负面结果
 
-| 模式 | makespan (worker=2) | makespan (worker=1) | 物理执行 | CPU (s) |
-|---|---|---|---|---|
-| baseline | **0.188** | 0.293 | 2.0 | 0.263 |
-| online | 0.274 | 0.287 | 2.0 | 0.252 |
-| deferred | 0.339 | — | 2.0 | 0.250 |
+| 模式 | makespan (worker=2) | makespan (worker=1) | 物理执行 | CPU (s) | 提前分离(ms) |
+|---|---|---|---|---|---|
+| baseline | **0.413** | 0.729 | 2.0 | 0.606 | — |
+| online | 0.495 | 0.711 | 2.0 | 0.600 | **+235.9 / +222.6** |
+| deferred | 0.761 | 0.722 | 2.0 | 0.584 | -49.2 / -50.6 |
 
 **为什么没有收益（真实原因，不是噪声）**
 
@@ -186,19 +197,20 @@ Leader 拥有自己的物理执行，不计入分子 —— 这是保守口径�
 2. 该场景为了**确定性地**演示"在线分离"，Follower 故意等到 Leader 报告第一条依赖
    之后才提交请求（见 `agentfuse/scenarios/definitions.py` 的 `follower_step`）。
    这段等待在 baseline 中不存在 —— 它是演示成本，不是运行时缺陷；
-3. 在线模式额外付出 4 次依赖验证（deferred 模式 1 次），deferred 因为必须等到
-   Leader 结束才能发现冲突，反而更慢（0.339 s）。
+3. 在线模式额外付出依赖验证（deferred 模式 1 次），deferred 因为必须等到
+   Leader 结束才能发现冲突，反而更慢（0.761 s）。
 
-**在线分离的价值仍然成立**：`metrics.detach_lead_ms_max` 显示冲突在 Leader
-完成之前约 **40–140 ms** 就被发现，Follower 因此可以与 Leader **并行**执行自己的
-独立计算。
+**在线分离的价值仍然成立，而且可以被测量**：`metrics.detach_lead_ms_max` 显示
+冲突在 Leader 完成之前 **235.9 ms**（worker=2）就被发现，Follower 因此可以与
+Leader **并行**执行自己的独立计算。deferred 模式的同一数字是 **-49.2 ms** ——
+它是在 Leader **结束之后**才发现冲突的。这就是"在线检查省下的等待时间"。
 
 ### 6.4 验证开销对比
 
 | 场景 | online 验证次数 | deferred 验证次数 |
 |---|---|---|
 | shared / shared-heavy | 5 | 1 |
-| divergent | 4 | 1 |
+| divergent | 1 | 1 |
 
 在线模式每条依赖都要检查一次（因此能立刻分离），deferred 模式只在最后检查一次
 （因此必须等到 Leader 结束）。在依赖数量大时，deferred 的验证开销更低，
@@ -206,8 +218,8 @@ Leader 拥有自己的物理执行，不计入分子 —— 这是保守口径�
 
 ### 6.5 测量噪声
 
-预热池把轻负载场景的 makespan 压到了 **20–80 ms**，此时单次测量的标准差与均值同量级
-（例如 `shared` baseline：0.068 s ± 0.024 s）。因此：
+预热池把轻负载场景的 makespan 压到了 **60–120 ms**，此时单次测量的标准差与均值同量级
+（例如 `shared` baseline：0.106 s ± 0.039 s）。因此：
 
 * **轻负载场景的 makespan 不适合用来比较模式**（噪声大于效应）；
 * 有意义的信号是 **物理执行数**与 **总 CPU 时间**；

@@ -194,14 +194,70 @@ def main() -> int:
     api_app = create_app(settings=settings)
 
     async def api_checks() -> None:
+        # the API serves its own database - a real run gives the endpoints
+        # something to report
+        from agentfuse.scenarios.definitions import scenario_shared
+
+        api_result = await scenario_shared(
+            api_app.state.runtime, RuntimeMode.ONLINE, {}
+        )
+        workflow_id = api_result.workflow_id
         transport = httpx.ASGITransport(app=api_app)
         async with httpx.AsyncClient(transport=transport, base_url="http://x") as client:
             index = await client.get("/")
             check("Web UI 可打开", index.status_code == 200 and "AgentFuse" in index.text)
             overview = await client.get("/api/overview")
             check("Dashboard 读取真实后端状态", overview.status_code == 200)
+            payload = overview.json()
+            # the payload has to describe the *real* state, not only be a 200
+            required = (
+                "running_workflows", "active_invocations", "logical_tool_calls",
+                "physical_executions", "shared_waiting", "detached", "workers",
+                "mode", "workflows", "recent_events", "tools",
+            )
+            missing = [key for key in required if key not in payload]
+            check("Dashboard 返回真实字段", not missing, f"缺: {missing}")
+            check(
+                "Dashboard 的调用计数与数据库一致",
+                payload["logical_tool_calls"] >= 1 and payload["physical_executions"] >= 1,
+                f"calls={payload.get('logical_tool_calls')} "
+                f"executions={payload.get('physical_executions')}",
+            )
+            check(
+                "工具注册表带依赖声明",
+                all("dependency_tracking" in tool for tool in payload["tools"]),
+            )
             tools = await client.get("/api/tools")
             check("工具注册表可查询", tools.status_code == 200)
+
+            # the endpoints that were never called before
+            resources = await client.get("/api/resources")
+            resource_payload = resources.json()
+            check(
+                "资源端点返回真实快照",
+                resources.status_code == 200
+                and "resources" in resource_payload
+                and "max_workers" in resource_payload["resources"]
+                and "running" in resource_payload["resources"],
+                resource_payload.get("resources", {}).get("max_workers"),
+            )
+            scenarios = await client.get("/api/benchmarks/scenarios")
+            check(
+                "基准场景端点返回场景清单",
+                scenarios.status_code == 200 and scenarios.json().get("scenarios"),
+            )
+            metrics = await client.get(f"/api/workflows/{workflow_id}/metrics")
+            check(
+                "工作流指标端点返回真实指标",
+                metrics.status_code == 200
+                and metrics.json().get("physical_executions", 0) >= 1,
+                metrics.text[:120],
+            )
+            graph = await client.get(f"/api/workflows/{workflow_id}/graph")
+            check(
+                "执行图端点返回节点与边",
+                graph.status_code == 200 and graph.json().get("nodes"),
+            )
 
     asyncio.run(api_checks())
     asyncio.run(api_app.state.runtime.close())
@@ -232,9 +288,19 @@ def main() -> int:
                for token in ("openai", "anthropic", "google.generativeai", "api_key"))
     ]
     check("无外部模型 API 依赖", not remote, f"files: {[str(p) for p in remote]}")
-    html = (ROOT / "agentfuse" / "web" / "index.html").read_text(encoding="utf-8")
-    check("前端不加载 CDN 资源",
-          "http://" not in html.replace("http://127.0.0.1", "") and "https://" not in html)
+    # the front end must not load anything from the network - **all** assets
+    import re
+
+    external: list[str] = []
+    for asset in sorted((ROOT / "agentfuse" / "web").glob("*")):
+        if asset.suffix not in (".html", ".js", ".css"):
+            continue
+        text = asset.read_text(encoding="utf-8", errors="ignore")
+        # the SVG namespace is an identifier, not a resource that is fetched
+        text = text.replace("http://www.w3.org/2000/svg", "")
+        for match in re.findall(r"https?://[^\s\"'()]+", text):
+            external.append(f"{asset.name}: {match}")
+    check("前端不加载 CDN 资源", not external, f"external: {external}")
 
     failed = sum(1 for _name, ok, _detail in RESULTS if not ok)
     report = {

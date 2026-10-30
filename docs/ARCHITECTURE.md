@@ -180,7 +180,7 @@ submit_tool_call
 ## 6. 数据持久化
 
 SQLite（`agentfuse/storage/database.py`），schema 版本记录在 `PRAGMA user_version`
-与 `schema_meta` 表中。当前版本 **v6**。
+与 `schema_meta` 表中。当前版本 **v7**。
 
 * `initialize()` 先幂等地建表，再按 `user_version` 顺序执行迁移
   （`_MIGRATIONS`：`(目标版本, 语句列表)`）；
@@ -200,7 +200,7 @@ SQLite（`agentfuse/storage/database.py`），schema 版本记录在 `PRAGMA use
 | `logical_tool_calls` | 逻辑调用、状态、绑定的物理执行、结果哈希与结果路径（外键 → `workflows` / `physical_executions`） |
 | `physical_executions` | 物理执行、worker pid、CPU 时间、峰值 RSS、退出状态（外键 → `workflows`） |
 | `share_groups` | 共享组、Leader、`participant_count` 与 `participant_calls`（组内的逻辑调用列表）（外键 → `workflows` / `physical_executions`） |
-| `share_participants` | 参与者状态、已验证前缀、等待原因、分离原因、等待时长（外键 → `share_groups` / `logical_tool_calls`） |
+| `share_participants` | 参与者状态、已验证前缀、等待原因、分离原因、分离方式（`after_join` / `rejected_at_join`）、等待时长（外键 → `share_groups` / `logical_tool_calls`） |
 | `workspace_snapshots` | 快照元数据与 manifest 哈希 |
 | `dependency_records` | 每个物理执行的依赖账本（外键 → `physical_executions`） |
 | `validation_records` | 每一次真实验证检查的结果与耗时（外键 → `share_groups` / `logical_tool_calls`） |

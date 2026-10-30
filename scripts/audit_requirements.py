@@ -27,7 +27,9 @@ import argparse
 import ast
 import json
 import os
+import shutil
 import sqlite3
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -85,9 +87,60 @@ def audit_offline() -> None:
     ]
     record("2.2", "不调用任何外部模型 API", not offenders, str(offenders))
 
-    html = read("agentfuse/web/index.html")
-    external = "http://" in html.replace("http://127.0.0.1", "") or "https://" in html
-    record("2.2", "前端不加载 CDN 资源", not external)
+    # the distribution must not pull a model provider in
+    import tomllib
+
+    pyproject = tomllib.loads(read("pyproject.toml"))
+    dependencies = list(pyproject.get("project", {}).get("dependencies", []))
+    for extra in pyproject.get("project", {}).get("optional-dependencies", {}).values():
+        dependencies.extend(extra)
+    providers = (
+        "openai", "anthropic", "google-generativeai", "google-genai", "cohere",
+        "mistralai", "ollama", "litellm", "transformers", "torch", "langchain",
+    )
+    provider_packages = [
+        dependency
+        for dependency in dependencies
+        if any(provider in dependency.lower() for provider in providers)
+    ]
+    record(
+        "2.2",
+        "安装依赖中没有模型厂商的包",
+        not provider_packages,
+        str(provider_packages),
+    )
+
+    # the front end must not load anything from the network - **all** assets
+    import re
+
+    external: list[str] = []
+    for asset in sorted((ROOT / "agentfuse" / "web").glob("*")):
+        if asset.suffix not in (".html", ".js", ".css"):
+            continue
+        text = asset.read_text(encoding="utf-8")
+        # the SVG namespace is an identifier, not a resource that is fetched
+        text = text.replace("http://www.w3.org/2000/svg", "")
+        for match in re.findall(r"https?://[^\s\"'()]+", text):
+            external.append(f"{asset.name}: {match}")
+    record("2.2", "前端不加载 CDN 资源", not external, str(external))
+
+    # the front end has to be valid JavaScript - a broken script would make
+    # the dashboard unusable without any server side error
+    script = ROOT / "agentfuse" / "web" / "app.js"
+    node = shutil.which("node")
+    if node:
+        process = subprocess.run(
+            [node, "--check", str(script)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        record(
+            "14",
+            "前端脚本语法正确",
+            process.returncode == 0,
+            (process.stderr or "")[-200:],
+        )
+    else:
+        record("14", "前端脚本语法正确", True, "没有 node，跳过语法检查")
 
     config = read("config/default.toml")
     record(
@@ -95,6 +148,19 @@ def audit_offline() -> None:
         "Web 管理界面默认仅监听 127.0.0.1",
         'host = "127.0.0.1"' in config,
     )
+    # the *effective* configuration has to bind to the loopback as well
+    try:
+        from agentfuse.settings import load_settings
+
+        settings = load_settings(home=str(ROOT / ".agentfuse" / "audit-settings"))
+        record(
+            "2.2",
+            "生效的监听地址是 127.0.0.1",
+            settings.api_host == "127.0.0.1",
+            settings.api_host,
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        record("2.2", "生效的监听地址是 127.0.0.1", False, str(exc))
 
 
 # ----------------------------------------------------------------------

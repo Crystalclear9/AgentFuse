@@ -31,13 +31,13 @@ python scripts/acceptance_check.py
 ### 3.1 Windows 11
 
 ```text
-179 passed, 1 skipped
+189 passed, 1 skipped
 ```
 
 ### 3.2 WSL2 / Ubuntu-22.04
 
 ```text
-180 passed
+190 passed
 ```
 
 ### 3.3 Worker pool / worker limit matrix
@@ -48,9 +48,9 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | pool \ workers | 1 | 2 |
 |---|---|---|
-| 0 | 179 passed | 179 passed |
-| 1 | 179 passed | 179 passed |
-| 2 | 179 passed | 179 passed |
+| 0 | 189 passed | 189 passed |
+| 1 | 189 passed | 189 passed |
+| 2 | 189 passed | 189 passed |
 
 **两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
 权限才能创建符号链接，因此被跳过；在 Linux 上它**真实执行并通过**。
@@ -59,15 +59,15 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | 平台 | 结果 |
 |---|---|
-| Windows 11 | 18/18 项通过 |
-| WSL2 | 18/18 项通过 |
+| Windows 11 | 36/36 项通过 |
+| WSL2 | 36/36 项通过 |
 
 ### 3.4 用例分布
 
 | 目录 | 数量 | 结果 |
 |---|---|---|
-| `tests/unit` | 88 passed, 1 skipped（Windows）/ 89 passed（Linux） | 全部通过 |
-| `tests/integration` | 89 passed | 全部通过 |
+| `tests/unit` | 89 passed, 1 skipped（Windows）/ 90 passed（Linux） | 全部通过 |
+| `tests/integration` | 98 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 
 ### 3.5 单元测试覆盖
@@ -128,20 +128,21 @@ python scripts/run_ci_like.py --matrix
 
 | 环境 | 结果 |
 |---|---|
-| venv（有 launcher 存根） | 179 passed, 1 skipped |
-| 基础解释器（= CI 环境，无存根） | 179 passed, 1 skipped（6 种池/并发组合全通过） |
-| WSL2 / Ubuntu-22.04 | 180 passed |
+| venv（有 launcher 存根） | 189 passed, 1 skipped |
+| 基础解释器（= CI 环境，无存根） | 189 passed, 1 skipped（6 种池/并发组合全通过） |
+| WSL2 / Ubuntu-22.04 | 190 passed |
 | **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **16 / 16 job 全部成功** |
 
 ### 3.5.1 需求复核后的验证（阶段 23）
 
 | 检查 | Windows | WSL2 / Ubuntu-22.04 |
 |---|---|---|
-| `pytest tests` | **179 passed, 1 skipped** | **180 passed** |
+| `pytest tests` | **189 passed, 1 skipped** | **190 passed** |
 | `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
-| `scripts/acceptance_check.py` | **23 / 23 通过** | **23 / 23 通过** |
-| `scripts/audit_requirements.py`（167 项，含行为审计） | **167 / 167 通过** | **167 / 167 通过** |
+| `scripts/acceptance_check.py` | **36 / 36 通过** | **36 / 36 通过** |
+| `scripts/audit_requirements.py`（240 项 / 46 个需求小节，含行为审计） | **240 / 240 通过** | **240 / 240 通过** |
 | `scripts/check_regression.py --repeat 3` | **无性能回归** | — |
+| `scripts/guard_selftest.py`（守卫自检） | **6 / 6 个守卫证明了它们能发现问题** | — |
 
 > 验收自检新增了 4 项与 P0 语义直接相关的断言：**数据库写入零错误**、
 > **外键约束无违规**、**外键约束已声明**、**调用与执行原子落库**。
@@ -248,10 +249,11 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 
 | 工具 | 命令 | 作用 |
 |---|---|---|
-| 交付验收自检 | `python scripts/acceptance_check.py` | **19 项**：目录结构、共享行为、CLI、API、离线依赖、需求条款审计 |
-| 需求条款审计 | `python scripts/audit_requirements.py` | **139 条款项**逐条对照源码核对（25 章） |
+| 交付验收自检 | `python scripts/acceptance_check.py` | **36 项**：目录结构、共享行为、CLI 全部命令、API 与真实字段、数据库与外键、离线依赖 |
+| 需求条款审计 | `python scripts/audit_requirements.py` | **240 个检查 / 46 个需求小节**逐条对照（25 章，含行为审计） |
+| 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 6 处行为，断言对应的守卫**必须报红** |
 | 性能回归守卫 | `python scripts/check_regression.py` | 对比 `benchmarks/baseline.json`，超出容差即失败 |
-| CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 |
+| CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 + 守卫自检 |
 
 ## 6. 尚未验证的功能
 
