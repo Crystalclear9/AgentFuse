@@ -37,7 +37,7 @@ python scripts/acceptance_check.py
 ### 3.2 WSL2 / Ubuntu-22.04
 
 ```text
-207 passed
+206 passed, 1 skipped
 ```
 
 ### 3.3 Worker pool / worker limit matrix
@@ -131,14 +131,14 @@ python scripts/run_ci_like.py --matrix
 |---|---|
 | venv（有 launcher 存根） | 206 passed, 1 skipped |
 | 基础解释器（= CI 环境，无存根） | 206 passed, 1 skipped（6 种池/并发组合全通过） |
-| WSL2 / Ubuntu-22.04 | 207 passed |
-| **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **16 / 16 job 全部成功** |
+| WSL2 / Ubuntu-22.04 | 206 passed, 1 skipped（前端测试需要 node） |
+| **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **17 / 17 job 全部成功** |
 
 ### 3.5.1 需求复核后的验证（阶段 23）
 
 | 检查 | Windows | WSL2 / Ubuntu-22.04 |
 |---|---|---|
-| `pytest tests` | **206 passed, 1 skipped** | **207 passed** |
+| `pytest tests` | **206 passed, 1 skipped** | **206 passed, 1 skipped** |
 | `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
 | `scripts/acceptance_check.py` | **39 / 39 通过** | **39 / 39 通过** |
 | `scripts/audit_requirements.py`（267 项 / 49 个需求小节，含行为审计） | **267 / 267 通过** | **267 / 267 通过** |
