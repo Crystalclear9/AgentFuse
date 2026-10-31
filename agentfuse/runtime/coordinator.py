@@ -399,6 +399,7 @@ class RuntimeCoordinator:
                 return False
             call.status = LogicalCallStatus.CANCELLED
             call.error = reason
+            call.error_kind = ERROR_CANCELLED
             call.completed_time = time.time()
             group = self._groups.get(call.share_group_id) if call.share_group_id else None
             if group is not None:
@@ -1549,6 +1550,7 @@ class RuntimeCoordinator:
             elif outcome.kind == ERROR_TIMEOUT:
                 execution.status = ExecutionStatus.TIMEOUT
                 execution.error = outcome.message
+                execution.error_kind = outcome.kind
             elif outcome.kind == ERROR_CANCELLED:
                 # a cancellation is recorded as a cancellation - not as a
                 # timeout (requirement 10.4)
@@ -1838,15 +1840,21 @@ class RuntimeCoordinator:
             ParticipantStatus.COMPLETED,
             ParticipantStatus.FAILED,
             ParticipantStatus.CANCELLED,
-            ParticipantStatus.RUNNING_INDEPENDENTLY,
+            ParticipantStatus.DETACHED,
         ):
+            # The participant leaves the group: it is a **terminal** state, so
+            # the group does not keep it as a live participant any more.  The
+            # history stays in the share_participants table.
             try:
-                participant.transition(ParticipantStatus.RUNNING_INDEPENDENTLY)
+                participant.transition(ParticipantStatus.DETACHED)
             except Exception:
-                participant.status = ParticipantStatus.RUNNING_INDEPENDENTLY
+                participant.status = ParticipantStatus.DETACHED
             participant.detached_time = time.time()
             participant.detach_reason = reason
+            participant.detach_kind = "left_group"
             self._persist_participant(group, participant)
+            # the group only counts its current members
+            group.participants.pop(call.logical_call_id, None)
         # the call leaves the group - it must not keep a reference to a closed
         # group
         call.share_group_id = None

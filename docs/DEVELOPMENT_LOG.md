@@ -671,6 +671,37 @@ Follower 拿不到共享结果 · 交付途中取消的 Follower 只收到一次
 
 变异点 **16 → 20**：新增的是本轮的修复（参与者与调用行的一致性、失败类型落库、冲突文件的位置、场景目录的脱节）。
 
+## 阶段 28 · 第四轮复核（一致性与死代码）
+
+### 28.1 真实缺陷（已复现并修复）
+
+| 编号 | 问题 | 根因 | 修复 |
+|---|---|---|---|
+| F1 | 超时 / 取消 / 中断恢复的执行行**没有失败类型** | `error_kind` 只在部分路径写入 | 超时执行行、被取消的调用行、崩溃恢复的两张表都写 `error_kind`（新增 `ERROR_INTERRUPTED`） |
+| F2 | 基准场景目录与运行时常量**各写一份** | `benchmarks/scenarios.py` 复制了场景定义 | 目录改为从 `agentfuse.scenarios` 再导出，验收自检新增"目录可导入且与运行时一致" |
+| F3 | 离组的参与者**留着过期的行**：组行仍列它、内存组仍把它当存活参与者 | `_detach_participant_of` 只把调用移出组，参与者行与内存组都没清理 | 参与者改为终态 `DETACHED` + `detach_kind="left_group"`，并从内存组移除；组行只列当前成员，历史留在 `share_participants` |
+| F4 | 界面没有 `RUNTIME_ERROR` 徽标 | `statusPill` 的映射漏了这个状态 | 补 `RUNTIME_ERROR: "danger"` 与 `CREATED`，前端 harness 断言 |
+| F5 | 冲突场景的变异**依赖文件内容** | 变异表达式只存在于另一个文件里，换文件就静默失效 | 变异改为文件无关的新增模块级语句（内容与语法树都会变） |
+| F6 | 基础 schema 缺 `logical_tool_calls.error_kind` | 该列只在 v9 迁移里 `ALTER` 进来 | 基础 schema 补上该列，v9 的 `ALTER` 成为幂等 no-op |
+
+### 28.2 卫生问题
+
+* `benchmarks/runner.py` 同一字典内**重复**的 `rejected_candidates` 键（后者覆盖前者）；
+* `agentfuse/runtime/cancellation.py` 中**重复定义**的 `_timeout_outcome`；
+* `agentfuse/scenarios/definitions.py` 里"冲突文件是最后读到的"这句**过期注释**（现在是第三个文件）；
+* 指标与总览按 `detach_kind` **三分类**：分离 / 加入时被拒 / 离组重试（新增 `retried_participants`）；
+* 一个**负载下会 flaky** 的取消用例（固定 `sleep(0.05)` 等不到入组）改为确定性汇合。
+
+### 28.3 守卫自检
+
+变异点 **20 → 22**：新增"超时的失败类型不再落库"与"离组的参与者不再是终态"。
+
+### 28.4 文档同步
+
+`TEST_REPORT`（41 项验收、22 个守卫）、`SHARING_PROTOCOL`（`detach_kind` 三分类与终态说明）、
+`EXECUTION_MODEL`（参与者行与调用行的区别、中断行也带 `error_kind`）、
+`README`（Agent 列表、已确认依赖、等待原因、`RUNTIME_ERROR` 徽标）、`DEVELOPMENT_LOG`（本节）。
+
 ## 下一阶段建议（P3）
 
 1. 跨会话持久化结果缓存（需要持久化依赖账本 + 快照内容寻址）。

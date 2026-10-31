@@ -134,7 +134,7 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 对于计算量很小的工具，这个开销会主导 makespan —— 这也是 `shared` 场景在
 **worker=2** 时收益不明显（实测 1.13x，`shared-heavy` 几乎持平）的主要原因。
 
-### 4.4a Worker 预热池的内存代价
+### 4.4.1 Worker 预热池的内存代价
 
 `runtime.worker_pool_size`（默认 2）个 worker 进程会在 Runtime 启动时预热，
 每个大约占用 20–30 MiB 常驻内存。空闲的 worker 不占用执行槽位，但会占用内存。

@@ -44,7 +44,8 @@ function statusPill(status) {
     COMPLETED: "ok", RUNNING: "info", QUEUED: "info", PENDING: "",
     UNDETERMINED: "warn",
     SHARED_WAIT: "warn", DETACHED: "danger", FAILED: "danger", TIMEOUT: "danger",
-    CANCELLED: "danger", CRASHED: "danger", WAITING: "warn", RUNNING_INDEPENDENTLY: "info",
+    CANCELLED: "danger", CRASHED: "danger", RUNTIME_ERROR: "danger",
+    WAITING: "warn", RUNNING_INDEPENDENTLY: "info", CREATED: "",
     MATCH: "ok", MISMATCH: "danger", UNKNOWN: "warn", EXECUTING: "info",
     VALIDATING: "info", CLOSED: "", INTERRUPTED: "danger",
   };

@@ -291,18 +291,25 @@ async def test_a_follower_that_cancels_during_the_delivery_gets_one_result(app, 
             snapshot_id=snapshot.snapshot_id,
         )
     )
-    await asyncio.sleep(0.05)
-
-    # the follower cancels while the leader is still computing
-    for call in list(app.coordinator.active_calls(workflow.workflow_id)):
-        if not call.share_group_id:
-            continue
-        group = app.coordinator.get_group(call.share_group_id)
-        if group is None:
-            continue
-        participant = group.participants.get(call.logical_call_id)
-        if participant is not None and not participant.is_leader:
-            await app.coordinator.cancel_logical_call(call.logical_call_id, "cancelled")
+    # the rendezvous must be deterministic: the follower has to have joined
+    # the group before it can be cancelled
+    for _ in range(200):
+        joined = False
+        for call in list(app.coordinator.active_calls(workflow.workflow_id)):
+            if not call.share_group_id:
+                continue
+            group = app.coordinator.get_group(call.share_group_id)
+            if group is None:
+                continue
+            participant = group.participants.get(call.logical_call_id)
+            if participant is not None and not participant.is_leader:
+                joined = True
+                await app.coordinator.cancel_logical_call(call.logical_call_id, "cancelled")
+        if joined:
+            break
+        await asyncio.sleep(0.01)
+    else:
+        pytest.fail("the follower did not join the share group")
 
     with pytest.raises(asyncio.CancelledError):
         await asyncio.wait_for(follower_task, timeout=30)
@@ -697,3 +704,137 @@ async def test_a_retried_participant_is_not_recorded_as_failed(app, snapshot):
             assert call["share_group_id"] is None, (
                 "a retried call must not reference the closed group"
             )
+
+    # the group only counts its current members
+    groups = app.repository.list_share_groups(workflow.workflow_id)
+    for group in groups:
+        members = set(group["participant_calls"] or [])
+        for call in calls:
+            if call["share_group_id"] != group["share_group_id"]:
+                assert call["logical_call_id"] not in members, (
+                    "the group must not count a call that left it"
+                )
+    # the participant that left is terminal - the group must not keep it as a
+    # live participant
+    for participant in app.repository.list_participants(workflow.workflow_id):
+        assert participant["status"] in (
+            "COMPLETED",
+            "FAILED",
+            "CANCELLED",
+            "DETACHED",
+        ), (
+            "a participant of a finished group must be terminal: "
+            f"{participant['status']}"
+        )
+    # a participant that left for a retry is **not** a separation
+    from agentfuse.monitoring.metrics import collect_workflow_metrics
+
+    metrics = collect_workflow_metrics(app.repository, workflow.workflow_id)
+    assert metrics["detach_count"] == 0, (
+        "a retried participant must not be counted as a separation"
+    )
+    assert metrics["retried_participants"] >= 1
+
+
+async def test_every_failure_kind_is_persisted(app, snapshot):
+    """§10.1 - the failure kind has to survive in the database.
+
+    An internal error, a timeout and a cancellation must be distinguishable
+    **in the database** - not only in the event stream.
+    """
+
+    # 1) an internal error (the snapshot does not exist)
+    internal = app.create_workflow("test-kind-internal")
+    internal.default_snapshot_id = snapshot.snapshot_id
+    internal.start()
+    with pytest.raises(Exception):
+        await app.coordinator.submit_tool_call(
+            workflow_id=internal.workflow_id,
+            tool_name="ast_analyzer",
+            arguments={"files": list(DEMO_FILES)},
+            snapshot_id="snap-does-not-exist",
+        )
+    internal_calls = app.repository.list_logical_calls(internal.workflow_id)
+    internal_executions = app.repository.list_executions(internal.workflow_id)
+    assert internal_calls[0]["error_kind"] == "internal_error"
+    assert internal_executions[0]["error_kind"] == "internal_error"
+    assert internal_executions[0]["execution_status"] == "RUNTIME_ERROR"
+
+    # 2) a timeout
+    timing = app.create_workflow("test-kind-timeout")
+    timing.default_snapshot_id = snapshot.snapshot_id
+    timing.start()
+    with pytest.raises(Exception):
+        await app.coordinator.submit_tool_call(
+            workflow_id=timing.workflow_id,
+            tool_name="fault_injector",
+            arguments={"mode": "sleep", "seconds": 30},
+            snapshot_id=snapshot.snapshot_id,
+            timeout_seconds=0.3,
+        )
+    timeout_calls = app.repository.list_logical_calls(timing.workflow_id)
+    timeout_executions = app.repository.list_executions(timing.workflow_id)
+    assert timeout_calls[0]["error_kind"] == "timeout"
+    assert timeout_executions[0]["error_kind"] == "timeout"
+    assert timeout_executions[0]["execution_status"] == "TIMEOUT"
+
+    # 3) a cancellation
+    cancelled = app.create_workflow("test-kind-cancel")
+    cancelled.default_snapshot_id = snapshot.snapshot_id
+    cancelled.start()
+    task = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=cancelled.workflow_id,
+            tool_name="fault_injector",
+            arguments={"mode": "sleep", "seconds": 30},
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    await asyncio.sleep(0.2)
+    for call in app.repository.list_logical_calls(cancelled.workflow_id):
+        await app.coordinator.cancel_logical_call(call["logical_call_id"], "audit")
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, timeout=30)
+    cancelled_calls = app.repository.list_logical_calls(cancelled.workflow_id)
+    assert cancelled_calls[0]["error_kind"] == "cancelled"
+    assert cancelled_calls[0]["status"] == "CANCELLED"
+
+
+async def test_an_interrupted_run_is_marked_with_its_kind(app, snapshot):
+    """§10.5 - the recovery marks the runs with the kind ``interrupted``."""
+
+    workflow = app.create_workflow("test-kind-interrupted")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+    task = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="fault_injector",
+            arguments={"mode": "sleep", "seconds": 30},
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    await asyncio.sleep(0.2)
+    # the runtime "crashes": the records stay in the running state
+    app.repository.db.write(
+        "UPDATE logical_tool_calls SET status = 'RUNNING_INDEPENDENTLY' "
+        "WHERE workflow_id = ?",
+        (workflow.workflow_id,),
+    )
+    app.repository.db.write(
+        "UPDATE physical_executions SET execution_status = 'RUNNING' "
+        "WHERE workflow_id = ?",
+        (workflow.workflow_id,),
+    )
+    app.repository.db.flush()
+
+    recovered = app.repository.recover_interrupted_workflows()
+    assert workflow.workflow_id in recovered
+
+    calls = app.repository.list_logical_calls(workflow.workflow_id)
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert calls[0]["error_kind"] == "interrupted"
+    assert executions[0]["error_kind"] == "interrupted"
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task

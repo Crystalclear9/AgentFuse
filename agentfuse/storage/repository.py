@@ -676,6 +676,7 @@ class Repository:
         """
 
         from ..core.state import ExecutionStatus, LogicalCallStatus, WorkflowStatus
+        from ..runtime.protocol import ERROR_INTERRUPTED
 
         rows = self.db.query(
             "SELECT workflow_id FROM workflows WHERE status = ? AND end_time IS NULL",
@@ -690,11 +691,12 @@ class Repository:
                 (str(WorkflowStatus.INTERRUPTED), now, workflow_id),
             )
             self.db.write(
-                "UPDATE physical_executions SET execution_status = ?, error = ? "
-                "WHERE workflow_id = ? AND execution_status IN (?, ?, ?)",
+                "UPDATE physical_executions SET execution_status = ?, error = ?, "
+                "error_kind = ? WHERE workflow_id = ? AND execution_status IN (?, ?, ?)",
                 (
                     str(ExecutionStatus.INTERRUPTED),
                     "interrupted by a runtime restart",
+                    ERROR_INTERRUPTED,
                     workflow_id,
                     str(ExecutionStatus.CREATED),
                     str(ExecutionStatus.QUEUED),
@@ -702,11 +704,12 @@ class Repository:
                 ),
             )
             self.db.write(
-                "UPDATE logical_tool_calls SET status = ?, error = ? "
+                "UPDATE logical_tool_calls SET status = ?, error = ?, error_kind = ? "
                 "WHERE workflow_id = ? AND status IN (?, ?, ?, ?, ?)",
                 (
                     str(LogicalCallStatus.INTERRUPTED),
                     "interrupted by a runtime restart",
+                    ERROR_INTERRUPTED,
                     workflow_id,
                     str(LogicalCallStatus.PENDING),
                     str(LogicalCallStatus.WAITING),

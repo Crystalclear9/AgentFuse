@@ -320,6 +320,23 @@ check(
   participantId,
 );
 
+/* every call status needs a badge - the runtime error must be visible */
+check(
+  "RUNTIME_ERROR 的徽标是危险色",
+  sandbox.statusPill("RUNTIME_ERROR").includes("danger"),
+  sandbox.statusPill("RUNTIME_ERROR"),
+);
+check(
+  "CREATED 的徽标不是危险色",
+  !sandbox.statusPill("CREATED").includes("danger"),
+  sandbox.statusPill("CREATED"),
+);
+check(
+  "SHARED_WAIT 的徽标是警告色",
+  sandbox.statusPill("SHARED_WAIT").includes("warn"),
+  sandbox.statusPill("SHARED_WAIT"),
+);
+
 /* the benchmark table renders the recorded comparison */
 await sandbox.renderBenchmark({
   aggregated: {

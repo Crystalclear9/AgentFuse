@@ -86,6 +86,7 @@ _SCHEMA: tuple[str, ...] = (
         candidate_key        TEXT,
         share_group_id       TEXT,
         error                TEXT,
+        error_kind           TEXT,
         completed_time       REAL,
         retry_count          INTEGER DEFAULT 0
     )

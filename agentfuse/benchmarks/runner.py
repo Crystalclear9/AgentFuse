@@ -221,8 +221,8 @@ def aggregate_outcomes(outcomes: list[BenchmarkOutcome]) -> dict[str, Any]:
         "saved_wait_ms_median": _aggregate(
             [m.get("saved_wait_ms_median") or 0.0 for m in metrics]
         ),
-        "rejected_candidates": _aggregate(
-            [m.get("rejected_candidates", 0) for m in metrics]
+        "retried_participants": _aggregate(
+            [m.get("retried_participants", 0) for m in metrics]
         ),
         "detection_delay": _aggregate(
             [m.get("detection_delay") or 0.0 for m in metrics]

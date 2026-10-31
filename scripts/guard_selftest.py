@@ -424,6 +424,45 @@ MUTATIONS: list[dict[str, Any]] = [
             ],
         ],
     },
+    {
+        "name": "超时的失败类型不再落库",
+        "clause": "10.1",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """            elif outcome.kind == ERROR_TIMEOUT:
+                execution.status = ExecutionStatus.TIMEOUT
+                execution.error = outcome.message
+                execution.error_kind = outcome.kind""",
+        "new": """            elif outcome.kind == ERROR_TIMEOUT:
+                execution.status = ExecutionStatus.TIMEOUT
+                execution.error = outcome.message""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_concurrency.py::"
+                "test_every_failure_kind_is_persisted",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "离组的参与者不再是终态",
+        "clause": "8.2",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """            participant.detach_kind = "left_group\"""",
+        "new": """            participant.detach_kind = "after_join\"""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_concurrency.py::"
+                "test_a_retried_participant_is_not_recorded_as_failed",
+                "-q",
+            ],
+        ],
+    },
 ]
 
 

@@ -42,6 +42,7 @@ async def overview(request: Request) -> dict[str, Any]:
     waiting = 0
     detached = 0
     rejected = 0
+    retried = 0
     for workflow in workflows:
         workflow_invocations = repository.list_invocations(workflow["workflow_id"])
         total_invocations += len(workflow_invocations)
@@ -56,10 +57,14 @@ async def overview(request: Request) -> dict[str, Any]:
             if participant["status"] == "SHARED_WAIT":
                 waiting += 1
             elif participant["status"] == "DETACHED":
-                # a candidate that was rejected at join time never belonged to
-                # the group - it is not a separation
-                if (participant["detach_kind"] or "after_join") == "rejected_at_join":
+                # three different reasons to leave a group: a separation, a
+                # candidate that was rejected at join time and a participant
+                # that left to be retried on its own
+                kind = participant["detach_kind"] or "after_join"
+                if kind == "rejected_at_join":
                     rejected += 1
+                elif kind == "left_group":
+                    retried += 1
                 else:
                     detached += 1
 
@@ -89,6 +94,7 @@ async def overview(request: Request) -> dict[str, Any]:
         "shared_waiting": waiting,
         "detached": detached,
         "rejected_candidates": rejected,
+        "retried_participants": retried,
         "workers": live["resources"],
         "mode": live["mode"],
         "workflows": workflows,

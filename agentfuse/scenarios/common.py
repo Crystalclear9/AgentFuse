@@ -111,15 +111,11 @@ def mutate_variant_source(working: Path) -> None:
 
     target = working / DIVERGENT_FILE
     source = target.read_text(encoding="utf-8")
-    # the mutation must change the content but keep the module valid
-    mutated = source.replace(
-        "return add(left, right) + 0",
-        "return add(left, right) + 1  # branch specific behaviour",
-    )
-    if mutated == source:
-        # the sample module does not contain the expected expression - the
-        # content is changed in a way that does not depend on the sample
-        mutated = source + "\n# branch specific behaviour\n"
+    # The mutation must not depend on the content of the file: a replacement
+    # of a fixed expression would silently stop working when the conflict
+    # file changes.  A new module level statement changes the content **and**
+    # the syntax tree, therefore every tool sees the difference.
+    mutated = source + "\nBRANCH_MARKER = 'branch-b'\n"
     target.write_text(mutated, encoding="utf-8")
 
 

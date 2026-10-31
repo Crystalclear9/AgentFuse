@@ -25,6 +25,8 @@ ERROR_INTERNAL = "internal_error"
 ERROR_CRASH = "worker_crash"
 ERROR_TIMEOUT = "timeout"
 ERROR_CANCELLED = "cancelled"
+#: the run was interrupted by a runtime restart (the recovery path)
+ERROR_INTERRUPTED = "interrupted"
 
 
 def dependency_message(

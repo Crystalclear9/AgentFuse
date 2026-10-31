@@ -55,14 +55,14 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 **两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
 权限才能创建符号链接，因此被跳过；在 Linux 上它**真实执行并通过**。
 
-### 3.3 交付验收自检
+### 3.4 交付验收自检
 
 | 平台 | 结果 |
 |---|---|
 | Windows 11 | 39/39 项通过 |
 | WSL2 | 39/39 项通过 |
 
-### 3.4 用例分布
+### 3.5 用例分布
 
 | 目录 | 数量 | 结果 |
 |---|---|---|
@@ -70,7 +70,7 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 | `tests/integration` | 109 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 
-### 3.5 单元测试覆盖
+### 3.6 单元测试覆盖
 
 | 文件 | 覆盖内容 |
 |---|---|
@@ -85,7 +85,7 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 | `test_validator.py` | 依赖路径规范化、绝对路径/父目录/盘符越界拒绝、快照边界检查、前缀校验在首个不匹配处停止 |
 | `test_scheduler.py`（扩展） | FIFO 与 SJF 策略的准入顺序、未知策略回退、等待原因、资源快照 |
 
-### 3.6 集成测试覆盖
+### 3.7 集成测试覆盖
 
 | 文件 | 覆盖内容 |
 |---|---|
@@ -104,13 +104,13 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 | `test_benchmark.py` | 执行次数真实下降、结果与 baseline 一致、divergent 场景两侧结果正确、deferred 验证次数更少、跨运行哈希稳定、正确性检查能发现差异、**固定种子生效**、相同种子结果可复现、重复运行不增长资源、分离收益进入聚合 |
 | `test_dependency_tracking.py` | 每个工具都声明依赖追踪、不可共享工具、依赖账本不完整的工具不可共享、审计钩子发现绕过、绕过的工具绝不被共享 |
 
-### 3.7 压力测试覆盖
+### 3.8 压力测试覆盖
 
 | 文件 | 覆盖内容 |
 |---|---|
 | `test_concurrency_race.py` | 10 个 Agent 分属两个分支 → 每个结果与其分支一致、物理执行数收敛为 2、重复提交不产生重复执行 |
 
-## 3.5 CI 运行的失败与根因（run #40894231765）
+## 4. CI 运行的失败与根因（run #40894231765）
 
 CI 的第一版运行有 **9 个 job 失败**：6 个 Windows 池矩阵、
 2 个 macOS 验收、2 个 Windows 测试。根因有两个，都已修复：
@@ -134,21 +134,21 @@ python scripts/run_ci_like.py --matrix
 | WSL2 / Ubuntu-22.04 | 212 passed, 1 skipped（前端测试需要 node） |
 | **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **17 / 17 job 全部成功** |
 
-### 3.5.1 需求复核后的验证（阶段 23）
+### 4.1.1 需求复核后的验证（阶段 23）
 
 | 检查 | Windows | WSL2 / Ubuntu-22.04 |
 |---|---|---|
 | `pytest tests` | **212 passed, 1 skipped** | **212 passed, 1 skipped** |
 | `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
-| `scripts/acceptance_check.py` | **40 / 40 通过** | **40 / 40 通过** |
+| `scripts/acceptance_check.py` | **41 / 41 通过** | **41 / 41 通过** |
 | `scripts/audit_requirements.py`（270 项 / 49 个需求小节，含行为审计） | **270 / 270 通过** | **270 / 270 通过** |
 | `scripts/check_regression.py --repeat 3` | **无性能回归** | — |
-| `scripts/guard_selftest.py`（守卫自检） | **20 / 20 个守卫证明了它们能发现问题** | — |
+| `scripts/guard_selftest.py`（守卫自检） | **22 / 22 个守卫证明了它们能发现问题** | — |
 
 > 验收自检新增了 4 项与 P0 语义直接相关的断言：**数据库写入零错误**、
 > **外键约束无违规**、**外键约束已声明**、**调用与执行原子落库**。
 
-## 3.6 CI 第二次运行的失败（run #4）
+## 4.2 CI 第二次运行的失败（run #4）
 
 第二次 CI 运行仍有 8 个 job 失败。本次已能通过 **git 凭据管理器的 token 读取 CI 日志** 取到确切失败点：
 
@@ -157,7 +157,7 @@ python scripts/run_ci_like.py --matrix
 | 5 个 Windows job：`test_concurrency.py::test_no_worker_processes_are_leaked` 报「worker processes are still running」 | 旧的泄漏断言**只看 pid**；CI 上 pid 被操作系统重用 → 误报 | 改为**进程身份校验**（pid + `create_time`），只有身份一致的进程才算泄漏 |
 | 3 个 macOS job：`资源数据被采集` 报 `peak_rss=0` | `_finalize_execution` 中 **`_sample_final_rss()` 在 `_persist_execution()` 之后调用** → 最后一次 RSS 采样没落库。Windows 上工具大约足够慢（monitor 线程周期采样到了），macOS 上执行太快 → 采样值丢失 = 0 | 让 `_sample_final_rss()` **先执行**、再落库；采样失败时回退到 launcher/child pid |
 
-## 3.7 CI 的三次修复记录
+## 4.3 CI 的三次修复记录
 
 | 运行 | 失败 job | 根因 | 修复 |
 |---|---|---|---|
@@ -166,11 +166,11 @@ python scripts/run_ci_like.py --matrix
 | #5 | 3 / 16（Windows 验收） | runner 的 stdout 编码是 **cp1252** → 打印中文报告时 `UnicodeEncodeError` 崩溃；终止后立即校验进程是否消失产生误报 | 所有脚本强制 UTF-8 输出；CI 额外设置 `PYTHONIOENCODING`/`PYTHONUTF8`；终止校验改为重试直到进程真的消失 |
 | **#6** | **0 / 16** | 全部通过 | — |
 
-## 4. 跨平台验证发现并修复的真实缺陷
+## 5. 跨平台验证发现并修复的真实缺陷
 
 WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属问题**：
 
-### 4.1 未回收的 worker 进程（僵尸进程）
+### 5.1 未回收的 worker 进程（僵尸进程）
 
 * **症状**：`test_no_worker_processes_are_leaked` 在 Linux 上失败 —— 一个 worker
   进程在调用完成后仍然存活。
@@ -181,7 +181,7 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
   `process.wait(timeout=5)` 回收子进程。
 * **验证**：修复后 Windows 124 passed / WSL2 125 passed，两个平台都通过。
 
-### 4.2 worker 进程泄漏（两个独立缺陷）
+### 5.2 worker 进程泄漏（两个独立缺陷）
 
 * **缺陷 A**：池外新建的 worker 与 `shutdown()` 的清扫竞态 → worker 注册得太晚，永远不被终止。
   修复：引入 **pool epoch**，旧世代创建的 worker 在新世代注册时会被立即终止。
@@ -191,7 +191,7 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 * **幂等性修正**：`terminate()` 只在确认进程真的消失时才置位幂等标志，失败时允许后续重试。
 * **副作用**：峰值 RSS 之前采到的是 launcher（4.4 MiB），现在采到真实 worker（18.8 MiB）。
 
-### 4.3 跨操作系统的 SQLite WAL 锁
+### 5.3 跨操作系统的 SQLite WAL 锁
 
 * **症状**：在 WSL2 里运行 CLI 时报 `sqlite3.OperationalError: disk I/O error`。
 * **根因**：**同一个 home 目录被两个 AgentFuse 实例同时使用**（Windows 上运行着
@@ -205,7 +205,7 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
      而不是把晦涩的 `disk I/O error` 直接抛给用户。
 * **验证**：停止并发实例后，WSL2 CLI 与验收自检均通过（18/18）。
 
-## 5. 验收项与对应测试
+## 6. 验收项与对应测试
 
 | 验收项 | 验证方式 |
 |---|---|
@@ -234,7 +234,7 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 | Web UI 可查看运行图与依赖 | `test_api.py`（graph / timeline / dependencies 端点） |
 | 可运行 Benchmark 并对比 | `test_the_benchmark_endpoint_runs_a_comparison` |
 
-## 4.4 长稳观察
+## 7. 长稳观察
 
 `scripts/soak.py` 连续运行工作流并观察 worker 进程数与 RSS：
 
@@ -246,17 +246,17 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
   worker rss growth    : 0.0 MiB
 ```
 
-## 5.1 自动化检查
+## 7.1 自动化检查
 
 | 工具 | 命令 | 作用 |
 |---|---|---|
-| 交付验收自检 | `python scripts/acceptance_check.py` | **39 项**：目录结构、共享行为、CLI 全部命令、API 与真实字段、数据库与外键、离线依赖 |
+| 交付验收自检 | `python scripts/acceptance_check.py` | **41 项**：目录结构、共享行为、CLI 全部命令、API 与真实字段、数据库与外键、离线依赖、场景目录一致性 |
 | 需求条款审计 | `python scripts/audit_requirements.py` | **270 个检查 / 49 个需求小节**逐条对照（25 章，含行为审计） |
-| 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 6 处行为，断言对应的守卫**必须报红** |
+| 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 22 处行为，断言对应的守卫**必须报红** |
 | 性能回归守卫 | `python scripts/check_regression.py` | 对比 `benchmarks/baseline.json`，超出容差即失败 |
 | CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 + 守卫自检 |
 
-## 6. 尚未验证的功能
+## 8. 尚未验证的功能
 
 以下内容**没有**被自动化测试覆盖，如实记录：
 
@@ -272,6 +272,6 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
    但本仓库没有 macOS 机器可以执行该验证。
 6. **符号链接逃逸在 Windows 上未执行**（需要管理员权限创建符号链接）。
 
-## 7. 性能数据
+## 9. 性能数据
 
 见 `BENCHMARK.md` 第 6 节（5 个场景 × 3 种模式 × 2 种 worker 配置 × 5 次重复）。

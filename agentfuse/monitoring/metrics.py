@@ -115,11 +115,18 @@ def collect_workflow_metrics(
         if participant["status"] == "DETACHED"
         and (participant["detach_kind"] or "after_join") == "rejected_at_join"
     ]
+    left_group = [
+        participant
+        for participant in participants
+        if participant["status"] == "DETACHED"
+        and (participant["detach_kind"] or "after_join") == "left_group"
+    ]
     separated = [
         participant
         for participant in participants
         if participant["status"] == "DETACHED"
-        and (participant["detach_kind"] or "after_join") != "rejected_at_join"
+        and (participant["detach_kind"] or "after_join")
+        not in ("rejected_at_join", "left_group")
     ]
 
     # How much did the online check win?  Two numbers:
@@ -170,6 +177,7 @@ def collect_workflow_metrics(
         "share_groups": len(groups),
         "detach_count": len(separated),
         "rejected_candidates": len(rejected),
+        "retried_participants": len(left_group),
         "failed_calls": len(failed_calls),
         "validation_count": len(group_validations),
         "validation_failures": len(validation_failures),

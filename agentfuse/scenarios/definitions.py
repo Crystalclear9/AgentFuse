@@ -260,9 +260,9 @@ async def scenario_divergent(app: Any, mode: RuntimeMode, options: dict[str, Any
 
     async def follower_step(context: Any) -> Any:
         # Deterministic rendezvous: the follower only submits its call after the
-        # leader reported its *first* observed dependency.  The conflicting
-        # file is read last, therefore the follower joins the group and is
-        # detached online while the leader is still computing.
+        # leader reported its *first* observed dependency.  The conflicting file
+        # is the third one, therefore the follower joins the group in time and
+        # is detached **online** while the leader is still computing.
         await wait_for_first_dependency(app.event_bus, workflow.workflow_id)
         return await context.call_tool("content_digest", arguments)
 

@@ -315,6 +315,20 @@ def main() -> int:
     except Exception as exc:
         check("需求条款审计全部通过", False, str(exc))
 
+    # the benchmark catalogue must be importable and consistent with the
+    # runtime - a stale copy of it would crash the CLI
+    try:
+        from benchmarks.scenarios import catalogue as scenario_catalogue
+
+        rows = scenario_catalogue()
+        check(
+            "基准场景目录可导入且与运行时一致",
+            len(rows) == 6 and all(row.get("workload") for row in rows),
+            f"scenarios={len(rows)}",
+        )
+    except Exception as exc:
+        check("基准场景目录可导入且与运行时一致", False, str(exc))
+
     # --- offline check ---------------------------------------------------
     sources = list((ROOT / "agentfuse").rglob("*.py"))
     remote = [

@@ -108,6 +108,18 @@ WAITING ──► SHARED_WAIT ──► COMPLETED
 `SHARED_WAIT ──► RUNNING_INDEPENDENTLY` 是**共享执行失败后进入独立重试**的路径：
 会被重试的参与者离开这个组，它不是失败的。
 
+`DETACHED` 有两种去向：
+
+| `detach_kind` | 含义 | 之后 | 计数 |
+|---|---|---|---|
+| `after_join` | 加入后检测到冲突 → 与领导者分离 | 参与者以 `RUNNING_INDEPENDENTLY` 继续自己的执行 | `detach_count`（分离） |
+| `rejected_at_join` | 加入时就被拒绝 → 从未属于这个组 | — | `rejected_candidates` |
+| `left_group` | 共享执行失败后离开去独立重试 | **终态**：参与者行停在 `DETACHED` | `retried_participants` |
+
+离组的参与者（`left_group`）同时会从**内存中的组**里移除（组行只列当前成员），
+历史留在 `share_participants` 表里；它不再是"存活参与者"，
+因此不会再让组一直停留在未关闭状态。
+
 非法状态转换会抛出 `IllegalTransition`（见 `sharing/share_group.py`）。
 
 **同一个逻辑调用不允许同时属于两个正在执行的物理任务。**
@@ -283,7 +295,7 @@ runtime.result_cache_entries = 64      # 0 = 关闭（默认）
 | 参与者取消时共享组正在分发结果 | 取消与交付都在锁下完成；`_deliver_locked` 带有幂等保护，已完成的调用不会被二次交付 |
 | 分支分离后又出现相同参数的新调用 | 新调用按 CandidateKey 找到**未关闭**的现存组并重新验证；**已关闭**的组不再复用；分离后的参与者也会尝试再归组 |
 | 结果重复交付 | `_deliver_locked` 检查调用状态与 future 是否已完成 |
-| 共享执行失败，参与者还在等待 | 等待中的参与者收到 `FAILED`；会被重试的参与者离开组并以 `RUNNING_INDEPENDENTLY` 继续，参与者行与调用行一致 |
+| 共享执行失败，参与者还在等待 | 等待中的参与者收到 `FAILED`；会被重试的参与者以 `DETACHED` + `detach_kind="left_group"` 离开组（终态，并从内存中的组移除），参与者行与调用行一致 |
 
 ---
 

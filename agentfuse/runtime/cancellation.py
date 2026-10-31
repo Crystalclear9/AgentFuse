@@ -206,11 +206,4 @@ def _timeout_outcome(reason: str) -> Any:
     )
 
 
-def _timeout_outcome(reason: str) -> Any:
-    from .execution import ExecutionOutcome
-    from .protocol import ERROR_TIMEOUT
-
-    return ExecutionOutcome(
-        ok=False, kind=ERROR_TIMEOUT, message=reason, exit_status="timeout"
-    )
 
