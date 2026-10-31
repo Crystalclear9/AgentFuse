@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 _SCHEMA: tuple[str, ...] = (
     """
@@ -109,6 +109,7 @@ _SCHEMA: tuple[str, ...] = (
         result_hash       TEXT,
         result_reference  TEXT,
         error             TEXT,
+        error_kind        TEXT,
         timeout_seconds   REAL,
         share_group_id    TEXT,
         attempt           INTEGER DEFAULT 1,
@@ -427,6 +428,13 @@ _MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         8,
         (
             "ALTER TABLE agents ADD COLUMN identity_status TEXT DEFAULT 'CONFIRMED'",
+        ),
+    ),
+    (
+        9,
+        (
+            "ALTER TABLE logical_tool_calls ADD COLUMN error_kind TEXT",
+            "ALTER TABLE physical_executions ADD COLUMN error_kind TEXT",
         ),
     ),
 )

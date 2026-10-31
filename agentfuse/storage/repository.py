@@ -184,8 +184,8 @@ class Repository:
             (logical_call_id, workflow_id, invocation_id, agent_id, tool_name, tool_version,
              normalized_arguments, workspace_snapshot_id, request_time, status,
              physical_execution_id, result_reference, result_hash, candidate_key,
-             share_group_id, error, completed_time, retry_count)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             share_group_id, error, error_kind, completed_time, retry_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(logical_call_id) DO UPDATE SET
                 workflow_id=excluded.workflow_id, invocation_id=excluded.invocation_id,
                 agent_id=excluded.agent_id, tool_name=excluded.tool_name,
@@ -196,8 +196,8 @@ class Repository:
                 physical_execution_id=excluded.physical_execution_id,
                 result_reference=excluded.result_reference, result_hash=excluded.result_hash,
                 candidate_key=excluded.candidate_key, share_group_id=excluded.share_group_id,
-                error=excluded.error, completed_time=excluded.completed_time,
-                retry_count=excluded.retry_count
+                error=excluded.error, error_kind=excluded.error_kind,
+                completed_time=excluded.completed_time, retry_count=excluded.retry_count
             """,
             (
                 record.logical_call_id,
@@ -216,6 +216,7 @@ class Repository:
                 record.candidate_key,
                 record.share_group_id,
                 record.error,
+                record.error_kind,
                 record.completed_time,
                 record.retry_count,
             ),
@@ -250,9 +251,9 @@ class Repository:
             (execution_id, workflow_id, tool_name, tool_version, arguments_hash, candidate_key,
              source_snapshot_id, worker_pid, start_time, finish_time, execution_status,
              cpu_time, peak_rss, exit_status, result_hash, result_reference, error,
-             timeout_seconds, share_group_id, attempt, admission_reason, queued_time,
-             worker_root_pid, worker_command)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             error_kind, timeout_seconds, share_group_id, attempt, admission_reason,
+             queued_time, worker_root_pid, worker_command)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(execution_id) DO UPDATE SET
                 workflow_id=excluded.workflow_id, tool_name=excluded.tool_name,
                 tool_version=excluded.tool_version, arguments_hash=excluded.arguments_hash,
@@ -262,7 +263,8 @@ class Repository:
                 execution_status=excluded.execution_status, cpu_time=excluded.cpu_time,
                 peak_rss=excluded.peak_rss, exit_status=excluded.exit_status,
                 result_hash=excluded.result_hash, result_reference=excluded.result_reference,
-                error=excluded.error, timeout_seconds=excluded.timeout_seconds,
+                error=excluded.error, error_kind=excluded.error_kind,
+                timeout_seconds=excluded.timeout_seconds,
                 share_group_id=excluded.share_group_id, attempt=excluded.attempt,
                 admission_reason=excluded.admission_reason, queued_time=excluded.queued_time,
                 worker_root_pid=excluded.worker_root_pid,
@@ -286,6 +288,7 @@ class Repository:
                 record.result_hash,
                 record.result_reference,
                 record.error,
+                record.error_kind,
                 record.timeout_seconds,
                 record.share_group_id,
                 record.attempt,

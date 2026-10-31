@@ -134,6 +134,9 @@ class LogicalCall:
     #: the event that requested the call - the causal parent of its events
     request_event_id: str | None = None
     error: str | None = None
+    #: the failure kind of the call (tool_error / worker_crash / timeout /
+    #: cancelled / internal_error) - requirement 10.1
+    error_kind: str | None = None
     completed_time: float | None = None
     retry_count: int = 0
     future: asyncio.Future = field(default_factory=asyncio.Future, repr=False)
@@ -163,6 +166,7 @@ _TERMINAL_EXECUTION_STATUS = frozenset(
         ExecutionStatus.TIMEOUT,
         ExecutionStatus.CANCELLED,
         ExecutionStatus.CRASHED,
+        ExecutionStatus.RUNTIME_ERROR,
         ExecutionStatus.INTERRUPTED,
     }
 )
@@ -1541,6 +1545,7 @@ class RuntimeCoordinator:
                 execution.status = ExecutionStatus.COMPLETED
                 execution.result = outcome.payload
                 execution.result_hash = outcome.result_hash
+                execution.error_kind = None
             elif outcome.kind == ERROR_TIMEOUT:
                 execution.status = ExecutionStatus.TIMEOUT
                 execution.error = outcome.message
@@ -1549,12 +1554,21 @@ class RuntimeCoordinator:
                 # timeout (requirement 10.4)
                 execution.status = ExecutionStatus.CANCELLED
                 execution.error = outcome.message
+                execution.error_kind = outcome.kind
             elif outcome.kind == ERROR_TOOL:
                 execution.status = ExecutionStatus.FAILED
                 execution.error = outcome.message
+                execution.error_kind = outcome.kind
+            elif outcome.kind == ERROR_INTERNAL:
+                # a failure of the runtime itself - neither a tool error nor
+                # a crash of a worker (requirement 10.1)
+                execution.status = ExecutionStatus.RUNTIME_ERROR
+                execution.error = outcome.message
+                execution.error_kind = outcome.kind
             else:
                 execution.status = ExecutionStatus.CRASHED
                 execution.error = outcome.message
+                execution.error_kind = outcome.kind
 
             # The final memory sample has to be taken *before* the row is
             # written - otherwise a short execution would persist a peak of 0.
@@ -1732,13 +1746,15 @@ class RuntimeCoordinator:
             # the group is closed - a later call starts a new one
             group.close()
             self._persist_group(group)
-            # The participants that are still waiting for the result of the
-            # failed execution must learn about the failure (requirement 10.1)
-            self._fail_waiting_participants(group, outcome.message)
         elif execution.leader_call_id:
             affected.append(execution.leader_call_id)
 
         retryable = outcome.kind in (ERROR_CRASH, ERROR_TIMEOUT)
+        # The decision about the retry is made **before** the participants are
+        # corrected: a participant whose call is retried leaves the group and
+        # runs on its own - it must not be recorded as failed (requirement
+        # 10.1 and the consistency of the participant row).
+        retried: set[str] = set()
         for call_id in affected:
             call = self._calls.get(call_id)
             if call is None or call.future.done():
@@ -1746,36 +1762,55 @@ class RuntimeCoordinator:
             # A call must never belong to two running physical executions
             # (requirement 8.2).  A participant that was separated owns an
             # execution of its own - it must not get a second one.
-            own_execution = self._running_execution_of(call)
-            if own_execution is not None:
+            if self._running_execution_of(call) is not None:
                 continue
             if retryable and call.retry_count == 0:
-                call.retry_count += 1
-                call.status = LogicalCallStatus.PENDING
-                call.physical_execution_id = None
-                call.error = None
-                self._persist_call(call)
-                self.event_bus.publish(
-                    EventType.TOOL_CALL_RETRYING,
-                    workflow_id=call.workflow_id,
-                    logical_call_id=call.logical_call_id,
-                    metadata={"retry": call.retry_count, "reason": outcome.message},
-                )
-                # the participant leaves the failed group and runs on its own
-                self._detach_participant_of(call, "the shared execution failed")
-                self._start_independent_locked(call)
-                continue
-            self._fail_call_locked(call, outcome.message, outcome.kind or "error")
+                retried.add(call_id)
 
-    def _fail_waiting_participants(self, group: ShareGroup, message: str) -> None:
+        if group is not None:
+            # The participants that are still waiting for the result of the
+            # failed execution must learn about the failure (requirement 10.1)
+            self._fail_waiting_participants(group, outcome.message, retried)
+
+        for call_id in affected:
+            call = self._calls.get(call_id)
+            if call is None or call.future.done():
+                continue
+            if call_id not in retried:
+                if self._running_execution_of(call) is not None:
+                    continue
+                self._fail_call_locked(call, outcome.message, outcome.kind or "error")
+                continue
+            call.retry_count += 1
+            call.status = LogicalCallStatus.PENDING
+            call.physical_execution_id = None
+            call.error = None
+            self._persist_call(call)
+            self.event_bus.publish(
+                EventType.TOOL_CALL_RETRYING,
+                workflow_id=call.workflow_id,
+                logical_call_id=call.logical_call_id,
+                metadata={"retry": call.retry_count, "reason": outcome.message},
+            )
+            # the participant leaves the failed group and runs on its own
+            self._detach_participant_of(call, "the shared execution failed")
+            self._start_independent_locked(call)
+
+    def _fail_waiting_participants(
+        self, group: ShareGroup, message: str, keep: set[str] | None = None
+    ) -> None:
         """Mark the participants that wait for a failed execution as failed.
 
         A participant that owns an execution of its own keeps it - only the
         ones that are still waiting for the result of the failed execution are
-        corrected (requirement 10.1).
+        corrected (requirement 10.1).  The participants in ``keep`` are
+        retried and therefore leave the group instead.
         """
 
+        keep = keep or set()
         for participant in list(group.participants.values()):
+            if participant.logical_call_id in keep:
+                continue
             if participant.status not in (
                 ParticipantStatus.WAITING,
                 ParticipantStatus.SHARED_WAIT,
@@ -1785,7 +1820,8 @@ class RuntimeCoordinator:
                 participant.transition(ParticipantStatus.FAILED)
             except Exception:
                 participant.status = ParticipantStatus.FAILED
-            participant.delivered_time = time.time()
+            # no result was delivered - the wait ends with the detachment
+            participant.detached_time = time.time()
             participant.detach_reason = message
             self._persist_participant(group, participant)
 
@@ -1798,22 +1834,26 @@ class RuntimeCoordinator:
         if group is None:
             return
         participant = group.participants.get(call.logical_call_id)
-        if participant is None:
-            return
-        if participant.status in (
+        if participant is not None and participant.status not in (
             ParticipantStatus.COMPLETED,
             ParticipantStatus.FAILED,
             ParticipantStatus.CANCELLED,
             ParticipantStatus.RUNNING_INDEPENDENTLY,
         ):
-            return
-        try:
-            participant.transition(ParticipantStatus.RUNNING_INDEPENDENTLY)
-        except Exception:
-            participant.status = ParticipantStatus.RUNNING_INDEPENDENTLY
-        participant.delivered_time = time.time()
-        participant.detach_reason = reason
-        self._persist_participant(group, participant)
+            try:
+                participant.transition(ParticipantStatus.RUNNING_INDEPENDENTLY)
+            except Exception:
+                participant.status = ParticipantStatus.RUNNING_INDEPENDENTLY
+            participant.detached_time = time.time()
+            participant.detach_reason = reason
+            self._persist_participant(group, participant)
+        # the call leaves the group - it must not keep a reference to a closed
+        # group
+        call.share_group_id = None
+        call.shared = False
+        self._persist_call(call)
+        # the group no longer counts the call
+        self._persist_group(group)
 
     def _running_execution_of(self, call: LogicalCall) -> PhysicalExecution | None:
         """Return the execution of a call that is still running.
@@ -2025,7 +2065,8 @@ class RuntimeCoordinator:
             # the transition is not allowed from every state - the status is
             # corrected anyway, the participant must not keep waiting
             participant.status = ParticipantStatus.FAILED
-        participant.delivered_time = time.time()
+        # no result was delivered - the wait ends with the failure
+        participant.detached_time = time.time()
         participant.detach_reason = message
         self._persist_participant(group, participant)
 
@@ -2034,6 +2075,7 @@ class RuntimeCoordinator:
             return
         call.status = LogicalCallStatus.FAILED
         call.error = message
+        call.error_kind = kind
         call.completed_time = time.time()
         self._persist_call(call)
         # The participant of the group has to learn about the failure as well -
@@ -2081,6 +2123,7 @@ class RuntimeCoordinator:
             candidate_key=call.candidate_key,
             share_group_id=call.share_group_id,
             error=call.error,
+            error_kind=call.error_kind,
             completed_time=call.completed_time,
             retry_count=call.retry_count,
         )
@@ -2123,6 +2166,7 @@ class RuntimeCoordinator:
             result_hash=execution.result_hash,
             result_reference=execution.result_reference,
             error=execution.error,
+            error_kind=execution.error_kind,
             timeout_seconds=execution.timeout_seconds,
             share_group_id=execution.share_group_id,
             attempt=execution.attempt,

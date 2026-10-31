@@ -77,6 +77,9 @@ class LogicalToolCallRecord:
     candidate_key: str | None = None
     share_group_id: str | None = None
     error: str | None = None
+    #: the failure kind (tool_error / worker_crash / timeout / cancelled /
+    #: internal_error) - requirement 10.1
+    error_kind: str | None = None
     completed_time: float | None = None
     retry_count: int = 0
 
@@ -103,6 +106,9 @@ class PhysicalExecutionRecord:
     result_hash: str | None = None
     result_reference: str | None = None
     error: str | None = None
+    #: the failure kind (tool_error / worker_crash / timeout / cancelled /
+    #: internal_error) - requirement 10.1
+    error_kind: str | None = None
     timeout_seconds: float | None = None
     share_group_id: str | None = None
     attempt: int = 1

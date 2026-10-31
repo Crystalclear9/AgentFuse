@@ -66,6 +66,9 @@ class PhysicalExecution:
     #: the event that started the execution - the causal parent of its events
     start_event_id: str | None = None
     error: str | None = None
+    #: the failure kind of the execution (tool_error / worker_crash / timeout /
+    #: cancelled / internal_error) - requirement 10.1
+    error_kind: str | None = None
     timeout_seconds: float = 60.0
     attempt: int = 1
     ledger: DependencyLedger = field(default_factory=lambda: DependencyLedger(""))
@@ -111,6 +114,7 @@ class PhysicalExecution:
             "exit_status": self.exit_status,
             "result_hash": self.result_hash,
             "error": self.error,
+        "error_kind": self.error_kind,
             "queued_time": self.queued_time,
             "admission_reason": self.admission_reason,
             "worker_root_pid": self.worker_root_pid,

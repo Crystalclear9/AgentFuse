@@ -69,6 +69,9 @@ class ExecutionStatus(StrEnum):
     TIMEOUT = "TIMEOUT"
     CANCELLED = "CANCELLED"
     CRASHED = "CRASHED"
+    #: a failure of the runtime itself (the admission control, the worker
+    #: start) - neither a tool error nor a crash of a worker (requirement 10.1)
+    RUNTIME_ERROR = "RUNTIME_ERROR"
     INTERRUPTED = "INTERRUPTED"
 
 

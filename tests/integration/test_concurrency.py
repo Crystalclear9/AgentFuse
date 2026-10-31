@@ -616,3 +616,79 @@ async def test_a_runtime_failure_is_not_reported_as_a_worker_crash(app, snapshot
         "a runtime failure must not be reported as a worker crash: "
         f"{getattr(error.value, 'kind', None)}"
     )
+
+    # the distinction has to survive in the database as well (requirement
+    # 10.1): an internal error is neither a tool error nor a crash
+    calls = app.repository.list_logical_calls(workflow.workflow_id)
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert calls and executions
+    assert calls[0]["error_kind"] == "internal_error", (
+        f"the kind has to be persisted: {calls[0]['error_kind']}"
+    )
+    assert executions[0]["error_kind"] == "internal_error"
+    assert executions[0]["execution_status"] == "RUNTIME_ERROR", (
+        "an internal error must not be recorded as a crash: "
+        f"{executions[0]['execution_status']}"
+    )
+
+
+async def test_a_retried_participant_is_not_recorded_as_failed(app, snapshot):
+    """§10.1 - the participant row and the call row must agree.
+
+    A shared execution that fails with a **retryable** error (a crash or a
+    timeout) releases its participants into an independent retry.  Such a
+    participant is not failed - it runs on its own and delivers a result.
+    """
+
+    workflow = app.create_workflow("test-retry-participant")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    # the leader times out (a retryable error) while the follower waits for
+    # its result
+    # the workload is longer than the timeout of the leader, so the leader
+    # really fails - and the follower has time to join
+    arguments = {"files": list(DEMO_FILES), "rounds": 5000}
+    leader = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+            timeout_seconds=0.3,
+        )
+    )
+    await wait_for_first_dependency(app.event_bus, workflow.workflow_id)
+    follower = await app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="content_digest",
+        arguments=arguments,
+        snapshot_id=snapshot.snapshot_id,
+        timeout_seconds=10.0,
+    )
+    with pytest.raises(Exception):
+        await leader
+    # the follower was released into an independent retry and got a result
+    assert follower.result_hash
+
+    calls = app.repository.list_logical_calls(workflow.workflow_id)
+    participants = app.repository.list_participants(workflow.workflow_id)
+    assert calls, "the calls have to be recorded"
+    for participant in participants:
+        call = next(
+            item
+            for item in calls
+            if item["logical_call_id"] == participant["logical_call_id"]
+        )
+        assert not (
+            participant["status"] == "FAILED" and call["status"] == "COMPLETED"
+        ), (
+            "a participant that is FAILED must not have a delivered call: "
+            f"{participant['status']} vs {call['status']}"
+        )
+    # a retried call does not keep a reference to the closed group
+    for call in calls:
+        if call["retry_count"]:
+            assert call["share_group_id"] is None, (
+                "a retried call must not reference the closed group"
+            )
