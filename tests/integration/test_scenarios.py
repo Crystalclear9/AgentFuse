@@ -106,3 +106,22 @@ async def test_the_shared_heavy_scenario_shares_the_cpu_work(app):
     # the baseline computes the same result twice
     assert baseline.metrics["physical_executions"] == 2
     assert baseline.results[0].result_hash == online.results[0].result_hash
+
+
+def test_the_catalogue_matches_the_runtime():
+    """The catalogue is served to the dashboard - it cannot drift away.
+
+    The workload of the scenarios is described by the constants of
+    ``scenarios/common.py``; the catalogue has to use the same ones.
+    """
+
+    from agentfuse.scenarios.catalogue import describe
+    from agentfuse.scenarios.common import DIVERGENT_FILE, DIVERGENT_ROUNDS, SHARED_HEAVY_ROUNDS
+
+    divergent = describe("divergent")
+    assert divergent["workload"]["rounds"] == DIVERGENT_ROUNDS
+    assert divergent["workload"]["conflict_file"] == DIVERGENT_FILE
+    assert DIVERGENT_FILE in divergent["description"]
+
+    heavy = describe("shared-heavy")
+    assert heavy["workload"]["rounds"] == SHARED_HEAVY_ROUNDS

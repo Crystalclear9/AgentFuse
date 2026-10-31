@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from agentfuse.core.state import EventType
 from agentfuse.scenarios.common import DEMO_FILES
 
@@ -159,3 +161,48 @@ async def test_out_of_order_events_do_not_create_wrong_edges(app):
     for edge in payload["edges"]:
         assert edge["source"] in node_ids
         assert edge["target"] in node_ids
+
+
+async def test_a_burst_of_events_does_not_block_the_event_loop(app, snapshot):
+    """§16.5 - the event writes must not block the main loop.
+
+    The events are written by a background thread.  A burst of events therefore
+    has to leave the event loop responsive: a coroutine that runs in parallel
+    has to be scheduled while the events are written.
+    """
+
+    workflow = app.create_workflow("test-event-burst")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    ticks = 0
+
+    async def ticker():
+        nonlocal ticks
+        while True:
+            ticks += 1
+            await asyncio.sleep(0.005)
+
+    async def publisher():
+        # the events are written while the loop keeps running
+        for index in range(200):
+            app.event_bus.publish(
+                EventType.TOOL_READ_OBSERVED,
+                workflow_id=workflow.workflow_id,
+                physical_execution_id=f"exec-burst-{index}",
+                metadata={"relative_path": f"src/file{index}.py"},
+            )
+            await asyncio.sleep(0.001)
+
+    task = asyncio.create_task(ticker())
+    try:
+        await publisher()
+        # the loop was still running while the events were written
+        assert ticks > 0, "the event loop was blocked by the event writes"
+    finally:
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    events = app.repository.list_events(workflow.workflow_id)
+    assert len(events) >= 200, "every event has to be written"

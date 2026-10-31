@@ -126,7 +126,7 @@ WORKFLOW_FINISHED
 | kind | 标识 | 含义 |
 |---|---|---|
 | `workflow` | `workflow:<id>` | 一次完整的多智能体工作流实例 |
-| `agent` | `agent:<id>` | 逻辑 Agent 实体 |
+| `agent` | `agent:<id>` | 逻辑 Agent 实体（身份未确定时为 `agent:undetermined:<event>`） |
 | `invocation` | `invocation:<id>` | Agent 的一次实际激活 |
 | `logical_call` | `call:<id>` | 一次逻辑工具请求 |
 | `physical_execution` | `execution:<id>` | 一次真实启动的工具计算 |
@@ -180,7 +180,7 @@ submit_tool_call
 ## 6. 数据持久化
 
 SQLite（`agentfuse/storage/database.py`），schema 版本记录在 `PRAGMA user_version`
-与 `schema_meta` 表中。当前版本 **v7**。
+与 `schema_meta` 表中。当前版本 **v9**。
 
 * `initialize()` 先幂等地建表，再按 `user_version` 顺序执行迁移
   （`_MIGRATIONS`：`(目标版本, 语句列表)`）；
@@ -195,10 +195,10 @@ SQLite（`agentfuse/storage/database.py`），schema 版本记录在 `PRAGMA use
 | 表 | 内容 |
 |---|---|
 | `workflows` | 工作流实例与配置 |
-| `agents` | Agent 身份绑定（外键 → `workflows`） |
+| `agents` | Agent 身份绑定（外键 → `workflows`）；`identity_status` = CONFIRMED / UNDETERMINED（需求 5.2） |
 | `agent_invocations` | 调用记录与父子关系（外键 → `workflows` / `agents`） |
-| `logical_tool_calls` | 逻辑调用、状态、绑定的物理执行、结果哈希与结果路径（外键 → `workflows` / `physical_executions`） |
-| `physical_executions` | 物理执行、worker pid、CPU 时间、峰值 RSS、退出状态（外键 → `workflows`） |
+| `logical_tool_calls` | 逻辑调用、状态、绑定的物理执行、结果哈希与结果路径、`error_kind`（失败类型，需求 10.1）（外键 → `workflows` / `physical_executions`） |
+| `physical_executions` | 物理执行、worker pid、CPU 时间、峰值 RSS、退出状态、`error_kind`（外键 → `workflows`） |
 | `share_groups` | 共享组、Leader、`participant_count` 与 `participant_calls`（组内的逻辑调用列表）（外键 → `workflows` / `physical_executions`） |
 | `share_participants` | 参与者状态、已验证前缀、等待原因、分离原因、分离方式（`after_join` / `rejected_at_join`）、等待时长（外键 → `share_groups` / `logical_tool_calls`） |
 | `workspace_snapshots` | 快照元数据与 manifest 哈希 |

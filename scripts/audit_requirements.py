@@ -270,6 +270,25 @@ TABLES = [
 #: that disappears would break the data model without any other check
 #: noticing it.
 TABLE_COLUMNS = {
+    "agents": [
+        "agent_id", "workflow_id", "external_identity", "agent_description",
+        "registration_source", "metadata", "created_at", "identity_status",
+    ],
+    "logical_tool_calls": [
+        "logical_call_id", "workflow_id", "invocation_id", "agent_id", "tool_name",
+        "tool_version", "normalized_arguments", "workspace_snapshot_id",
+        "request_time", "status", "physical_execution_id", "result_reference",
+        "result_hash", "candidate_key", "share_group_id", "error", "error_kind",
+        "completed_time", "retry_count",
+    ],
+    "physical_executions": [
+        "execution_id", "workflow_id", "tool_name", "tool_version",
+        "arguments_hash", "candidate_key", "source_snapshot_id", "worker_pid",
+        "start_time", "finish_time", "execution_status", "cpu_time", "peak_rss",
+        "exit_status", "result_hash", "result_reference", "error", "error_kind",
+        "timeout_seconds", "share_group_id", "attempt", "admission_reason",
+        "queued_time", "worker_root_pid", "worker_command",
+    ],
     "share_participants": [
         "share_group_id", "logical_call_id", "workflow_id", "agent_id",
         "invocation_id", "snapshot_id", "status", "validated_prefix_length",

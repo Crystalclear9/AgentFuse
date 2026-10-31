@@ -18,6 +18,8 @@ from ..monitoring.metrics import collect_workflow_metrics
 from .common import (
     DEFAULT_SEED,
     DEMO_FILES,
+    DIVERGENT_ROUNDS,
+    SHARED_HEAVY_ROUNDS,
     create_branch,
     mutate_readme,
     mutate_variant_source,
@@ -130,7 +132,7 @@ async def scenario_shared_heavy(
 
     adapter = ScriptedAdapter(workflow)
     files = list(options.get("files", DEMO_FILES))
-    rounds = int(options.get("rounds", 3000))
+    rounds = int(options.get("rounds", SHARED_HEAVY_ROUNDS))
     arguments = {"files": files, "rounds": rounds}
 
     agent_a = ScriptedAgent("analysis-agent-a", [ToolStep("content_digest", arguments)])
@@ -250,7 +252,7 @@ async def scenario_divergent(app: Any, mode: RuntimeMode, options: dict[str, Any
     # the crunch of the first file has to be long enough for the join to
     # happen before the conflicting file is read.  5000 rounds are about
     # 75 ms per file - enough under load as well.
-    rounds = int(options.get("rounds", 5000))
+    rounds = int(options.get("rounds", DIVERGENT_ROUNDS))
     arguments = {"files": files, "rounds": rounds}
 
     async def leader_step(context: Any) -> Any:

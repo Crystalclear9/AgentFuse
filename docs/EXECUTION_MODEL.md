@@ -28,6 +28,7 @@
 | 字段 | 说明 |
 |---|---|
 | `agent_id` | 内部标识，由运行时在**观测到的注册边界**上创建 |
+| `identity_status` | `CONFIRMED` / `UNDETERMINED`（需求 5.2：无法确认的身份永远不合并） |
 | `workflow_id` | 所属工作流 |
 | `external_identity` | 外部框架提供的身份，可为空 |
 | `agent_description` | 描述 |
@@ -83,8 +84,13 @@ PENDING ──► WAITING ──► SHARED_WAIT ──► COMPLETED
    │            │             ├──► DETACHED ──► RUNNING_INDEPENDENTLY ──► COMPLETED
    │            │             └──► FAILED / CANCELLED
    │            └──► RUNNING_INDEPENDENTLY ──► COMPLETED / FAILED
+   │
    └──► FAILED / CANCELLED
 ```
+
+一次**可重试**的失败（`worker_crash` / `timeout`）会把状态退回 `PENDING` 并
+启动一次独立重试；重试的参与者以 `RUNNING_INDEPENDENTLY` 继续，它的参与者行与
+逻辑调用行始终一致。
 
 **两个 Agent 共享同一次物理执行时，它们依然拥有各自独立的 LogicalToolCall。**
 
@@ -101,7 +107,8 @@ PENDING ──► WAITING ──► SHARED_WAIT ──► COMPLETED
 | `source_snapshot_id` | 执行所基于的快照（Leader 的快照） |
 | `worker_pid` | worker 进程 pid |
 | `start_time` / `finish_time` | 时间戳 |
-| `execution_status` | `CREATED`/`QUEUED`/`RUNNING`/`COMPLETED`/`FAILED`/`TIMEOUT`/`CANCELLED`/`CRASHED` |
+| `execution_status` | `CREATED`/`QUEUED`/`RUNNING`/`COMPLETED`/`FAILED`/`TIMEOUT`/`CANCELLED`/`CRASHED`/`RUNTIME_ERROR` |
+| `error_kind` | `tool_error` / `worker_crash` / `timeout` / `cancelled` / `internal_error`（需求 10.1） |
 | `cpu_time` | worker 自测的用户态+内核态 CPU 时间（秒） |
 | `peak_rss` | psutil 采样到的进程树峰值 RSS（字节） |
 | `exit_status` | worker 退出码 |
@@ -171,20 +178,27 @@ CPU 时间与内存的语义区别见 `KNOWN_LIMITATIONS.md`。
 
 ## 9. Failure Recovery
 
-三类失败被严格区分：
+失败类型被严格区分，并且**落库**（`logical_tool_calls.error_kind` 与
+`physical_executions.error_kind`）——数据库里也能区分，不必回看事件流：
 
-| 类型 | 触发条件 | 重试 | 结果 |
-|---|---|---|---|
-| 工具业务错误 `tool_error` | 工具实现抛出异常 | **不重试** | 逻辑调用 `FAILED` |
-| 工作进程崩溃 `worker_crash` | worker 非零退出 / 没有返回结果 | **重试一次** | 首次失败后独立重试；再次失败则 `FAILED` |
-| Runtime 调度错误 `internal_error` | 运行时自身问题（例如工具未注册） | 不重试 | 逻辑调用 `FAILED` |
+| 类型 | 触发条件 | 重试 | 执行状态 | 逻辑调用 |
+|---|---|---|---|---|
+| 工具业务错误 `tool_error` | 工具实现抛出异常 | **不重试** | `FAILED` | `FAILED` |
+| 工作进程崩溃 `worker_crash` | worker 非零退出 / 没有返回结果 | **重试一次** | `CRASHED` | 首次失败后独立重试；再次失败则 `FAILED` |
+| 执行超时 `timeout` | 超过 `timeout_seconds` | **重试一次** | `TIMEOUT` | 同上 |
+| 主动取消 `cancelled` | 调用被取消 / 全部参与者取消 | 不重试 | `CANCELLED` | `CANCELLED` |
+| Runtime 自身错误 `internal_error` | 准入控制、快照查找、worker 启动失败 | 不重试 | `RUNTIME_ERROR` | `FAILED` |
 
 共享组中的失败传播：
 
-* 共享组的物理执行失败时，**所有**等待参与者都会收到明确的状态变化；
+* 共享组的物理执行失败时，**所有**等待参与者都会收到明确的状态变化
+  （`FAILED`）；
 * **不会**把部分结果当作成功；
 * 允许参与者进入独立重试队列**一次**，防止无限重试；
-* 失败原因写入 `logical_tool_calls.error` 与 `physical_executions.error`。
+* 会被重试的参与者**不是**失败的：它离开组、以 `RUNNING_INDEPENDENTLY` 继续，
+  它的参与者行与逻辑调用行始终一致；
+* 失败原因写入 `logical_tool_calls.error` 与 `physical_executions.error`，
+  类型写入 `error_kind`。
 
 Runtime 进程中断：
 

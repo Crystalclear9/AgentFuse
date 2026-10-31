@@ -412,3 +412,28 @@ async def test_a_follower_that_fails_the_final_validation_gets_no_result(app, sn
         execution["execution_id"] for execution in executions
     }
     assert follower.result_hash == leader.result_hash
+
+
+async def test_the_separation_is_reliable(app):
+    """§12.4 - the follower is separated **while** the leader is computing.
+
+    The follower joins after the first dependency; the conflict is on the
+    third file.  The separation therefore has to happen through the **online**
+    validation - a candidate that is rejected at join time would silently lose
+    the property the scenario exists to demonstrate.  The test repeats the
+    scenario to catch a timing that is too tight.
+    """
+
+    for _ in range(3):
+        result = await scenario_divergent(app, RuntimeMode.ONLINE, {})
+        metrics = result.metrics
+        assert metrics["rejected_candidates"] == 0, (
+            "the follower must not be rejected at join time - the separation "
+            "has to happen through the online validation"
+        )
+        assert metrics["detach_count"] == 1
+        assert metrics["detach_lead_ms_max"] > 0, (
+            "the follower has to be separated while the leader is still "
+            "computing"
+        )
+        assert metrics["online_detach_before_finish"] is True

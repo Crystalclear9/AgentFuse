@@ -41,17 +41,17 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 
 | 能力 | 说明 |
 |---|---|
-| 统一事件协议 | 22 种运行时事件，workflow 内具备稳定序号，全局唯一 event_id，事件携带因果链（parent_event_id） |
+| 统一事件协议 | 22 种运行时事件，workflow 内具备稳定序号，全局唯一 event_id，事件携带因果链（parent_event_id），身份未确定的 Agent 不会被合并 |
 | 在线执行图重建 | Workflow / Agent / Invocation / LogicalToolCall / PhysicalExecution / ToolResult 六类节点，七类边，全部来自真实事件 |
 | 受控工具接入 | Tool Registry（6 个真实工具 + 1 个故障注入夹具）+ 受控 `WorkspaceReader`，读取即上报依赖，依赖完整性由运行时强制 |
 | 工作区快照 | 不可变快照 + 分支 fork + SHA-256 manifest |
 | 共享执行 | CandidateKey → ShareGroup → In-flight Sharing → 增量在线验证 → 冲突分离 → 最终提交门禁 → 快照完整性校验 |
 | 资源管理 | FIFO / 最短作业优先调度、Worker 并发上限、内存准入、实测 RSS、CPU 时间、超时、取消、故障回收、**Worker 预热池** |
-| 持久化 | SQLite（15 张表，schema v8 + 迁移机制 + 外键约束 + 崩溃回收，后台写入线程） |
+| 持久化 | SQLite（15 张表，schema v9 + 迁移机制 + 外键约束 + 崩溃回收，后台写入线程） |
 | 结果复用 | 会话内已完成结果复用（默认关闭，需完整依赖校验才命中） |
 | 本地 Web 界面 | Dashboard / 执行图 / 时间线 / 依赖检查器 / 基准测试，127.0.0.1:8765，无 CDN |
 | 命令行 | `init / serve / demo / compare / trace / inspect / tools` |
-| 离线演示 | 5 个真实多智能体场景，完全不需要外部模型 |
+| 离线演示 | 6 个真实多智能体场景，完全不需要外部模型 |
 | 基准测试 | Baseline / Online Sharing / Deferred Validation 三种模式对比 + 正确性逐调用校验 |
 
 ---

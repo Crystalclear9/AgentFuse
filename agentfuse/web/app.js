@@ -42,6 +42,7 @@ function pill(text, kind) {
 function statusPill(status) {
   const map = {
     COMPLETED: "ok", RUNNING: "info", QUEUED: "info", PENDING: "",
+    UNDETERMINED: "warn",
     SHARED_WAIT: "warn", DETACHED: "danger", FAILED: "danger", TIMEOUT: "danger",
     CANCELLED: "danger", CRASHED: "danger", WAITING: "warn", RUNNING_INDEPENDENTLY: "info",
     MATCH: "ok", MISMATCH: "danger", UNKNOWN: "warn", EXECUTING: "info",
@@ -270,6 +271,24 @@ async function switchToWorkflow(workflowId) {
       </tr>`;
     }).join("");
     $("call-table").querySelector("tbody").innerHTML = callRows || `<tr><td colspan="8">暂无逻辑调用</td></tr>`;
+
+    // the agents of the workflow and the state of their identity
+    const agentRows = (detail.agents || []).map((agent) => {
+      const confirmed = (agent.identity_status || "CONFIRMED") === "CONFIRMED";
+      return `
+      <tr>
+        <td class="mono">${short(agent.agent_id, 16)}</td>
+        <td class="mono">${agent.external_identity || "-"}</td>
+        <td>${agent.agent_description || "-"}</td>
+        <td>${agent.registration_source || "-"}</td>
+        <td>${pill(confirmed ? "已确认" : "未确定", confirmed ? "ok" : "warn")}</td>
+      </tr>`;
+    }).join("");
+    const agentTable = $("workflow-agent-table");
+    if (agentTable) {
+      agentTable.querySelector("tbody").innerHTML =
+        agentRows || `<tr><td colspan="5">暂无 Agent</td></tr>`;
+    }
 
     // the confirmed dependencies of the workflow (requirement 14.3)
     const dependencyRows = Object.entries(detail.dependencies || {}).map(([executionId, records]) =>

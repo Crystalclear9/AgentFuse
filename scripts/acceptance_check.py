@@ -143,6 +143,11 @@ def main() -> int:
             check("数据库写入零错误",
                   database.write_errors == 0,
                   f"errors={database.write_errors}: {(database.last_error or '')[:200]}")
+            from agentfuse.storage.database import SCHEMA_VERSION
+
+            check("数据库版本与代码一致",
+                  database.schema_version() == SCHEMA_VERSION,
+                  f"db={database.schema_version()} code={SCHEMA_VERSION}")
             violations = database.foreign_key_violations()
             check("外键约束无违规", not violations, f"violations={violations[:5]}")
             foreign_keys = database.foreign_keys()

@@ -62,6 +62,19 @@ class MyFrameworkAdapter(AgentAdapter):
 `AgentAdapter` 的构造函数只需要一个 `workflow` 对象（`core/workflow.py` 的
 `WorkflowRuntime`），其余能力（事件总线、协调器、仓储）都能从它拿到。
 
+## 2.1 身份无法确认时（需求 5.2）
+
+外部框架可能无法证明两个事件属于同一个 Agent。此时不得直接合并：
+
+```python
+await self.bind_agent(external_identity=None, identity_confirmed=False)
+```
+
+这样的 Agent 会被记录为 `identity_status = UNDETERMINED`（存在 `agents` 表中），
+执行图中会出现一个 `UNDETERMINED` 状态的节点，而不是把两个事件合并成一个 Agent。
+这就是需求 5.2 所说的“保留身份未确定状态”。
+
+
 ## 3. 对接步骤
 
 ### 步骤 1：创建工作流
@@ -104,9 +117,12 @@ class MyFrameworkAdapter(AgentAdapter):
         )
 
     async def deliver_result(self, invocation_id, logical_call_id, result):
-        # 如果你的框架有独立的"结果回传"边界，在这里上报事件
+        # The runtime publishes the authoritative TOOL_RESULT_DELIVERED event
+        # when the result is bound to the logical call.  An adapter must not
+        # publish it again - it reports the framework side with its own
+        # event type (FRAMEWORK_RESULT_RECEIVED).
         await self.record_event(
-            "TOOL_RESULT_DELIVERED",
+            "FRAMEWORK_RESULT_RECEIVED",
             invocation_id=invocation_id,
             logical_call_id=logical_call_id,
         )

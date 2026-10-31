@@ -100,9 +100,13 @@ CREATED ──► EXECUTING ──► VALIDATING ──► COMPLETED ──► C
 ```text
 WAITING ──► SHARED_WAIT ──► COMPLETED
    │             │  └────► FAILED / CANCELLED
+   │             ├────► RUNNING_INDEPENDENTLY ──► COMPLETED / FAILED
    │             └──► DETACHED ──► RUNNING_INDEPENDENTLY ──► COMPLETED
    └──► RUNNING_INDEPENDENTLY (Leader 拥有自己的物理执行)
 ```
+
+`SHARED_WAIT ──► RUNNING_INDEPENDENTLY` 是**共享执行失败后进入独立重试**的路径：
+会被重试的参与者离开这个组，它不是失败的。
 
 非法状态转换会抛出 `IllegalTransition`（见 `sharing/share_group.py`）。
 
@@ -277,8 +281,9 @@ runtime.result_cache_entries = 64      # 0 = 关闭（默认）
 | 已有依赖验证与新依赖写入同时发生 | 单一 `asyncio.Lock` 串行化全部共享状态转换 |
 | 参与者加入时 Leader 恰好完成 | 完成路径与加入路径在同一把锁下；完成时仍在组内的参与者照常校验并交付 |
 | 参与者取消时共享组正在分发结果 | 取消与交付都在锁下完成；`_deliver_locked` 带有幂等保护，已完成的调用不会被二次交付 |
-| 分支分离后又出现相同参数的新调用 | 新调用按 CandidateKey 找到现存组并重新验证；分离后的参与者也会尝试再归组 |
+| 分支分离后又出现相同参数的新调用 | 新调用按 CandidateKey 找到**未关闭**的现存组并重新验证；**已关闭**的组不再复用；分离后的参与者也会尝试再归组 |
 | 结果重复交付 | `_deliver_locked` 检查调用状态与 future 是否已完成 |
+| 共享执行失败，参与者还在等待 | 等待中的参与者收到 `FAILED`；会被重试的参与者离开组并以 `RUNNING_INDEPENDENTLY` 继续，参与者行与调用行一致 |
 
 ---
 
@@ -296,4 +301,6 @@ runtime.result_cache_entries = 64      # 0 = 关闭（默认）
 8. 共享不能改变工具的逻辑输出。 ✔
 9. 没有证据时宁可不共享。 ✔
 10. 共享必须有可检查的验证记录（`validation_records` 表）。 ✔
-11. 快照被篡改时必须拒绝共享（完整性校验）。 ✔
+11. 快照被篡改时必须拒绝共享（完整性校验）。
+12. **参与者的状态与它的逻辑调用状态必须一致**：被标记为 `FAILED` 的参与者不得拿到结果，
+    被重试的参与者离组并以 `RUNNING_INDEPENDENTLY` 继续。 ✔

@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .common import DIVERGENT_FILE, DIVERGENT_ROUNDS, SHARED_HEAVY_ROUNDS
+
 
 @dataclass(frozen=True)
 class ScenarioSpec:
@@ -48,7 +50,7 @@ CATALOGUE: dict[str, ScenarioSpec] = {
         title="完全共享（CPU 密集负载）",
         description="两个 Agent 请求同一份内容摘要计算，工具包含真实 CPU 负载。",
         expectation="2 个逻辑调用只产生 1 次物理执行，节省整段计算时间。",
-        workload={"tool": "content_digest", "files": 5, "rounds": 3000},
+        workload={"tool": "content_digest", "files": 5, "rounds": SHARED_HEAVY_ROUNDS},
         measures=("makespan", "physical_executions", "total_cpu_time"),
     ),
     "different-workspace": ScenarioSpec(
@@ -62,9 +64,18 @@ CATALOGUE: dict[str, ScenarioSpec] = {
     "divergent": ScenarioSpec(
         name="divergent",
         title="动态依赖冲突",
-        description="两个分支在 src/zeta_variant.py 上内容不同，冲突文件按排序位于最后。",
+        description=(
+            f"两个分支在 {DIVERGENT_FILE} 上内容不同；"
+            "冲突文件按排序位于第三个，"
+            "因此它会在在线验证中被发现。"
+        ),
         expectation="Follower 在 Leader 运行期间被分离，双方各自得到正确结果。",
-        workload={"tool": "content_digest", "files": 5, "rounds": 1500},
+        workload={
+            "tool": "content_digest",
+            "files": 5,
+            "rounds": DIVERGENT_ROUNDS,
+            "conflict_file": DIVERGENT_FILE,
+        },
         measures=(
             "makespan",
             "detach_count",

@@ -238,10 +238,12 @@ MUTATIONS: list[dict[str, Any]] = [
         "name": "一个逻辑调用可以再拥有第二个执行",
         "clause": "8.2",
         "file": "agentfuse/runtime/coordinator.py",
-        "old": """            own_execution = self._running_execution_of(call)
-            if own_execution is not None:
-                continue""",
-        "new": """            own_execution = None""",
+        "old": """            if self._running_execution_of(call) is not None:
+                continue
+            if retryable and call.retry_count == 0:""",
+        "new": """            if False:
+                continue
+            if retryable and call.retry_count == 0:""",
         "guards": [
             [
                 sys.executable,
@@ -257,8 +259,8 @@ MUTATIONS: list[dict[str, Any]] = [
         "name": "失败的参与者不再得到失败状态",
         "clause": "10.1",
         "file": "agentfuse/runtime/coordinator.py",
-        "old": """            self._fail_waiting_participants(group, outcome.message)""",
-        "new": """            pass""",
+        "old": """            self._fail_waiting_participants(group, outcome.message, retried)""",
+        "new": """            pass  # the participants would keep waiting""",
         "extra": (
             "agentfuse/runtime/coordinator.py",
             """        self._fail_participant_of(call, message)""",
@@ -350,6 +352,75 @@ MUTATIONS: list[dict[str, Any]] = [
                 sys.executable,
                 "scripts/audit_requirements.py",
                 "--json",
+            ],
+        ],
+    },
+    {
+        "name": "重试的参与者又被记成失败",
+        "clause": "10.1",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """            if participant.logical_call_id in keep:
+                continue""",
+        "new": """            if False:
+                continue""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_concurrency.py::"
+                "test_a_retried_participant_is_not_recorded_as_failed",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "失败类型不再落库",
+        "clause": "10.1",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """        call.error_kind = kind""",
+        "new": """        call.error_kind = None""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_concurrency.py::"
+                "test_a_runtime_failure_is_not_reported_as_a_worker_crash",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "冲突文件又被挪到第一个",
+        "clause": "12.4",
+        "file": "agentfuse/scenarios/common.py",
+        "old": """DIVERGENT_FILE = "src/gamma.py\"""",
+        "new": """DIVERGENT_FILE = "src/alpha.py\"""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_divergent.py::test_the_separation_is_reliable",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "场景目录与运行时脱节",
+        "clause": "13",
+        "file": "agentfuse/scenarios/catalogue.py",
+        "old": """            "rounds": DIVERGENT_ROUNDS,""",
+        "new": """            "rounds": 1500,""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_scenarios.py::"
+                "test_the_catalogue_matches_the_runtime",
+                "-q",
             ],
         ],
     },

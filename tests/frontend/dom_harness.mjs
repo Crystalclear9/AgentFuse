@@ -138,6 +138,7 @@ const TABLES = [
   "participant-table",
   "share-table",
   "tool-table",
+  "workflow-agent-table",
   "workflow-table",
   "workflow-dependency-table",
 ];
@@ -367,6 +368,17 @@ check(
   "基准页展示逻辑调用与物理执行的对应",
   benchmarkRows.includes(PAYLOADS.workflow.logical_calls[0].logical_call_id.slice(0, 14))
     && benchmarkRows.includes(PAYLOADS.workflow.physical_executions[0].execution_id.slice(0, 14)),
+);
+
+/* the workflow detail shows the agents and the state of their identity */
+const agentRows = htmlOf("workflow-agent-table");
+check(
+  "工作流详情显示 Agent 列表",
+  agentRows.includes(PAYLOADS.workflow.agents[0].agent_id.slice(0, 16)),
+);
+check(
+  "工作流详情显示身份状态",
+  agentRows.includes("已确认") || agentRows.includes("未确定"),
 );
 
 /* the workflow detail shows the confirmed dependencies and the wait reason */
