@@ -113,11 +113,17 @@ MUTATIONS: list[dict[str, Any]] = [
         "name": "写入错误不再被计数",
         "clause": "16",
         "file": "agentfuse/storage/database.py",
+        # the counter of the **commit** failure: a statement that violates a
+        # constraint is only detected when the transaction is committed
         "old": (
+            "            # a deferred foreign key is checked when the transaction is\n"
+            "            # committed - the failure must not take the writer thread down\n"
             "            self.write_errors += 1\n"
             "            self.last_error = f\"transaction failed: {type(exc).__name__}: {exc}\""
         ),
         "new": (
+            "            # a deferred foreign key is checked when the transaction is\n"
+            "            # committed - the failure must not take the writer thread down\n"
             "            self.last_error = f\"transaction failed: {type(exc).__name__}: {exc}\""
         ),
         "guards": [
@@ -571,9 +577,20 @@ MUTATIONS: list[dict[str, Any]] = [
         "name": "守卫自检不再还原变异",
         "clause": "17.2",
         "file": "scripts/guard_selftest.py",
-        "old": """        _restore(path, original)
+        # the context makes the pattern unique - without it the pattern would
+        # match the definition of this mutation itself
+        # The pattern of a mutation of **this** file also appears in the
+        # definition of the mutation itself - the self test therefore
+        # replaces the **last** occurrence (the code is below the list).
+        "old": """    finally:
+        # The working copy has to be left untouched - always, also when the
+        # guard command or the script itself fails.
+        _restore(path, original)
         _MUTATED.pop(path, None)""",
-        "new": """        _MUTATED.pop(path, None)""",
+        "new": """    finally:
+        # The working copy has to be left untouched - always, also when the
+        # guard command or the script itself fails.
+        _MUTATED.pop(path, None)""",
         "guards": [
             [
                 sys.executable,
@@ -713,6 +730,11 @@ def _caught(
     if code == TIMEOUT_EXIT_CODE:
         return False, "the guard ran into the timeout - the mutation is not proven"
     if code == 0:
+        if "skipped" in output.lower() and "no tests ran" in output.lower():
+            return False, (
+                "the guard skipped the test (a missing dependency?) - the "
+                "mutation is not proven"
+            )
         return False, "the guard passed"
     command = command or []
     if "audit_requirements" in " ".join(command) and "--json" in command:
@@ -733,6 +755,20 @@ def _caught(
     return True, "the guard failed as expected"
 
 
+def _replace_once(text: str, old_text: str, new_text: str) -> str:
+    """Replace one occurrence of a pattern.
+
+    The **last** occurrence is used: the pattern of a mutation of this file
+    also appears in the definition of the mutation itself (the definition is
+    above the code), and the code is the one that has to be broken.
+    """
+
+    index = text.rfind(old_text)
+    if index < 0:
+        return text
+    return text[:index] + new_text + text[index + len(old_text):]
+
+
 def _apply_edits(original: str, mutation: dict[str, Any]) -> str:
     """Apply the mutation to the source text.
 
@@ -743,9 +779,9 @@ def _apply_edits(original: str, mutation: dict[str, Any]) -> str:
 
     text = original
     if mutation.get("old") is not None:
-        text = text.replace(mutation["old"], mutation["new"], 1)
+        text = _replace_once(text, mutation["old"], mutation["new"])
     for old_text, new_text in mutation.get("edits", ()):
-        text = text.replace(old_text, new_text, 1)
+        text = _replace_once(text, old_text, new_text)
     return text
 
 

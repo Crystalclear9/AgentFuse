@@ -134,6 +134,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
+      # One of the mutations is caught by the front end test - it executes the
+      # dashboard script in node.  Without node the test would **skip** and
+      # the mutation would stay unproven.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       # The self test breaks one behaviour at a time and asserts that the
       # guard notices.  A guard that cannot fail protects nothing.
       - name: Guard self test
