@@ -616,6 +616,26 @@ MUTATIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "审计不再报告检查的种类",
+        "clause": "17.2",
+        "file": "scripts/audit_requirements.py",
+        # the report has to say which checks really run the runtime - without
+        # the kind the audit looks stronger than it is
+        "old": """            "detail": detail,
+            "kind": PHASE,""",
+        "new": """            "detail": detail,""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_audit_report.py::"
+                "test_the_report_names_the_kind_of_every_check",
+                "-q",
+            ],
+        ],
+    },
+    {
         "name": "被拒候选者仍算作组员",
         "clause": "8.2",
         "file": "agentfuse/runtime/coordinator.py",

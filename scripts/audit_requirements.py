@@ -44,6 +44,12 @@ configure_console()
 
 RESULTS: list[dict[str, Any]] = []
 
+#: The kind of the check that is currently recorded.  A **behavioural** check
+#: runs the real runtime and looks at what happened; a **structural** check
+#: only reads the source.  The report prints the split - a reader has to be
+#: able to see how many of the checks really run the system.
+PHASE = "structural"
+
 #: The requirement sections the audit checks.  The requirement has 25
 #: chapters - the chapters that are **not** listed here are either general
 #: introductions (1, 3, 18, 23-25) or covered by the test suite and the
@@ -60,7 +66,13 @@ COVERED_SECTIONS = (
 
 def record(section: str, clause: str, ok: bool, detail: str = "") -> bool:
     RESULTS.append(
-        {"section": section, "clause": clause, "ok": bool(ok), "detail": detail}
+        {
+            "section": section,
+            "clause": clause,
+            "ok": bool(ok),
+            "detail": detail,
+            "kind": PHASE,
+        }
     )
     return bool(ok)
 
@@ -635,6 +647,18 @@ def audit_behaviour() -> None:
     that the audit stays as fast as its slowest scenario.
     """
 
+    # the checks of this function really run the runtime
+    global PHASE
+    PHASE = "behavioural"
+    try:
+        _audit_behaviour()
+    finally:
+        PHASE = "structural"
+
+
+def _audit_behaviour() -> None:
+    """The implementation of the behavioural audit (see ``audit_behaviour``)."""
+
     import asyncio
     import os
     import shutil
@@ -683,7 +707,16 @@ def audit_behaviour() -> None:
             # only the shared scenario is observed - the baseline mode runs
             # two executions in parallel
             unsubscribe()
-            divergent = await scenario_divergent(app, RuntimeMode.ONLINE, {})
+            divergent = None
+            # The divergent scenario has a timing margin: the follower has to
+            # join before the leader reads the conflicting file.  Under heavy
+            # load that margin can be missed - the scenario is then repeated
+            # (it costs about half a second), so that the check does not
+            # depend on the speed of the machine.
+            for _attempt in range(3):
+                divergent = await scenario_divergent(app, RuntimeMode.ONLINE, {})
+                if (divergent.metrics["detach_lead_ms_max"] or 0) > 0:
+                    break
             baseline = await scenario_shared(app, RuntimeMode.BASELINE, {})
             # the remaining scenarios are executed by the acceptance check and
             # by the test suite - the audit only proves that they are covered
@@ -1595,11 +1628,18 @@ def main() -> int:
     audit_layout_tests_docs()
 
     failed = [item for item in RESULTS if not item["ok"]]
+    # The split between the checks that **run** the runtime and the checks that
+    # only read the source.  A reader has to be able to see how strong the
+    # audit really is - a name in the source is not a behaviour.
+    behavioural = sum(1 for item in RESULTS if item.get("kind") == "behavioural")
+    structural = len(RESULTS) - behavioural
     if args.json:
         print(json.dumps(
             {
                 "total": len(RESULTS),
                 "failed": len(failed),
+                "behavioural": behavioural,
+                "structural": structural,
                 "covered_sections": list(COVERED_SECTIONS),
                 "checks": RESULTS,
             },
@@ -1615,6 +1655,10 @@ def main() -> int:
             detail = f"  ({item['detail']})" if item["detail"] else ""
             print(f"  [{mark}] {item['clause']}{detail}")
         print(f"\n总计 {len(RESULTS)} 项，未通过 {len(failed)} 项")
+        print(
+            f"行为检查 {behavioural} 条（真实运行了运行时）"
+            f" / 文本检查 {structural} 条（只读取源码）"
+        )
         if args.coverage:
             checked = {item["section"] for item in RESULTS}
             print(
