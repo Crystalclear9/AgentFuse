@@ -14,6 +14,7 @@ from agentfuse.scenarios.common import (
     mutate_variant_source,
     wait_for_event,
     wait_for_first_dependency,
+    wait_for_running_execution,
 )
 
 
@@ -734,6 +735,174 @@ async def test_a_retried_participant_is_not_recorded_as_failed(app, snapshot):
         "a retried participant must not be counted as a separation"
     )
     assert metrics["retried_participants"] >= 1
+
+
+async def test_a_participant_that_left_is_not_failed_by_the_group_it_left(app, snapshot):
+    """§10.1 - the failure of a group does not concern the calls that left it.
+
+    A participant that left the group runs on its own.  When the execution of
+    the group fails afterwards, the call must keep running - it must not be
+    failed or retried because of a group it is not a member of any more.
+    """
+
+    from agentfuse.core.state import ParticipantStatus
+    from agentfuse.runtime.execution import ExecutionOutcome
+    from agentfuse.runtime.protocol import ERROR_CRASH
+
+    workflow = app.create_workflow("test-left-participant")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES)}
+    leader = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="ast_analyzer",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    await wait_for_running_execution(app.event_bus, workflow.workflow_id)
+    follower = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="ast_analyzer",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    await asyncio.sleep(0.2)
+
+    groups = list(app.coordinator._groups.values())
+    assert groups, "the two calls have to share one group"
+    group = groups[0]
+    participants = list(group.participants.values())
+    assert len(participants) >= 2
+
+    # the follower is separated - it stays in the group as a terminal
+    # participant, but it runs on its own
+    follower_participant = next(
+        item for item in group.participants.values() if not item.is_leader
+    )
+    follower_call = app.coordinator._calls[follower_participant.logical_call_id]
+    assert follower_call is not None
+    app.coordinator._detach_participant_locked(
+        group, follower_participant, "the test separates it"
+    )
+    left = app.coordinator._calls[follower_participant.logical_call_id]
+    assert left.status.value != "FAILED"
+
+    # the execution of the group fails now
+    execution = next(
+        item
+        for item in app.coordinator._executions.values()
+        if item.leader_call_id in {p.logical_call_id for p in participants}
+    )
+    failed_calls: list[str] = []
+    original_fail = app.coordinator._fail_call_locked
+
+    def record_failure(call, reason):
+        failed_calls.append(call.logical_call_id)
+        return original_fail(call, reason)
+
+    app.coordinator._fail_call_locked = record_failure
+    try:
+        async with app.coordinator._lock:
+            app.coordinator._commit_failure_locked(
+                execution,
+                group,
+                ExecutionOutcome(
+                    ok=False,
+                    kind=ERROR_CRASH,
+                    message="the group failed",
+                    exit_status="crash",
+                ),
+            )
+    finally:
+        app.coordinator._fail_call_locked = original_fail
+
+    # the call that left the group is untouched
+    assert follower_participant.logical_call_id not in failed_calls, (
+        "a call that left the group must not be failed by the failure of the "
+        "group it left"
+    )
+    after = app.coordinator._calls[follower_participant.logical_call_id]
+    assert after.status.value not in ("FAILED",), (
+        "a call that left the group must not be failed by its failure"
+    )
+
+    # clean up: the calls of this workflow must not keep the test running
+    for call in list(app.coordinator._calls.values()):
+        if call.workflow_id == workflow.workflow_id and not call.future.done():
+            await app.coordinator.cancel_logical_call(call.logical_call_id, "test done")
+
+
+async def test_a_separated_call_is_not_shared_anymore(app, snapshot):
+    """A separated call leaves the group - it runs on its own afterwards.
+
+    The call must not reference the group it left any more and it must never
+    own two running executions.
+    """
+
+    workflow = app.create_workflow("test-separated-shared")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    # a workload that runs long enough for the separation to happen while the
+    # calls are still running
+    arguments = {"files": list(DEMO_FILES), "rounds": 20000}
+    asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    await wait_for_running_execution(app.event_bus, workflow.workflow_id)
+    follower = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    await asyncio.sleep(0.1)
+
+    group = next(iter(app.coordinator._groups.values()))
+    participant = next(
+        item for item in group.participants.values() if not item.is_leader
+    )
+    call = app.coordinator._calls[participant.logical_call_id]
+    app.coordinator._detach_participant_locked(group, participant, "the test separates it")
+
+    # the call must not reference the group it left any more
+    assert call.share_group_id != group.share_group_id, (
+        "a separated call must not reference the group it left"
+    )
+    # and it must own at most one running execution
+    running = [
+        item
+        for item in app.coordinator._executions.values()
+        if item.leader_call_id == call.logical_call_id
+        and item.status
+        not in ("COMPLETED", "FAILED", "TIMEOUT", "CANCELLED", "CRASHED")
+    ]
+    assert len(running) <= 1, "a call must never own two running executions"
+
+    rows = app.repository.list_logical_calls(workflow.workflow_id)
+    for row in rows:
+        if row["logical_call_id"] == call.logical_call_id:
+            assert row["share_group_id"] != group.share_group_id, (
+                "the row of a separated call must not reference the group it left"
+            )
+            if row["share_group_id"] is None:
+                assert not row["shared"], (
+                    "a call that runs on its own must not be marked as shared"
+                )
+    await app.coordinator.cancel_logical_call(call.logical_call_id, "test done")
+    follower.cancel()
 
 
 async def test_every_failure_kind_is_persisted(app, snapshot):

@@ -672,10 +672,29 @@ class Repository:
         runs are marked ``INTERRUPTED`` so that they are never mistaken for a
         completed run and the user can start a new one.
 
+        **Every** table that holds in-flight state is brought into a terminal
+        state: the workflow, its physical executions, its logical calls, its
+        share groups, its share participants and its agent invocations.  A
+        group that stays ``EXECUTING`` or a participant that stays
+        ``SHARED_WAIT`` would keep the dashboard in a state that no live
+        process can ever finish.
+
+        All the statements of one workflow are written in **one** transaction:
+        a crash in the middle of the recovery must not leave the rows half
+        updated - otherwise the next start would not find the workflow any
+        more (``status != RUNNING``) and the recovery would not be retried.
+
         Returns the identifiers of the recovered workflows.
         """
 
-        from ..core.state import ExecutionStatus, LogicalCallStatus, WorkflowStatus
+        from ..core.state import (
+            ExecutionStatus,
+            InvocationStatus,
+            LogicalCallStatus,
+            ParticipantStatus,
+            ShareGroupStatus,
+            WorkflowStatus,
+        )
         from ..runtime.protocol import ERROR_INTERRUPTED
 
         rows = self.db.query(
@@ -686,40 +705,83 @@ class Repository:
         now = time.time()
         for row in rows:
             workflow_id = row["workflow_id"]
-            self.db.write(
-                "UPDATE workflows SET status = ?, end_time = ? WHERE workflow_id = ?",
-                (str(WorkflowStatus.INTERRUPTED), now, workflow_id),
-            )
-            self.db.write(
-                "UPDATE physical_executions SET execution_status = ?, error = ?, "
-                "error_kind = ? WHERE workflow_id = ? AND execution_status IN (?, ?, ?)",
+            statements: list[tuple[str, tuple[Any, ...]]] = [
                 (
-                    str(ExecutionStatus.INTERRUPTED),
-                    "interrupted by a runtime restart",
-                    ERROR_INTERRUPTED,
-                    workflow_id,
-                    str(ExecutionStatus.CREATED),
-                    str(ExecutionStatus.QUEUED),
-                    str(ExecutionStatus.RUNNING),
+                    "UPDATE workflows SET status = ?, end_time = ? WHERE workflow_id = ?",
+                    (str(WorkflowStatus.INTERRUPTED), now, workflow_id),
                 ),
-            )
-            self.db.write(
-                "UPDATE logical_tool_calls SET status = ?, error = ?, error_kind = ? "
-                "WHERE workflow_id = ? AND status IN (?, ?, ?, ?, ?)",
                 (
-                    str(LogicalCallStatus.INTERRUPTED),
-                    "interrupted by a runtime restart",
-                    ERROR_INTERRUPTED,
-                    workflow_id,
-                    str(LogicalCallStatus.PENDING),
-                    str(LogicalCallStatus.WAITING),
-                    str(LogicalCallStatus.SHARED_WAIT),
-                    str(LogicalCallStatus.RUNNING_INDEPENDENTLY),
-                    str(LogicalCallStatus.DETACHED),
+                    "UPDATE physical_executions SET execution_status = ?, error = ?, "
+                    "error_kind = ? WHERE workflow_id = ? AND execution_status IN (?, ?, ?)",
+                    (
+                        str(ExecutionStatus.INTERRUPTED),
+                        "interrupted by a runtime restart",
+                        ERROR_INTERRUPTED,
+                        workflow_id,
+                        str(ExecutionStatus.CREATED),
+                        str(ExecutionStatus.QUEUED),
+                        str(ExecutionStatus.RUNNING),
+                    ),
                 ),
-            )
+                (
+                    "UPDATE logical_tool_calls SET status = ?, error = ?, error_kind = ? "
+                    "WHERE workflow_id = ? AND status IN (?, ?, ?, ?, ?)",
+                    (
+                        str(LogicalCallStatus.INTERRUPTED),
+                        "interrupted by a runtime restart",
+                        ERROR_INTERRUPTED,
+                        workflow_id,
+                        str(LogicalCallStatus.PENDING),
+                        str(LogicalCallStatus.WAITING),
+                        str(LogicalCallStatus.SHARED_WAIT),
+                        str(LogicalCallStatus.RUNNING_INDEPENDENTLY),
+                        str(LogicalCallStatus.DETACHED),
+                    ),
+                ),
+                # a group whose leader is gone can never be completed
+                (
+                    "UPDATE share_groups SET status = ?, closed_time = ? "
+                    "WHERE workflow_id = ? AND status IN (?, ?, ?)",
+                    (
+                        str(ShareGroupStatus.FAILED),
+                        now,
+                        workflow_id,
+                        str(ShareGroupStatus.CREATED),
+                        str(ShareGroupStatus.EXECUTING),
+                        str(ShareGroupStatus.VALIDATING),
+                    ),
+                ),
+                # the participants of that group wait for a result that will
+                # never arrive - they have to learn about it
+                (
+                    "UPDATE share_participants SET status = ?, detached_time = ?, "
+                    "detach_reason = ? WHERE workflow_id = ? AND status IN (?, ?, ?)",
+                    (
+                        str(ParticipantStatus.FAILED),
+                        now,
+                        "interrupted by a runtime restart",
+                        workflow_id,
+                        str(ParticipantStatus.WAITING),
+                        str(ParticipantStatus.SHARED_WAIT),
+                        str(ParticipantStatus.RUNNING_INDEPENDENTLY),
+                    ),
+                ),
+                # the invocation of the crashed agent is over
+                (
+                    "UPDATE agent_invocations SET status = ?, end_time = ? "
+                    "WHERE workflow_id = ? AND status = ?",
+                    (
+                        str(InvocationStatus.CANCELLED),
+                        now,
+                        workflow_id,
+                        str(InvocationStatus.RUNNING),
+                    ),
+                ),
+            ]
+            self.db.transaction(statements)
             recovered.append(workflow_id)
         if recovered:
+            # the recovery has to be durable before the runtime continues
             self.db.flush()
         return recovered
 

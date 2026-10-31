@@ -690,8 +690,14 @@ class RuntimeCoordinator:
         # the candidate never joined - the validation refused it right away
         participant.detach_kind = "rejected_at_join"
         participant.validation_status = status
+        # The audit trail keeps the participant row (it shows that the call was
+        # offered to this group and that the validation refused the join).
+        # The **group** itself does not count it: a candidate that never
+        # belonged to the group must not show up in its member list.
         group.add_participant(participant)
         self._persist_participant(group, participant)
+        # the member list of the group follows ``group.participants``
+        group.participants.pop(participant.logical_call_id, None)
         self._persist_group(group)
         call = self._calls.get(participant.logical_call_id)
         self.event_bus.publish(
@@ -1738,6 +1744,11 @@ class RuntimeCoordinator:
                     ParticipantStatus.COMPLETED,
                     ParticipantStatus.FAILED,
                     ParticipantStatus.CANCELLED,
+                    # A participant that already left the group runs on its
+                    # own - the failure of the group **it left** is none of its
+                    # business.  It must not be failed or retried because of
+                    # it.
+                    ParticipantStatus.DETACHED,
                 ):
                     continue
                 affected.append(participant.logical_call_id)
@@ -1944,6 +1955,9 @@ class RuntimeCoordinator:
         call.detached_at = time.time()
         call.physical_execution_id = None
         call.share_group_id = None
+        # the call runs on its own now - the row must not claim that it is
+        # still shared (the re-assignment below may set it again)
+        call.shared = False
         self._persist_call(call)
         self._reassign_after_detach_locked(call, group)
 

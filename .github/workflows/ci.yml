@@ -54,9 +54,15 @@ jobs:
       - name: Delivery acceptance check
         run: python scripts/acceptance_check.py
 
+      # The guard compares the measured metrics with the recorded baseline.
+      # It is **not** allowed to fail the build: a guard that can never fail
+      # protects nothing - but it must be able to fail, therefore there is no
+      # `continue-on-error` here.  On a platform that is not the one of the
+      # baseline only the platform independent correctness metrics (the
+      # number of physical executions, the number of separations) are
+      # compared.
       - name: Performance regression guard
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
-        continue-on-error: true
         run: python scripts/check_regression.py --repeat 2 --tolerance 60
 
       - name: Upload the runtime data

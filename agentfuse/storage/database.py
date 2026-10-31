@@ -13,6 +13,7 @@ Design notes
 
 from __future__ import annotations
 
+import logging
 import queue
 import shutil
 import sqlite3
@@ -522,7 +523,11 @@ class Database:
                     "INSERT OR REPLACE INTO schema_meta(key, value) VALUES('schema_version', ?)",
                     (str(SCHEMA_VERSION),),
                 )
-                conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+                # A database that was written by a **newer** build must not be
+                # stamped back to an older version - the next run of this code
+                # would apply its migrations to a newer schema.
+                version_to_write = max(SCHEMA_VERSION, current)
+                conn.execute(f"PRAGMA user_version = {version_to_write}")
             except Exception:
                 conn.execute("ROLLBACK")
                 raise
@@ -607,6 +612,15 @@ class Database:
         if self._write_conn is not None:
             self._write_conn.close()
             self._write_conn = None
+        # the read connections live in the threads that opened them - an open
+        # handle would keep the file locked on Windows
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # pragma: no cover
+                pass
+            self._local.conn = None
         self._closed = True
 
     # ------------------------------------------------------------------
@@ -662,6 +676,7 @@ class Database:
         """Queue a single statement for execution."""
 
         if self._closed:
+            self._report_dropped_write(sql, params)
             return
         self._queue.put((sql, tuple(params)))
 
@@ -681,8 +696,18 @@ class Database:
         if not statements:
             return
         if self._closed:
+            self._report_dropped_write("__tx__", ())
             return
         self._queue.put(("__tx__", statements))
+
+    def _report_dropped_write(self, sql: str, params: Sequence[Any]) -> None:
+        """A write after ``close()`` is lost - it must not vanish silently."""
+
+        self.write_errors += 1
+        self.last_error = f"the database is closed: {sql} | {tuple(params)}"
+        logging.getLogger("agentfuse.storage").error(
+            "could not persist statement: %s", self.last_error[:400]
+        )
 
     def insert_event(self, event: dict[str, Any]) -> None:
         import json
@@ -707,9 +732,16 @@ class Database:
     def flush(self, timeout: float = 5.0) -> None:
         """Block until all queued statements have been committed."""
 
+        if self._closed:
+            return
         done = threading.Event()
         self._queue.put(("__flush__", (done,)))
-        done.wait(timeout)
+        if not done.wait(timeout):
+            # the writer is stuck - the caller must know, otherwise it would
+            # read rows that are not durable yet
+            raise TimeoutError(
+                f"the database did not flush within {timeout:.1f} s"
+            )
 
     # ------------------------------------------------------------------
     # reading
@@ -765,42 +797,51 @@ class Database:
             except queue.Empty:
                 item = None
 
-            if item is None:
-                # nothing arrived within the flush interval
-                if self._stop.is_set() and self._queue.empty():
-                    break
-                if pending:
+            try:
+                if item is None:
+                    # nothing arrived within the flush interval
+                    if self._stop.is_set() and self._queue.empty():
+                        break
+                    if pending:
+                        self._commit(pending)
+                        pending = []
+                    last_flush = time.monotonic()
+                    continue
+
+                if isinstance(item, tuple) and item[0] == "__flush__":
                     self._commit(pending)
                     pending = []
-                last_flush = time.monotonic()
-                continue
+                    done: threading.Event = item[1][0]
+                    done.set()
+                    last_flush = time.monotonic()
+                    continue
 
-            if isinstance(item, tuple) and item[0] == "__flush__":
-                self._commit(pending)
-                pending = []
-                done: threading.Event = item[1][0]
-                done.set()
-                last_flush = time.monotonic()
-                continue
+                if isinstance(item, tuple) and item[0] == "__tx__":
+                    # an explicit transaction: the statements are committed
+                    # together, independently of the batch size.  The statements
+                    # that are already queued are committed first - otherwise the
+                    # transaction could reference a row that is not committed yet.
+                    if pending:
+                        self._commit(pending)
+                        pending = []
+                    statements: list[tuple[str, tuple[Any, ...]]] = item[1]
+                    self._commit(statements, atomic=True)
+                    last_flush = time.monotonic()
+                    continue
 
-            if isinstance(item, tuple) and item[0] == "__tx__":
-                # an explicit transaction: the statements are committed
-                # together, independently of the batch size.  The statements
-                # that are already queued are committed first - otherwise the
-                # transaction could reference a row that is not committed yet.
-                if pending:
+                pending.append(item)
+                if len(pending) >= self._batch_size:
                     self._commit(pending)
                     pending = []
-                statements: list[tuple[str, tuple[Any, ...]]] = item[1]
-                self._commit(statements)
-                last_flush = time.monotonic()
-                continue
-
-            pending.append(item)
-            if len(pending) >= self._batch_size:
-                self._commit(pending)
-                pending = []
-                last_flush = time.monotonic()
+                    last_flush = time.monotonic()
+            except Exception as exc:  # pragma: no cover - the writer must live
+                # The writer thread is the only way into the database.  If it
+                # died, every following write would be lost **silently**.
+                self.write_errors += 1
+                self.last_error = f"the writer thread failed: {type(exc).__name__}: {exc}"
+                logging.getLogger("agentfuse.storage").exception(
+                    "the writer thread could not process an item: %s", self.last_error
+                )
 
         self._commit(pending)
         try:
@@ -809,7 +850,21 @@ class Database:
             pass
         self._write_conn = None
 
-    def _commit(self, pending: list[tuple[str, tuple[Any, ...]]]) -> None:
+    def _commit(
+        self, pending: list[tuple[str, tuple[Any, ...]]], atomic: bool = False
+    ) -> None:
+        """Execute the statements in **one** transaction.
+
+        An explicit transaction (``atomic=True``) is **all or nothing**: a
+        statement that violates a constraint rolls the whole transaction back.
+        A half written state transition is worse than a lost one - the
+        runtime would continue with an inconsistent state.
+
+        The ordinary batch carries independent statements.  There a single
+        failing statement is skipped (and counted), the others are written:
+        the batch may contain unrelated statements of different tables.
+        """
+
         if not pending or self._write_conn is None:
             return
         try:
@@ -818,12 +873,13 @@ class Database:
                     try:
                         self._write_conn.execute(sql, params)
                     except sqlite3.Error as exc:
+                        if atomic:
+                            # the transaction has to be rolled back
+                            raise
                         # a statement that violates a constraint must not vanish
                         # silently - the counter is checked by the acceptance test
                         self.write_errors += 1
                         self.last_error = f"{type(exc).__name__}: {exc} | {sql} | {params}"
-                        import logging
-
                         logging.getLogger("agentfuse.storage").error(
                             "could not persist statement: %s", self.last_error[:400]
                         )
@@ -832,8 +888,12 @@ class Database:
             # committed - the failure must not take the writer thread down
             self.write_errors += 1
             self.last_error = f"transaction failed: {type(exc).__name__}: {exc}"
-            import logging
-
             logging.getLogger("agentfuse.storage").error(
+                "could not commit transaction: %s", self.last_error
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            self.write_errors += 1
+            self.last_error = f"transaction failed: {type(exc).__name__}: {exc}"
+            logging.getLogger("agentfuse.storage").exception(
                 "could not commit transaction: %s", self.last_error
             )

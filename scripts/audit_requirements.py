@@ -1210,6 +1210,37 @@ P2_EXPECTATIONS = {
     "崩溃后的自动恢复执行": False,
 }
 
+#: The markers of the clauses that must **not** be implemented.  A marker in
+#: the code would mean that the clause has been implemented - then the
+#: expectation above has to be updated instead of the check being happy.
+P2_ABSENCE_MARKERS = {
+    "跨会话持久化结果缓存": ("persistent_result_cache", "cross_session_cache"),
+    "GPU 调度与 GPU KV Cache 管理": ("gpu_scheduler", "kv_cache_manager"),
+    "分布式执行 / 多节点调度": ("distributed_scheduler", "cluster_node"),
+    "多用户权限与认证": ("auth_provider", "rbac_policy", "oauth_provider"),
+    "崩溃后的自动恢复执行": ("auto_resume_execution", "resumed_execution"),
+}
+
+
+def _entry_points_are_absent(clause: str, entry: str) -> tuple[bool, list[str]]:
+    """A clause that must not be implemented must not have an entry point.
+
+    A hard coded "true" would prove nothing: the audit would report
+    "not implemented" even if the feature existed.
+    """
+
+    import re
+
+    found: list[str] = []
+    paths = re.findall(r"`([\w./]+\.(?:py|yml|yaml|toml|md))`", entry)
+    found.extend(path for path in paths if (ROOT / path).exists())
+    for marker in P2_ABSENCE_MARKERS.get(clause, ()):
+        for source in sorted(ROOT.glob("agentfuse/**/*.py")):
+            text = source.read_text(encoding="utf-8", errors="ignore").lower()
+            if marker.lower() in text:
+                found.append(f"{source.relative_to(ROOT)} ({marker})")
+    return (not found), found
+
 
 def audit_priority_tiers() -> None:
     """Check §19 - the capability tiers and the documented P2 status.
@@ -1249,12 +1280,30 @@ def audit_priority_tiers() -> None:
             )
             continue
         if not implemented:
-            record("19", f"P2 条款 {clause}", True, "已明确声明未实现")
+            # A clause that must not be implemented has to be **absent** from
+            # the code - a hard coded "true" would prove nothing.
+            absent, found = _entry_points_are_absent(clause, entry)
+            record(
+                "19",
+                f"P2 条款 {clause}",
+                absent,
+                f"已明确声明未实现（未发现入口: {found}）" if absent else f"出现了入口: {found}",
+            )
             continue
         # an implemented clause has to point at code that exists
         import re
 
-        paths = re.findall(r"`([\w./]+\.py)`", entry)
+        # the entry may be a module **or** a workflow file - the CI workflow
+        # is a ``.yml`` file, it would never be found by a ``.py`` pattern
+        paths = re.findall(r"`([\w./]+\.(?:py|yml|yaml|toml|md))`", entry)
+        if not paths:
+            record(
+                "19",
+                f"P2 条款 {clause}",
+                False,
+                f"文档没有给出可核对的入口: {entry[:60]}",
+            )
+            continue
         missing = [path for path in paths if not (ROOT / path).exists()]
         record(
             "19",

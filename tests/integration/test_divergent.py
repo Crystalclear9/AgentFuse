@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 from agentfuse.core.state import EventType, ParticipantStatus, RuntimeMode, ValidationStatus
 from agentfuse.scenarios.common import (
     DEMO_FILES,
+    DIVERGENT_FILE,
     create_branch,
     mutate_variant_source,
+    wait_for_event,
     wait_for_first_dependency,
 )
 from agentfuse.scenarios.definitions import scenario_divergent
@@ -35,7 +38,7 @@ async def test_a_conflicting_dependency_detaches_the_follower(app, snapshot):
             snapshot_id=branch.snapshot_id,
         ),
     ]
-    results = await asyncio.gather(*tasks)
+    results = await asyncio.wait_for(asyncio.gather(*tasks), timeout=60)
 
     executions = app.repository.list_executions(workflow.workflow_id)
     participants = app.repository.list_participants(workflow.workflow_id)
@@ -70,19 +73,22 @@ async def test_the_detection_happens_while_the_leader_is_still_running(app, snap
 
     app.event_bus.subscribe(observer)
 
-    await asyncio.gather(
-        app.coordinator.submit_tool_call(
-            workflow_id=workflow.workflow_id,
-            tool_name="content_digest",
-            arguments=arguments,
-            snapshot_id=snapshot.snapshot_id,
+    await asyncio.wait_for(
+        asyncio.gather(
+            app.coordinator.submit_tool_call(
+                workflow_id=workflow.workflow_id,
+                tool_name="content_digest",
+                arguments=arguments,
+                snapshot_id=snapshot.snapshot_id,
+            ),
+            app.coordinator.submit_tool_call(
+                workflow_id=workflow.workflow_id,
+                tool_name="content_digest",
+                arguments=arguments,
+                snapshot_id=branch.snapshot_id,
+            ),
         ),
-        app.coordinator.submit_tool_call(
-            workflow_id=workflow.workflow_id,
-            tool_name="content_digest",
-            arguments=arguments,
-            snapshot_id=branch.snapshot_id,
-        ),
+        timeout=60,
     )
 
     assert detached_at, "the follower must have been detached"
@@ -97,19 +103,22 @@ async def test_the_detached_follower_uses_its_own_snapshot(app, snapshot):
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
     arguments = {"files": list(DEMO_FILES), "rounds": 200}
-    await asyncio.gather(
-        app.coordinator.submit_tool_call(
-            workflow_id=workflow.workflow_id,
-            tool_name="content_digest",
-            arguments=arguments,
-            snapshot_id=snapshot.snapshot_id,
+    await asyncio.wait_for(
+        asyncio.gather(
+            app.coordinator.submit_tool_call(
+                workflow_id=workflow.workflow_id,
+                tool_name="content_digest",
+                arguments=arguments,
+                snapshot_id=snapshot.snapshot_id,
+            ),
+            app.coordinator.submit_tool_call(
+                workflow_id=workflow.workflow_id,
+                tool_name="content_digest",
+                arguments=arguments,
+                snapshot_id=branch.snapshot_id,
+            ),
         ),
-        app.coordinator.submit_tool_call(
-            workflow_id=workflow.workflow_id,
-            tool_name="content_digest",
-            arguments=arguments,
-            snapshot_id=branch.snapshot_id,
-        ),
+        timeout=60,
     )
 
     calls = {call["logical_call_id"]: call for call in app.repository.list_logical_calls(workflow.workflow_id)}
@@ -157,17 +166,23 @@ async def test_a_late_joiner_validates_the_existing_ledger(app, snapshot):
     workflow.start()
 
     arguments = {"files": list(DEMO_FILES)}
-    await app.coordinator.submit_tool_call(
-        workflow_id=workflow.workflow_id,
-        tool_name="ast_analyzer",
-        arguments=arguments,
-        snapshot_id=snapshot.snapshot_id,
+    await asyncio.wait_for(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="ast_analyzer",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+        timeout=60,
     )
-    await app.coordinator.submit_tool_call(
-        workflow_id=workflow.workflow_id,
-        tool_name="ast_analyzer",
-        arguments=arguments,
-        snapshot_id=snapshot.snapshot_id,
+    await asyncio.wait_for(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="ast_analyzer",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+        timeout=60,
     )
 
     executions = app.repository.list_executions(workflow.workflow_id)
@@ -209,13 +224,16 @@ async def test_a_late_joiner_validates_the_early_dependencies(app, snapshot):
     while reads < 2:
         await asyncio.sleep(0.01)
 
-    follower = await app.coordinator.submit_tool_call(
-        workflow_id=workflow.workflow_id,
-        tool_name="content_digest",
-        arguments=arguments,
-        snapshot_id=snapshot.snapshot_id,
+    follower = await asyncio.wait_for(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+        timeout=60,
     )
-    leader = await leader_task
+    leader = await asyncio.wait_for(leader_task, timeout=60)
 
     executions = app.repository.list_executions(workflow.workflow_id)
     assert len(executions) == 1, "the follower joined the running group"
@@ -246,6 +264,76 @@ async def test_a_late_joiner_validates_the_early_dependencies(app, snapshot):
     assert follower.result_hash == leader.result_hash
 
 
+async def test_a_rejected_candidate_is_not_a_member_of_the_group(app, snapshot):
+    """A candidate that never belonged to the group must not be counted.
+
+    The rejection is part of the audit trail (the participant row exists), but
+    the **member list** of the group only contains the calls that really
+    joined it.
+    """
+
+    branch = create_branch(app, snapshot, mutate_variant_source, "branch-b")
+    workflow = app.create_workflow("test-rejected-not-member")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 1200}
+    leader_task = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    # the leader has to have read the conflicting file - the follower then
+    # finds a mismatch in the ledger when it tries to join
+    await wait_for_event(
+        app.event_bus,
+        EventType.TOOL_READ_OBSERVED,
+        workflow_id=workflow.workflow_id,
+        predicate=lambda event: (getattr(event, "metadata", None) or {}).get(
+            "relative_path"
+        )
+        == DIVERGENT_FILE,
+    )
+    follower = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=branch.snapshot_id,
+        )
+    )
+    await asyncio.wait_for(asyncio.gather(leader_task, follower), timeout=60)
+
+    participants = app.repository.list_participants(workflow.workflow_id)
+    rejected = [
+        participant
+        for participant in participants
+        if participant["detach_kind"] == "rejected_at_join"
+    ]
+    assert rejected, "the candidate has to be rejected at join time"
+
+    groups = {
+        group["share_group_id"]: group
+        for group in app.repository.list_share_groups(workflow.workflow_id)
+    }
+    for participant in rejected:
+        # the group it was rejected from must not count it as a member - it
+        # may of course be a member of the group it started on its own
+        group = groups.get(participant["share_group_id"])
+        assert group is not None, "the rejected candidate has to point at its group"
+        members = set(json.loads(group["participant_calls"] or "[]"))
+        assert participant["logical_call_id"] not in members, (
+            "a candidate that was rejected at join time must not be counted "
+            "as a member of the group that refused it"
+        )
+        assert group["participant_count"] == len(members), (
+            "the participant count has to match the member list"
+        )
+
+
 async def test_a_rejected_candidate_is_recorded_as_detached(app, snapshot):
     """A join that the validation refuses must leave a DETACHED participant.
 
@@ -274,7 +362,7 @@ async def test_a_rejected_candidate_is_recorded_as_detached(app, snapshot):
         arguments=arguments,
         snapshot_id=branch.snapshot_id,
     )
-    await asyncio.gather(leader, follower)
+    await asyncio.wait_for(asyncio.gather(leader, follower), timeout=60)
 
     participants = app.repository.list_participants(workflow.workflow_id)
     detached = [
@@ -297,11 +385,14 @@ async def test_the_dependency_ledger_records_every_read(app, snapshot):
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
 
-    await app.coordinator.submit_tool_call(
-        workflow_id=workflow.workflow_id,
-        tool_name="ast_analyzer",
-        arguments={"files": list(DEMO_FILES)},
-        snapshot_id=snapshot.snapshot_id,
+    await asyncio.wait_for(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="ast_analyzer",
+            arguments={"files": list(DEMO_FILES)},
+            snapshot_id=snapshot.snapshot_id,
+        ),
+        timeout=60,
     )
 
     executions = app.repository.list_executions(workflow.workflow_id)
@@ -370,13 +461,16 @@ async def test_a_follower_that_fails_the_final_validation_gets_no_result(app, sn
 
     # the follower joins while the leader is still reading
     await wait_for_first_dependency(app.event_bus, workflow.workflow_id)
-    follower = await app.coordinator.submit_tool_call(
-        workflow_id=workflow.workflow_id,
-        tool_name="content_digest",
-        arguments=arguments,
-        snapshot_id=snapshot.snapshot_id,
+    follower = await asyncio.wait_for(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+        timeout=60,
     )
-    leader = await leader_task
+    leader = await asyncio.wait_for(leader_task, timeout=60)
 
     participants = app.repository.list_participants(workflow.workflow_id)
     follower_rows = [

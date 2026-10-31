@@ -143,7 +143,7 @@ def main() -> int:
             check("数据库写入零错误",
                   database.write_errors == 0,
                   f"errors={database.write_errors}: {(database.last_error or '')[:200]}")
-            from agentfuse.storage.database import SCHEMA_VERSION
+            from agentfuse.storage.database import SCHEMA_VERSION, Database
 
             check("数据库版本与代码一致",
                   database.schema_version() == SCHEMA_VERSION,
@@ -186,6 +186,37 @@ def main() -> int:
                   all(call["physical_execution_id"] for call in calls)
                   and all(execution["result_reference"] for execution in executions),
                   f"calls={[c['physical_execution_id'] for c in calls]}")
+
+            # The name promises **atomicity**: a state transition that spans
+            # two tables must not be split across two transactions.  The
+            # check proves it: a transaction whose second statement fails
+            # must not leave the first statement behind.
+            probe = Database(home / "atomicity-probe.sqlite3")
+            probe.initialize()
+            probe.start()
+            probe.transaction([
+                (
+                    "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+                    "VALUES ('wf-atomicity', 'demo', 1.0, 'RUNNING', 'online')",
+                    (),
+                ),
+                (
+                    # a NOT NULL violation: the statement cannot succeed
+                    "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+                    "VALUES ('wf-atomicity-broken', 'demo', 1.0, NULL, 'online')",
+                    (),
+                ),
+            ])
+            probe.flush()
+            survived = probe.query(
+                "SELECT * FROM workflows WHERE workflow_id = 'wf-atomicity'"
+            )
+            probe.close()
+            check(
+                "失败的事务不会留下半写的状态",
+                not survived and probe.write_errors >= 1,
+                f"rows={len(survived)} errors={probe.write_errors}",
+            )
         finally:
             await app.close()
 
@@ -254,7 +285,20 @@ def main() -> int:
             check("Dashboard 返回真实字段", not missing, f"缺: {missing}")
             check(
                 "Dashboard 的调用计数与数据库一致",
-                payload["logical_tool_calls"] >= 1 and payload["physical_executions"] >= 1,
+                # the counts are compared with the **database** - a count of
+                # 999 would also be ">= 1"
+                payload["logical_tool_calls"]
+                == len(
+                    api_app.state.runtime.repository.db.query(
+                        "SELECT * FROM logical_tool_calls"
+                    )
+                )
+                and payload["physical_executions"]
+                == len(
+                    api_app.state.runtime.repository.db.query(
+                        "SELECT * FROM physical_executions"
+                    )
+                ),
                 f"calls={payload.get('logical_tool_calls')} "
                 f"executions={payload.get('physical_executions')}",
             )
@@ -289,9 +333,14 @@ def main() -> int:
                 metrics.text[:120],
             )
             graph = await client.get(f"/api/workflows/{workflow_id}/graph")
+            graph_payload = graph.json()
             check(
                 "执行图端点返回节点与边",
-                graph.status_code == 200 and graph.json().get("nodes"),
+                graph.status_code == 200
+                and bool(graph_payload.get("nodes"))
+                and bool(graph_payload.get("edges")),
+                f"nodes={len(graph_payload.get('nodes', []))} "
+                f"edges={len(graph_payload.get('edges', []))}",
             )
 
     asyncio.run(api_checks())
@@ -321,10 +370,33 @@ def main() -> int:
         from benchmarks.scenarios import catalogue as scenario_catalogue
 
         rows = scenario_catalogue()
+        # the catalogue is compared with the **runtime**: the constants of the
+        # runtime are the single source of truth, a second copy would drift
+        from agentfuse.scenarios.common import (
+            DIVERGENT_FILE,
+            DIVERGENT_ROUNDS,
+            SHARED_HEAVY_ROUNDS,
+        )
+
+        divergent = next((row for row in rows if row["name"] == "divergent"), None)
+        heavy = next((row for row in rows if row["name"] == "shared-heavy"), None)
+        consistent = (
+            divergent is not None
+            and heavy is not None
+            and divergent["workload"].get("rounds") == DIVERGENT_ROUNDS
+            and divergent["workload"].get("conflict_file") == DIVERGENT_FILE
+            and heavy["workload"].get("rounds") == SHARED_HEAVY_ROUNDS
+        )
         check(
             "基准场景目录可导入且与运行时一致",
-            len(rows) == 6 and all(row.get("workload") for row in rows),
-            f"scenarios={len(rows)}",
+            len(rows) == 6
+            and all(row.get("workload") for row in rows)
+            and consistent,
+            f"scenarios={len(rows)} "
+            f"divergent_rounds={divergent['workload'].get('rounds') if divergent else None} "
+            f"(runtime={DIVERGENT_ROUNDS}) "
+            f"conflict={divergent['workload'].get('conflict_file') if divergent else None} "
+            f"(runtime={DIVERGENT_FILE})",
         )
     except Exception as exc:
         check("基准场景目录可导入且与运行时一致", False, str(exc))

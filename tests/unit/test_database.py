@@ -342,6 +342,144 @@ def test_a_failing_transaction_does_not_kill_the_writer(tmp_path):
     db.close()
 
 
+def test_a_failing_statement_rolls_the_whole_transaction_back(tmp_path):
+    """A half written state transition is worse than a lost one.
+
+    The runtime persists a state transition in **one** transaction.  If one
+    statement of it fails, none of the statements may land - otherwise the
+    database would contain half of the transition.
+    """
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+
+    db.transaction(
+        [
+            (
+                "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+                "VALUES ('wf-half', 'demo', 1.0, 'RUNNING', 'online')",
+                (),
+            ),
+            (
+                # a NOT NULL violation: the statement cannot succeed
+                "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+                "VALUES ('wf-broken', 'demo', 1.0, NULL, 'online')",
+                (),
+            ),
+        ]
+    )
+    db.flush()
+
+    assert db.write_errors >= 1, "the failing statement must be counted"
+    assert db.query("SELECT * FROM workflows WHERE workflow_id = 'wf-half'") == [], (
+        "the first statement must not survive the rollback of the second"
+    )
+    db.close()
+
+
+def test_a_write_after_close_is_not_lost_silently(tmp_path):
+    """A write that cannot be persisted has to be visible in the counter."""
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+    db.close()
+
+    db.write(
+        "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+        "VALUES ('wf-late', 'demo', 1.0, 'RUNNING', 'online')"
+    )
+    assert db.write_errors == 1, "a write after close() must be counted"
+    assert db.last_error
+
+
+def test_the_schema_version_is_never_downgraded(tmp_path):
+    """A database of a newer build must not be stamped with an older version."""
+
+    path = tmp_path / "db" / "agentfuse.sqlite3"
+    db = Database(path)
+    db.initialize()
+    db.start()
+    db.close()
+
+    connection = sqlite3.connect(path)
+    connection.execute("PRAGMA user_version = 99")
+    connection.commit()
+    connection.close()
+
+    newer = Database(path)
+    newer.initialize()
+    newer.start()
+    version = newer.query("PRAGMA user_version")
+    assert version[0][0] >= SCHEMA_VERSION, "the version must not go backwards"
+    newer.close()
+
+
+def test_the_recovery_brings_every_table_into_a_terminal_state(tmp_path):
+    """A crashed run must not leave a group or a participant behind.
+
+    The dashboard shows the share groups and their participants.  A group that
+    stays ``EXECUTING`` and a participant that stays ``SHARED_WAIT`` would
+    look like a live run - but no process can ever finish them.
+    """
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+    repository = Repository(db)
+
+    db.write(
+        "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+        "VALUES ('wf-crash', 'demo', 1.0, 'RUNNING', 'online')"
+    )
+    db.write(
+        "INSERT INTO agents (agent_id, workflow_id, created_at) "
+        "VALUES ('agent-crash', 'wf-crash', 1.0)"
+    )
+    db.write(
+        "INSERT INTO agent_invocations (invocation_id, workflow_id, agent_id, start_time, status) "
+        "VALUES ('inv-crash', 'wf-crash', 'agent-crash', 1.0, 'RUNNING')"
+    )
+    db.write(
+        "INSERT INTO physical_executions (execution_id, workflow_id, tool_name, tool_version, "
+        "arguments_hash, execution_status) "
+        "VALUES ('exec-crash', 'wf-crash', 'ast_analyzer', '1.0.0', 'hash', 'RUNNING')"
+    )
+    db.write(
+        "INSERT INTO logical_tool_calls (logical_call_id, workflow_id, tool_name, tool_version, "
+        "normalized_arguments, request_time, status) "
+        "VALUES ('call-crash', 'wf-crash', 'ast_analyzer', '1.0.0', '{}', 1.0, 'SHARED_WAIT')"
+    )
+    db.write(
+        "INSERT INTO share_groups (share_group_id, workflow_id, candidate_key, "
+        "leader_execution_id, leader_logical_call_id, creation_time, status) "
+        "VALUES ('sg-crash', 'wf-crash', 'key', 'exec-crash', 'call-crash', 1.0, 'EXECUTING')"
+    )
+    db.write(
+        "INSERT INTO share_participants (share_group_id, logical_call_id, workflow_id, status) "
+        "VALUES ('sg-crash', 'call-crash', 'wf-crash', 'SHARED_WAIT')"
+    )
+    db.flush()
+
+    assert repository.recover_interrupted_workflows() == ["wf-crash"]
+
+    group = db.query("SELECT * FROM share_groups WHERE share_group_id = 'sg-crash'")[0]
+    assert group["status"] == "FAILED", "a crashed group must not stay EXECUTING"
+    assert group["closed_time"] is not None
+
+    participant = db.query(
+        "SELECT * FROM share_participants WHERE logical_call_id = 'call-crash'"
+    )[0]
+    assert participant["status"] == "FAILED", "a waiting participant must not stay SHARED_WAIT"
+    assert participant["detach_reason"]
+
+    invocation = db.query("SELECT * FROM agent_invocations WHERE invocation_id = 'inv-crash'")[0]
+    assert invocation["status"] == "CANCELLED"
+    assert invocation["end_time"] is not None
+    db.close()
+
+
 def test_the_migration_copies_only_the_columns_that_exist(tmp_path):
     """A column that was added later must not break the table rebuild."""
 

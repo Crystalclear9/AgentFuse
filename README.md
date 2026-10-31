@@ -66,7 +66,7 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 | 数据存储 | SQLite（WAL，独立写入线程） |
 | 本地 API | FastAPI + Uvicorn |
 | 前端 | 原生 HTML / CSS / JavaScript（无框架、无构建链、无 CDN）；测试用 Node 执行真实脚本 |
-| 自动化测试 | pytest + pytest-asyncio + httpx（206 个用例，含前端脚本的执行测试） |
+| 自动化测试 | pytest + pytest-asyncio + httpx（233 个用例，含前端脚本的执行测试） |
 | 配置 | TOML（`config/default.toml`） |
 | 命令行 | argparse |
 
@@ -103,8 +103,8 @@ uv pip install --python .agentfuse/wsl/venv/bin/python -e ".[dev]"
 .agentfuse/wsl/venv/bin/python scripts/acceptance_check.py
 ```
 
-实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 206 passed /
-WSL2 206 passed，两平台验收自检均 39/39）。
+实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 233 passed /
+WSL2 233 passed，两平台验收自检（42/42））。
 
 > 跨平台实测发现并修复了一个 Linux 专属缺陷：父进程未 `wait()` 回收 worker
 > 导致僵尸进程堆积。详见 TEST_REPORT §4。

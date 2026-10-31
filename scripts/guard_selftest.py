@@ -17,7 +17,9 @@ Exit code 0 = every guard caught its mutation, 1 = a guard stayed green.
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -137,7 +139,8 @@ MUTATIONS: list[dict[str, Any]] = [
                 sys.executable,
                 "-m",
                 "pytest",
-                "tests/integration/test_divergent.py",
+                "tests/integration/test_divergent.py::"
+                "test_the_detection_happens_while_the_leader_is_still_running",
                 "-q",
             ],
         ],
@@ -244,6 +247,17 @@ MUTATIONS: list[dict[str, Any]] = [
         "new": """            if False:
                 continue
             if retryable and call.retry_count == 0:""",
+        # the participants that already left the group are skipped as well -
+        # without that second guard the mutation has no effect
+        "edits": [
+            (
+                """                    ParticipantStatus.DETACHED,
+                ):
+                    continue""",
+                """                ):
+                    continue""",
+            ),
+        ],
         "guards": [
             [
                 sys.executable,
@@ -447,6 +461,162 @@ MUTATIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "事务吞掉失败的语句",
+        "clause": "16",
+        "file": "agentfuse/storage/database.py",
+        "old": """                    except sqlite3.Error as exc:
+                        if atomic:
+                            # the transaction has to be rolled back
+                            raise""",
+        "new": """                    except sqlite3.Error as exc:
+                        if False:
+                            # the transaction has to be rolled back
+                            raise""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_database.py::"
+                "test_a_failing_statement_rolls_the_whole_transaction_back",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "崩溃恢复漏掉参与者",
+        "clause": "10.1",
+        "file": "agentfuse/storage/repository.py",
+        "old": """                (
+                    "UPDATE share_participants SET status = ?, detached_time = ?, "
+                    "detach_reason = ? WHERE workflow_id = ? AND status IN (?, ?, ?)",
+                    (
+                        str(ParticipantStatus.FAILED),
+                        now,
+                        "interrupted by a runtime restart",
+                        workflow_id,
+                        str(ParticipantStatus.WAITING),
+                        str(ParticipantStatus.SHARED_WAIT),
+                        str(ParticipantStatus.RUNNING_INDEPENDENTLY),
+                    ),
+                ),""",
+        "new": """                (
+                    "UPDATE share_participants SET status = ?, detached_time = ?, "
+                    "detach_reason = ? WHERE workflow_id = ? AND status IN (?, ?, ?)",
+                    (
+                        str(ParticipantStatus.FAILED),
+                        now,
+                        "interrupted by a runtime restart",
+                        workflow_id,
+                        str(ParticipantStatus.WAITING),
+                        str(ParticipantStatus.SHARED_WAIT),
+                        str(ParticipantStatus.RUNNING_INDEPENDENTLY),
+                    ),
+                ) if False else ("SELECT 1", ()),""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_database.py::"
+                "test_the_recovery_brings_every_table_into_a_terminal_state",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "基线更新覆盖了其他场景",
+        "clause": "13.5",
+        "file": "scripts/check_regression.py",
+        "old": """    scenarios = dict(baseline.get("scenarios", {}))
+    scenarios.update(updated)
+    baseline["scenarios"] = scenarios""",
+        "new": """    scenarios = dict(baseline.get("scenarios", {}))
+    scenarios = dict(updated)
+    baseline["scenarios"] = scenarios""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_regression_guard.py::"
+                "test_a_baseline_update_keeps_the_other_scenarios",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "缺基线时守卫判绿",
+        "clause": "13.5",
+        "file": "scripts/check_regression.py",
+        "old": """    if not reference:
+        return False, [
+            f"{scenario}/{mode}: no reference recorded - the baseline does not "
+            "cover this scenario, the guard cannot compare anything"
+        ]""",
+        "new": """    if not reference:
+        return True, ["no reference recorded"]""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_regression_guard.py::"
+                "test_a_missing_reference_is_a_failure_not_a_pass",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "守卫自检不再还原变异",
+        "clause": "17.2",
+        "file": "scripts/guard_selftest.py",
+        "old": """        _restore(path, original)
+        _MUTATED.pop(path, None)""",
+        "new": """        _MUTATED.pop(path, None)""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_guard_selftest.py",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "审计不再检查 CI 工作流",
+        "clause": "19",
+        "file": "scripts/audit_requirements.py",
+        "old": """        paths = re.findall(r"`([\w./]+\.(?:py|yml|yaml|toml|md))`", entry)""",
+        "new": """        paths = re.findall(r"`([\w./]+\.py)`", entry)""",
+        "expect": "CI 工作流",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+            ],
+        ],
+    },
+    {
+        "name": "被拒候选者仍算作组员",
+        "clause": "8.2",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """        # the member list of the group follows ``group.participants``
+        group.participants.pop(participant.logical_call_id, None)""",
+        "new": """        # the member list of the group follows ``group.participants``""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_divergent.py::"
+                "test_a_rejected_candidate_is_not_a_member_of_the_group",
+                "-q",
+            ],
+        ],
+    },
+    {
         "name": "离组的参与者不再是终态",
         "clause": "8.2",
         "file": "agentfuse/runtime/coordinator.py",
@@ -466,13 +636,24 @@ MUTATIONS: list[dict[str, Any]] = [
 ]
 
 
-#: A guard that runs into the timeout has *caught* the mutation as well - a
-#: runtime that hangs forever is the worst possible failure and the test
-#: suite notices it.
+#: A guard that runs into the timeout has **not** proven anything: it could
+#: hang for an unrelated reason (a deadlock of the test runner, a missing
+#: dependency).  A timeout is therefore reported as *inconclusive* - the
+#: mutation counts as not proven.
 GUARD_TIMEOUT = 240
 
+#: The exit code of a guard that ran into the timeout.
+TIMEOUT_EXIT_CODE = 124
 
-def _run(command: list[str]) -> tuple[int, str]:
+
+def _run(command: list[str]) -> tuple[int, str, str]:
+    """Run a guard command.
+
+    Returns the exit code, the combined output and the **stdout** alone - a
+    machine readable report has to be parsed without the diagnostics of the
+    error stream.
+    """
+
     try:
         process = subprocess.run(
             command,
@@ -487,8 +668,130 @@ def _run(command: list[str]) -> tuple[int, str]:
         output = exc.stdout or ""
         if isinstance(output, bytes):
             output = output.decode("utf-8", errors="replace")
-        return 124, str(output)[-400:]
-    return process.returncode, (process.stdout or "") + (process.stderr or "")
+        return TIMEOUT_EXIT_CODE, str(output)[-400:], str(output)[-400:]
+    return (
+        process.returncode,
+        (process.stdout or "") + (process.stderr or ""),
+        process.stdout or "",
+    )
+
+
+def _expected_signature(command: list[str], mutation: dict[str, Any]) -> str:
+    """The text the output of the guard has to contain.
+
+    A guard that fails for an unrelated reason (a syntax error, a missing
+    file) would also exit non zero - and would "prove" that it detects the
+    mutation.  The expected signature is therefore part of the proof: the
+    guard has to name the check that failed.
+    """
+
+    explicit = mutation.get("expect")
+    if explicit:
+        return str(explicit)
+    if "pytest" in command:
+        # the test that has to fail
+        for part in command:
+            if part.startswith("tests/") and "::" in part:
+                return part.split("::", 1)[1].split("::")[-1]
+        return ""
+    if "audit_requirements" in " ".join(command):
+        # the summary of the audit: the number of the failed checks is only
+        # greater than zero when a check really failed
+        return "未通过"
+    return ""
+
+
+def _caught(
+    code: int,
+    output: str,
+    signature: str,
+    command: list[str] | None = None,
+    stdout: str = "",
+) -> tuple[bool, str]:
+    """Did the guard really catch **this** mutation?"""
+
+    if code == TIMEOUT_EXIT_CODE:
+        return False, "the guard ran into the timeout - the mutation is not proven"
+    if code == 0:
+        return False, "the guard passed"
+    command = command or []
+    if "audit_requirements" in " ".join(command) and "--json" in command:
+        # the machine readable report is stronger than a text match: the
+        # number of the failed checks has to be greater than zero
+        try:
+            report = json.loads(stdout)
+        except Exception:
+            return False, "the audit did not produce a report"
+        if int(report.get("failed", 0)) > 0:
+            return True, f"the audit reported {report['failed']} failed checks"
+        return False, "the audit did not report a failed check"
+    if signature and signature not in output:
+        return False, (
+            f"the guard failed, but it does not name {signature!r} - "
+            "it may have failed for an unrelated reason"
+        )
+    return True, "the guard failed as expected"
+
+
+def _apply_edits(original: str, mutation: dict[str, Any]) -> str:
+    """Apply the mutation to the source text.
+
+    A mutation may break **several** places at once - sometimes two guards
+    protect the same invariant and only the combination of both being broken
+    lets the defect through.
+    """
+
+    text = original
+    if mutation.get("old") is not None:
+        text = text.replace(mutation["old"], mutation["new"], 1)
+    for old_text, new_text in mutation.get("edits", ()):
+        text = text.replace(old_text, new_text, 1)
+    return text
+
+
+def _restore(path: Path, original: str) -> None:
+    """Put the original content back and prove it."""
+
+    path.write_text(original, encoding="utf-8")
+    if path.read_text(encoding="utf-8") != original:
+        raise RuntimeError(f"could not restore {path}")
+
+
+#: The files that are currently mutated.  An emergency exit (a cancelled CI
+#: job, a ``kill`` on the console) must not leave the repository broken.
+_MUTATED: dict[Path, str] = {}
+
+
+def _restore_all() -> None:
+    for path, original in list(_MUTATED.items()):
+        try:
+            path.write_text(original, encoding="utf-8")
+        except Exception:  # pragma: no cover - the best effort at the very end
+            pass
+    _MUTATED.clear()
+
+
+atexit.register(_restore_all)
+
+
+def _install_signal_handlers() -> None:
+    """A termination signal has to restore the mutated files."""
+
+    def _handler(signum: int, _frame: Any) -> None:
+        _restore_all()
+        raise KeyboardInterrupt(f"the self test was interrupted (signal {signum})")
+
+    for name in ("SIGTERM", "SIGINT", "SIGHUP"):
+        number = getattr(signal, name, None)
+        if number is None:
+            continue
+        try:
+            signal.signal(number, _handler)
+        except (ValueError, OSError):  # pragma: no cover - not every platform
+            pass
+
+
+_install_signal_handlers()
 
 
 def _check_mutation(mutation: dict[str, Any]) -> dict[str, Any]:
@@ -514,28 +817,39 @@ def _check_mutation(mutation: dict[str, Any]) -> dict[str, Any]:
             "detail": f"变异点不存在于 {extra[0]}（代码已经变了？）",
             "guards": [],
         }
-    path.write_text(original.replace(mutation["old"], mutation["new"], 1), encoding="utf-8")
-    if extra_path is not None:
-        extra_path.write_text(
-            extra_original.replace(extra[1], extra[2], 1), encoding="utf-8"
-        )
     guards: list[dict[str, Any]] = []
     try:
+        # The mutation is written **inside** the try: a failing write of the
+        # second file must not leave the first one mutated.
+        _MUTATED[path] = original
+        path.write_text(_apply_edits(original, mutation), encoding="utf-8")
+        if extra_path is not None:
+            _MUTATED[extra_path] = extra_original
+            extra_path.write_text(
+                extra_original.replace(extra[1], extra[2], 1), encoding="utf-8"
+            )
         for command in mutation["guards"]:
-            code, output = _run(command)
+            code, output, stdout = _run(command)
             label = " ".join(command[1:3])
+            signature = _expected_signature(command, mutation)
+            caught, reason = _caught(code, output, signature, command, stdout)
             guards.append(
                 {
                     "guard": label,
                     "exit_code": code,
-                    "caught": code != 0,
+                    "caught": caught,
+                    "reason": reason,
                     "output": output[-400:],
                 }
             )
     finally:
-        path.write_text(original, encoding="utf-8")
+        # The working copy has to be left untouched - always, also when the
+        # guard command or the script itself fails.
+        _restore(path, original)
+        _MUTATED.pop(path, None)
         if extra_path is not None and extra_original is not None:
-            extra_path.write_text(extra_original, encoding="utf-8")
+            _restore(extra_path, extra_original)
+            _MUTATED.pop(extra_path, None)
     caught = all(guard["caught"] for guard in guards) and guards
     return {
         "name": mutation["name"],
@@ -571,6 +885,8 @@ def main() -> int:
             for guard in item["guards"]:
                 state = "发现" if guard["caught"] else "未发现"
                 print(f"        {state}: {guard['guard']} (exit={guard['exit_code']})")
+                if not guard["caught"] and guard.get("reason"):
+                    print(f"                {guard['reason']}")
             if not item["ok"]:
                 print(f"        {item['detail']}")
         print(f"\n{len(results) - len(failed)}/{len(results)} 个守卫证明了它们能发现问题")
