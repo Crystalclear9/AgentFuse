@@ -70,3 +70,45 @@ def test_the_behavioural_checks_are_the_ones_that_run_the_runtime():
     assert sections & {"8.7", "9.4", "10.1", "12.4", "16", "17.2"}, (
         f"the behavioural checks do not cover the runtime clauses: {sections}"
     )
+
+
+def test_a_text_match_is_not_counted_as_behaviour():
+    """A check that only reads the source is a **structural** check.
+
+    The audit runs the runtime in the behavioural section - but a few of the
+    checks there only look at the text of the test files.  They have to say
+    so, otherwise the report claims more than it proves.
+    """
+
+    report = _report()
+    text_checks = [
+        check
+        for check in report["checks"]
+        if "由自动化测试执行" in check["clause"]
+    ]
+    assert text_checks, "the audit has to check that the scenarios are tested"
+    for check in text_checks:
+        assert check["kind"] == "structural", (
+            f"{check['clause']} only reads the source - it is not a behaviour"
+        )
+
+
+def test_the_ci_workflow_is_checked_for_its_content():
+    """A CI file that exists but does not run the tests is no proof.
+
+    The requirement names the CI workflow as an implemented P2 clause - the
+    audit therefore has to look at what the file does, not only whether it is
+    there.
+    """
+
+    report = _report()
+    content_checks = [
+        check
+        for check in report["checks"]
+        if "CI 工作流" in check["clause"] and "内容" in check["clause"]
+    ]
+    assert content_checks, "the audit has to check the content of the CI workflow"
+    for check in content_checks:
+        assert check["ok"], (
+            f"the CI workflow does not do what it promises: {check['detail']}"
+        )

@@ -509,3 +509,90 @@ def test_the_migration_copies_only_the_columns_that_exist(tmp_path):
     assert db.write_errors == 0
     assert db.query("SELECT * FROM workflows WHERE workflow_id = 'wf-copy'") != []
     db.close()
+
+
+async def test_a_stuck_writer_does_not_keep_the_database_open(app, monkeypatch):
+    """A flush that times out must not prevent the shutdown.
+
+    The writer thread can be stuck (a blocked disk, a lock that is never
+    released).  The database still has to be closed - an open handle keeps the
+    file locked on Windows and the next start would fail.
+    """
+
+    def stuck(timeout: float = 5.0) -> None:
+        raise TimeoutError("the writer thread is stuck")
+
+    monkeypatch.setattr(app.database, "flush", stuck)
+    await app.close()
+    assert app.database._closed, "the database has to be closed anyway"
+
+
+def test_the_share_state_is_written_atomically(tmp_path):
+    """The group row and the participant rows belong together.
+
+    The member list of the group and the rows of its participants describe the
+    same state.  If one of them is written and the other is not, the database
+    shows a group with a member that does not exist.
+    """
+
+    from agentfuse.storage.models import ShareGroupRecord, ShareParticipantRecord
+
+    db = Database(tmp_path / "db" / "agentfuse.sqlite3")
+    db.initialize()
+    db.start()
+    # every statement gets its own batch - two separate writes would then be
+    # two separate transactions and the group row would survive
+    db._batch_size = 1
+    repository = Repository(db)
+
+    db.write(
+        "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
+        "VALUES ('wf-atomic', 'demo', 1.0, 'RUNNING', 'online')"
+    )
+    db.flush()
+
+    group = ShareGroupRecord(
+        share_group_id="sg-atomic",
+        workflow_id="wf-atomic",
+        candidate_key="key",
+        leader_execution_id=None,
+        leader_logical_call_id="call-missing",
+        creation_time=1.0,
+        closed_time=None,
+        status="EXECUTING",
+        participant_count=1,
+        participant_calls=["call-missing"],
+        mode="online",
+        tool_name="ast_analyzer",
+        tool_version="1.0.0",
+    )
+    participant = ShareParticipantRecord(
+        share_group_id="sg-atomic",
+        logical_call_id="call-missing",
+        workflow_id="wf-atomic",
+        agent_id=None,
+        invocation_id=None,
+        snapshot_id=None,
+        status="SHARED_WAIT",
+        validated_prefix_length=0,
+        validation_status=None,
+        attached_time=1.0,
+        detached_time=None,
+        delivered_time=None,
+        wait_duration=None,
+        wait_reason=None,
+        detach_reason=None,
+        detach_kind=None,
+        is_leader=False,
+    )
+
+    # the participant references a call that does not exist - the statement
+    # cannot succeed and the group row must not survive it
+    repository.save_share_state(group, [participant])
+    db.flush()
+
+    assert db.write_errors >= 1, "the broken statement has to be counted"
+    assert db.query("SELECT * FROM share_groups WHERE share_group_id = 'sg-atomic'") == [], (
+        "the group row must not survive the rollback of the participant row"
+    )
+    db.close()

@@ -285,22 +285,32 @@ def main() -> int:
             check("Dashboard 返回真实字段", not missing, f"缺: {missing}")
             check(
                 "Dashboard 的调用计数与数据库一致",
-                # the counts are compared with the **database** - a count of
-                # 999 would also be ">= 1"
+                # The counts are compared with the **database** - a count of
+                # 999 would also be ">= 1".  The scope is the workflows the
+                # dashboard shows (the overview only lists the most recent
+                # ones), otherwise the check would depend on how many runs
+                # the home directory already contains.
                 payload["logical_tool_calls"]
-                == len(
-                    api_app.state.runtime.repository.db.query(
-                        "SELECT * FROM logical_tool_calls"
+                == sum(
+                    len(
+                        api_app.state.runtime.repository.list_logical_calls(
+                            workflow["workflow_id"]
+                        )
                     )
+                    for workflow in payload["workflows"]
                 )
                 and payload["physical_executions"]
-                == len(
-                    api_app.state.runtime.repository.db.query(
-                        "SELECT * FROM physical_executions"
+                == sum(
+                    len(
+                        api_app.state.runtime.repository.list_executions(
+                            workflow["workflow_id"]
+                        )
                     )
+                    for workflow in payload["workflows"]
                 ),
                 f"calls={payload.get('logical_tool_calls')} "
-                f"executions={payload.get('physical_executions')}",
+                f"executions={payload.get('physical_executions')} "
+                f"workflows={len(payload.get('workflows', []))}",
             )
             check(
                 "工具注册表带依赖声明",

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
-from typing import Any
+from typing import Any, Sequence
 
 from .database import Database
 from .models import (
@@ -329,8 +329,11 @@ class Repository:
     # ------------------------------------------------------------------
     # share groups
     # ------------------------------------------------------------------
-    def save_share_group(self, record: ShareGroupRecord) -> None:
-        self.db.write(
+    @staticmethod
+    def _share_group_row(record: ShareGroupRecord) -> tuple[str, tuple[Any, ...]]:
+        """The SQL of one share group row."""
+
+        return (
             """
                 INSERT INTO share_groups
                 (share_group_id, workflow_id, candidate_key, leader_execution_id,
@@ -345,23 +348,46 @@ class Repository:
                     status=excluded.status, participant_count=excluded.participant_count,
                     participant_calls=excluded.participant_calls, mode=excluded.mode,
                     tool_name=excluded.tool_name, tool_version=excluded.tool_version
-                """,
-                (
-                    record.share_group_id,
-                    record.workflow_id,
-                    record.candidate_key,
-                    record.leader_execution_id,
-                    record.leader_logical_call_id,
-                    record.creation_time,
-                    record.closed_time,
-                    record.status,
-                    record.participant_count,
-                    json.dumps(list(record.participant_calls), ensure_ascii=False),
-                    record.mode,
-                    record.tool_name,
-                    record.tool_version,
-                ),
+            """,
+            (
+                record.share_group_id,
+                record.workflow_id,
+                record.candidate_key,
+                record.leader_execution_id,
+                record.leader_logical_call_id,
+                record.creation_time,
+                record.closed_time,
+                record.status,
+                record.participant_count,
+                json.dumps(list(record.participant_calls), ensure_ascii=False),
+                record.mode,
+                record.tool_name,
+                record.tool_version,
+            ),
         )
+
+    def save_share_group(self, record: ShareGroupRecord) -> None:
+        self.db.write(*self._share_group_row(record))
+
+    def save_share_state(
+        self,
+        group: ShareGroupRecord,
+        participants: Sequence[ShareParticipantRecord] = (),
+        calls: Sequence[LogicalToolCallRecord] = (),
+    ) -> None:
+        """Persist the share group, its participants and the calls in **one** transaction.
+
+        The member list of the group and the rows of its participants describe
+        the same state.  If one of them is written and the other is not, the
+        dashboard shows a group with a member whose row does not exist (or a
+        participant that the group does not know).  The rows therefore have to
+        be written together.
+        """
+
+        rows: list[tuple[str, tuple[Any, ...]]] = [self._share_group_row(group)]
+        rows.extend(self._share_participant_row(participant) for participant in participants)
+        rows.extend(self._logical_call_row(call) for call in calls)
+        self.db.transaction(rows)
 
     def list_share_groups(self, workflow_id: str) -> list[dict[str, Any]]:
         rows = self.db.query(
@@ -370,8 +396,13 @@ class Repository:
         )
         return [dict(row) for row in rows]
 
-    def save_participant(self, record: ShareParticipantRecord) -> None:
-        self.db.write(
+    @staticmethod
+    def _share_participant_row(
+        record: ShareParticipantRecord,
+    ) -> tuple[str, tuple[Any, ...]]:
+        """The SQL of one share participant row."""
+
+        return (
             """
             INSERT INTO share_participants
             (share_group_id, logical_call_id, workflow_id, agent_id, invocation_id, snapshot_id,
@@ -411,6 +442,9 @@ class Repository:
                 1 if record.is_leader else 0,
             ),
         )
+
+    def save_participant(self, record: ShareParticipantRecord) -> None:
+        self.db.write(*self._share_participant_row(record))
 
     def list_participants(self, workflow_id: str) -> list[dict[str, Any]]:
         rows = self.db.query(

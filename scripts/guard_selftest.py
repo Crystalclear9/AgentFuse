@@ -283,8 +283,8 @@ MUTATIONS: list[dict[str, Any]] = [
         "new": """            pass  # the participants would keep waiting""",
         "extra": (
             "agentfuse/runtime/coordinator.py",
-            """        self._fail_participant_of(call, message)""",
-            """        pass""",
+            """        failed_participant = self._fail_participant_of(call, message)""",
+            """        failed_participant = None""",
         ),
         "guards": [
             [
@@ -616,13 +616,112 @@ MUTATIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "关闭时不再关闭数据库",
+        "clause": "17.2",
+        "file": "agentfuse/app.py",
+        # a flush that times out must not keep the database open - on Windows
+        # an open handle locks the file
+        "old": """            try:
+                self.database.flush()
+            except TimeoutError as exc:""",
+        "new": """            try:
+                self.database.flush()
+            except ValueError as exc:""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_database.py::"
+                "test_a_stuck_writer_does_not_keep_the_database_open",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "共享状态不再原子落库",
+        "clause": "8.2",
+        "file": "agentfuse/storage/repository.py",
+        "old": """        rows: list[tuple[str, tuple[Any, ...]]] = [self._share_group_row(group)]
+        rows.extend(self._share_participant_row(participant) for participant in participants)
+        rows.extend(self._logical_call_row(call) for call in calls)
+        self.db.transaction(rows)""",
+        "new": """        self.db.write(*self._share_group_row(group))
+        for participant in participants:
+            self.db.write(*self._share_participant_row(participant))
+        for call in calls:
+            self.db.write(*self._logical_call_row(call))""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_database.py::"
+                "test_the_share_state_is_written_atomically",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "文本检查被算成行为检查",
+        "clause": "17.2",
+        "file": "scripts/audit_requirements.py",
+        "old": """                    "已覆盖" if function in scenario_tests else "未被任何测试执行",
+                    # it is a text match, not a behaviour
+                    kind="structural",""",
+        "new": """                    "已覆盖" if function in scenario_tests else "未被任何测试执行",""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_audit_report.py::"
+                "test_a_text_match_is_not_counted_as_behaviour",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "审计不再检查 CI 工作流的内容",
+        "clause": "19",
+        "file": "scripts/audit_requirements.py",
+        # the check has to be **gone** - an empty list would only skip it
+        "old": """        # the file has to contain the job it promises
+        needles = P2_CONTENT_EXPECTATIONS.get(clause, ())
+        if not needles or missing:
+            continue
+        content = ""
+        for path in paths:
+            candidate = ROOT / path
+            if candidate.exists():
+                content += candidate.read_text(encoding="utf-8", errors="ignore")
+        absent_needles = [needle for needle in needles if needle not in content]
+        record(
+            "19",
+            f"P2 条款 {clause} 的入口包含所承诺的内容",
+            not absent_needles,
+            f"缺少: {absent_needles}" if absent_needles else f"{len(needles)} 项都在",
+        )""",
+        "new": """        # the check of the content is gone""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_audit_report.py::"
+                "test_the_ci_workflow_is_checked_for_its_content",
+                "-q",
+            ],
+        ],
+    },
+    {
         "name": "审计不再报告检查的种类",
         "clause": "17.2",
         "file": "scripts/audit_requirements.py",
         # the report has to say which checks really run the runtime - without
         # the kind the audit looks stronger than it is
         "old": """            "detail": detail,
-            "kind": PHASE,""",
+            "kind": kind or PHASE,""",
         "new": """            "detail": detail,""",
         "guards": [
             [

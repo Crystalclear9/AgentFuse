@@ -402,6 +402,7 @@ class RuntimeCoordinator:
             call.error_kind = ERROR_CANCELLED
             call.completed_time = time.time()
             group = self._groups.get(call.share_group_id) if call.share_group_id else None
+            cancelled_participant = None
             if group is not None:
                 participant = group.participants.get(logical_call_id)
                 if participant is not None and participant.status not in (
@@ -412,12 +413,21 @@ class RuntimeCoordinator:
                     participant.transition(ParticipantStatus.CANCELLED)
                     participant.detached_time = time.time()
                     participant.detach_reason = reason
-                    self._persist_participant(group, participant)
+                    cancelled_participant = participant
                 if not group.has_live_participants():
                     execution = self._executions.get(group.leader_execution_id)
                     if execution is not None and execution.status is ExecutionStatus.RUNNING:
                         terminate.append(execution)
-            self._persist_call(call)
+            if group is not None:
+                # the call row, the participant row and the group describe the
+                # same state - they have to be written together
+                self._persist_share_state(
+                    group,
+                    (cancelled_participant,) if cancelled_participant else (),
+                    (call,),
+                )
+            else:
+                self._persist_call(call)
             self.event_bus.publish(
                 EventType.TOOL_CALL_CANCELLED,
                 workflow_id=call.workflow_id,
@@ -695,10 +705,11 @@ class RuntimeCoordinator:
         # The **group** itself does not count it: a candidate that never
         # belonged to the group must not show up in its member list.
         group.add_participant(participant)
-        self._persist_participant(group, participant)
         # the member list of the group follows ``group.participants``
         group.participants.pop(participant.logical_call_id, None)
-        self._persist_group(group)
+        # the participant row and the group row describe the same state -
+        # they have to be written together
+        self._persist_share_state(group, (participant,))
         call = self._calls.get(participant.logical_call_id)
         self.event_bus.publish(
             EventType.SHARE_PARTICIPANT_DETACHED,
@@ -776,9 +787,8 @@ class RuntimeCoordinator:
         self._groups_by_key.setdefault(call.candidate_key, []).append(group.share_group_id)
         call.share_group_id = group.share_group_id
         call.status = LogicalCallStatus.RUNNING_INDEPENDENTLY
-        self._persist_call(call)
-        self._persist_group(group)
-        self._persist_participant(group, leader)
+        # the call, the group and its leader describe the same state
+        self._persist_share_state(group, (leader,), (call,))
 
         execution = self._create_execution_locked(call, share_group_id=group.share_group_id)
         group.leader_execution_id = execution.execution_id
@@ -825,9 +835,8 @@ class RuntimeCoordinator:
         call.share_group_id = group.share_group_id
         call.status = LogicalCallStatus.SHARED_WAIT
         call.shared = True
-        self._persist_call(call)
-        self._persist_participant(group, participant)
-        self._persist_group(group)
+        # the call, the participant row and the group describe the same state
+        self._persist_share_state(group, (participant,), (call,))
         self.event_bus.publish(
             EventType.TOOL_CALL_WAITING,
             workflow_id=call.workflow_id,
@@ -1642,7 +1651,13 @@ class RuntimeCoordinator:
                     self._deliver_locked(
                         call, outcome.payload, outcome.result_hash, execution.execution_id
                     )
-                self._complete_participant(group, participant)
+                completed = self._complete_participant(group, participant)
+                # the call row and the participant row describe the same state
+                self._persist_share_state(
+                    group,
+                    (completed,) if completed else (),
+                    (call,) if call is not None else (),
+                )
                 continue
             if incomplete_ledger:
                 self._detach_participant_locked(
@@ -1703,7 +1718,13 @@ class RuntimeCoordinator:
                 self._deliver_locked(
                     call, outcome.payload, outcome.result_hash, execution.execution_id
                 )
-            self._complete_participant(group, participant)
+            completed = self._complete_participant(group, participant)
+            # the call row and the participant row describe the same state
+            self._persist_share_state(
+                group,
+                (completed,) if completed else (),
+                (call,) if call is not None else (),
+            )
 
         group.transition(ShareGroupStatus.COMPLETED)
         group.closed_time = time.time()
@@ -1847,6 +1868,7 @@ class RuntimeCoordinator:
         if group is None:
             return
         participant = group.participants.get(call.logical_call_id)
+        left = None
         if participant is not None and participant.status not in (
             ParticipantStatus.COMPLETED,
             ParticipantStatus.FAILED,
@@ -1863,16 +1885,16 @@ class RuntimeCoordinator:
             participant.detached_time = time.time()
             participant.detach_reason = reason
             participant.detach_kind = "left_group"
-            self._persist_participant(group, participant)
+            left = participant
             # the group only counts its current members
             group.participants.pop(call.logical_call_id, None)
         # the call leaves the group - it must not keep a reference to a closed
         # group
         call.share_group_id = None
         call.shared = False
-        self._persist_call(call)
-        # the group no longer counts the call
-        self._persist_group(group)
+        # the participant row, the call row and the group row describe the same
+        # state - they have to be written together
+        self._persist_share_state(group, (left,) if left else (), (call,))
 
     def _running_execution_of(self, call: LogicalCall) -> PhysicalExecution | None:
         """Return the execution of a call that is still running.
@@ -1896,8 +1918,14 @@ class RuntimeCoordinator:
     # ------------------------------------------------------------------
     # participant / call state helpers (lock must be held)
     # ------------------------------------------------------------------
-    def _complete_participant(self, group: ShareGroup, participant: Participant) -> None:
-        """Mark a participant as successfully served by the shared execution."""
+    def _complete_participant(
+        self, group: ShareGroup, participant: Participant
+    ) -> Participant | None:
+        """Mark a participant as successfully served by the shared execution.
+
+        The participant is **not** persisted here - the caller writes it
+        together with the call, in one transaction.
+        """
 
         if participant.status not in (
             ParticipantStatus.COMPLETED,
@@ -1906,7 +1934,7 @@ class RuntimeCoordinator:
         ):
             participant.transition(ParticipantStatus.COMPLETED)
         participant.delivered_time = time.time()
-        self._persist_participant(group, participant)
+        return participant
 
     def _detach_participant_locked(
         self, group: ShareGroup, participant: Participant, reason: str
@@ -1928,8 +1956,6 @@ class RuntimeCoordinator:
             if "differs" in reason
             else participant.validation_status
         )
-        self._persist_participant(group, participant)
-        self._persist_group(group)
         participant_call = self._calls.get(participant.logical_call_id)
         self.event_bus.publish(
             EventType.SHARE_PARTICIPANT_DETACHED,
@@ -1958,7 +1984,9 @@ class RuntimeCoordinator:
         # the call runs on its own now - the row must not claim that it is
         # still shared (the re-assignment below may set it again)
         call.shared = False
-        self._persist_call(call)
+        # the participant row, the call row and the group row describe the same
+        # state - they have to be written together
+        self._persist_share_state(group, (participant,), (call,))
         self._reassign_after_detach_locked(call, group)
 
     def _reassign_after_detach_locked(self, call: LogicalCall, left_group: ShareGroup) -> None:
@@ -2059,28 +2087,31 @@ class RuntimeCoordinator:
             )
         return True
 
-    def _fail_participant_of(self, call: LogicalCall, message: str) -> None:
+    def _fail_participant_of(self, call: LogicalCall, message: str) -> Participant | None:
         """Mark the participant of a failed call as failed.
 
         Requirement 10.1: every waiting participant has to receive a clear
         status change.  A participant that is already running on its own
         execution keeps that execution - only its state is corrected.
+
+        The participant is **not** persisted here - the caller writes it
+        together with the call, in one transaction.
         """
 
         if not call.share_group_id:
-            return
+            return None
         group = self._groups.get(call.share_group_id)
         if group is None:
-            return
+            return None
         participant = group.participants.get(call.logical_call_id)
         if participant is None:
-            return
+            return None
         if participant.status in (
             ParticipantStatus.COMPLETED,
             ParticipantStatus.FAILED,
             ParticipantStatus.CANCELLED,
         ):
-            return
+            return None
         try:
             participant.transition(ParticipantStatus.FAILED)
         except Exception:
@@ -2090,7 +2121,7 @@ class RuntimeCoordinator:
         # no result was delivered - the wait ends with the failure
         participant.detached_time = time.time()
         participant.detach_reason = message
-        self._persist_participant(group, participant)
+        return participant
 
     def _fail_call_locked(self, call: LogicalCall, message: str, kind: str) -> None:
         if call.future.done():
@@ -2099,11 +2130,21 @@ class RuntimeCoordinator:
         call.error = message
         call.error_kind = kind
         call.completed_time = time.time()
-        self._persist_call(call)
         # The participant of the group has to learn about the failure as well -
         # a waiting participant must never stay in the waiting state
         # (requirement 10.1).
-        self._fail_participant_of(call, message)
+        failed_participant = self._fail_participant_of(call, message)
+        # the call row and the participant row describe the same state -
+        # they have to be written together
+        group = self._groups.get(call.share_group_id) if call.share_group_id else None
+        if group is not None:
+            self._persist_share_state(
+                group,
+                (failed_participant,) if failed_participant else (),
+                (call,),
+            )
+        else:
+            self._persist_call(call)
         self.event_bus.publish(
             EventType.TOOL_CALL_FAILED,
             workflow_id=call.workflow_id,
@@ -2198,51 +2239,74 @@ class RuntimeCoordinator:
             worker_command=execution.worker_command,
         )
 
-    def _persist_group(self, group: ShareGroup) -> None:
+    @staticmethod
+    def _share_group_record(group: ShareGroup):
         from ..storage.models import ShareGroupRecord
 
-        self.repository.save_share_group(
-            ShareGroupRecord(
-                share_group_id=group.share_group_id,
-                workflow_id=group.workflow_id,
-                candidate_key=group.candidate_key,
-                leader_execution_id=group.leader_execution_id,
-                leader_logical_call_id=group.leader_logical_call_id,
-                creation_time=group.creation_time,
-                closed_time=group.closed_time,
-                status=str(group.status),
-                participant_count=len(group.participants),
-                participant_calls=list(group.participant_calls),
-                mode=group.mode,
-                tool_name=group.tool_name,
-                tool_version=group.tool_version,
-            )
+        return ShareGroupRecord(
+            share_group_id=group.share_group_id,
+            workflow_id=group.workflow_id,
+            candidate_key=group.candidate_key,
+            leader_execution_id=group.leader_execution_id,
+            leader_logical_call_id=group.leader_logical_call_id,
+            creation_time=group.creation_time,
+            closed_time=group.closed_time,
+            status=str(group.status),
+            participant_count=len(group.participants),
+            participant_calls=list(group.participant_calls),
+            mode=group.mode,
+            tool_name=group.tool_name,
+            tool_version=group.tool_version,
+        )
+
+    def _persist_group(self, group: ShareGroup) -> None:
+        self.repository.save_share_group(self._share_group_record(group))
+
+    def _persist_share_state(
+        self,
+        group: ShareGroup,
+        participants: tuple[Participant, ...] = (),
+        calls: tuple[LogicalCall, ...] = (),
+    ) -> None:
+        """Persist the group, its participants and the calls in one transaction.
+
+        The member list of the group and the rows of its participants describe
+        the same state - they have to be written together, otherwise the
+        database would show a member that does not exist.
+        """
+
+        self.repository.save_share_state(
+            self._share_group_record(group),
+            [self._share_participant_record(group, p) for p in participants],
+            [self._logical_call_record(c) for c in calls],
+        )
+
+    @staticmethod
+    def _share_participant_record(group: ShareGroup, participant: Participant):
+        from ..storage.models import ShareParticipantRecord
+
+        return ShareParticipantRecord(
+            share_group_id=group.share_group_id,
+            logical_call_id=participant.logical_call_id,
+            workflow_id=group.workflow_id,
+            agent_id=participant.agent_id,
+            invocation_id=participant.invocation_id,
+            snapshot_id=participant.snapshot_id,
+            status=str(participant.status),
+            validated_prefix_length=participant.validated_prefix_length,
+            validation_status=str(participant.validation_status),
+            attached_time=participant.attached_time,
+            detached_time=participant.detached_time,
+            delivered_time=participant.delivered_time,
+            wait_duration=participant.wait_duration,
+            wait_reason=participant.wait_reason,
+            detach_reason=participant.detach_reason,
+            detach_kind=participant.detach_kind,
+            is_leader=participant.is_leader,
         )
 
     def _persist_participant(self, group: ShareGroup, participant: Participant) -> None:
-        from ..storage.models import ShareParticipantRecord
-
-        self.repository.save_participant(
-            ShareParticipantRecord(
-                share_group_id=group.share_group_id,
-                logical_call_id=participant.logical_call_id,
-                workflow_id=group.workflow_id,
-                agent_id=participant.agent_id,
-                invocation_id=participant.invocation_id,
-                snapshot_id=participant.snapshot_id,
-                status=str(participant.status),
-                validated_prefix_length=participant.validated_prefix_length,
-                validation_status=str(participant.validation_status),
-                attached_time=participant.attached_time,
-                detached_time=participant.detached_time,
-                delivered_time=participant.delivered_time,
-                wait_duration=participant.wait_duration,
-                wait_reason=participant.wait_reason,
-                detach_reason=participant.detach_reason,
-                detach_kind=participant.detach_kind,
-                is_leader=participant.is_leader,
-            )
-        )
+        self.repository.save_participant(self._share_participant_record(group, participant))
 
     def _record_validation(
         self,

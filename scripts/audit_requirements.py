@@ -64,14 +64,29 @@ COVERED_SECTIONS = (
 )
 
 
-def record(section: str, clause: str, ok: bool, detail: str = "") -> bool:
+def record(
+    section: str,
+    clause: str,
+    ok: bool,
+    detail: str = "",
+    kind: str | None = None,
+) -> bool:
+    """Record the result of a check.
+
+    The kind says how the check was verified: a **behavioural** check runs
+    the real runtime, a **structural** check only reads the source.  A check
+    inside the behavioural section that is really a text match has to say so
+    (``kind="structural"``) - otherwise the report would claim more than it
+    proves.
+    """
+
     RESULTS.append(
         {
             "section": section,
             "clause": clause,
             "ok": bool(ok),
             "detail": detail,
-            "kind": PHASE,
+            "kind": kind or PHASE,
         }
     )
     return bool(ok)
@@ -713,7 +728,9 @@ def _audit_behaviour() -> None:
             # load that margin can be missed - the scenario is then repeated
             # (it costs about half a second), so that the check does not
             # depend on the speed of the machine.
+            divergent_attempts = 0
             for _attempt in range(3):
+                divergent_attempts += 1
                 divergent = await scenario_divergent(app, RuntimeMode.ONLINE, {})
                 if (divergent.metrics["detach_lead_ms_max"] or 0) > 0:
                     break
@@ -760,6 +777,8 @@ def _audit_behaviour() -> None:
                     f"演示场景 {name} 由自动化测试执行",
                     function in scenario_tests,
                     "已覆盖" if function in scenario_tests else "未被任何测试执行",
+                    # it is a text match, not a behaviour
+                    kind="structural",
                 )
 
             # ---------------------------------------------------------------
@@ -920,7 +939,12 @@ def _audit_behaviour() -> None:
                 "12.4",
                 "分离时 Leader 尚未结束后续计算",
                 (divergent.metrics["detach_lead_ms_max"] or 0) > 0,
-                f"lead_ms={divergent.metrics['detach_lead_ms_max']}",
+                f"lead_ms={divergent.metrics['detach_lead_ms_max']}"
+                + (
+                    f"（余量被错过，重试 {divergent_attempts - 1} 次后通过）"
+                    if divergent_attempts > 1
+                    else ""
+                ),
             )
 
             # the base snapshot is used by the failure calls and by the
@@ -1255,6 +1279,20 @@ P2_ABSENCE_MARKERS = {
 }
 
 
+#: The clauses whose entry point has to **contain** something: a file that
+#: exists but does not do the promised job is no proof.
+P2_CONTENT_EXPECTATIONS = {
+    "CI 工作流": (
+        "windows-latest",
+        "ubuntu-latest",
+        "macos-latest",
+        "pytest",
+        "acceptance_check.py",
+        "check_regression.py",
+    ),
+}
+
+
 def _entry_points_are_absent(clause: str, entry: str) -> tuple[bool, list[str]]:
     """A clause that must not be implemented must not have an entry point.
 
@@ -1343,6 +1381,22 @@ def audit_priority_tiers() -> None:
             f"P2 条款 {clause}",
             not missing,
             f"缺少: {missing}" if missing else f"{len(paths)} 个入口存在",
+        )
+        # the file has to contain the job it promises
+        needles = P2_CONTENT_EXPECTATIONS.get(clause, ())
+        if not needles or missing:
+            continue
+        content = ""
+        for path in paths:
+            candidate = ROOT / path
+            if candidate.exists():
+                content += candidate.read_text(encoding="utf-8", errors="ignore")
+        absent_needles = [needle for needle in needles if needle not in content]
+        record(
+            "19",
+            f"P2 条款 {clause} 的入口包含所承诺的内容",
+            not absent_needles,
+            f"缺少: {absent_needles}" if absent_needles else f"{len(needles)} 项都在",
         )
 
     # the P0 clauses are the acceptance contract - they must all be covered

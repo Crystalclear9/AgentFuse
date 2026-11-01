@@ -146,8 +146,18 @@ class AgentFuseApp:
             self.scheduler.stop()
             for workflow in self._workflows:
                 workflow.close()
-            self.database.flush()
-            self.database.close()
+            try:
+                self.database.flush()
+            except TimeoutError as exc:
+                # The writer thread is stuck.  The database still has to be
+                # closed - an open handle keeps the file locked on Windows.
+                import logging
+
+                logging.getLogger("agentfuse").error(
+                    "could not flush the database before the shutdown: %s", exc
+                )
+            finally:
+                self.database.close()
 
     def close_sync(self) -> None:
         """Close the application from synchronous code (CLI entry points)."""

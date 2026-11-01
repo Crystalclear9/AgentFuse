@@ -67,8 +67,15 @@ def cmd_init(args: argparse.Namespace) -> int:
     settings = load_settings(config_path=args.config, home=args.home)
     settings.ensure_directories()
     app = AgentFuseApp(settings=settings)
-    app.database.flush()
-    app.database.close()
+    try:
+        app.database.flush()
+    except TimeoutError as exc:
+        # the writer thread is stuck - the database has to be closed anyway
+        import logging
+
+        logging.getLogger("agentfuse").error("could not flush the database: %s", exc)
+    finally:
+        app.database.close()
     print("AgentFuse 本地数据目录已初始化:")
     print(f"  home : {settings.home}")
     print(f"  db   : {settings.db_path}")
