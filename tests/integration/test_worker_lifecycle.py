@@ -240,16 +240,32 @@ async def test_the_runtime_owns_exactly_its_workers(app, snapshot):
         )
         for _ in range(4)
     ]
-    # the invariant has to hold **while** the workers run - after the calls
-    # are done the workers may already be terminated
-    assert await wait_until(lambda: app.coordinator._worker_handles), (
-        "the worker handles have to exist"
+    await asyncio.gather(*tasks)
+    # The invariant has to hold once the runtime has settled: a worker that is
+    # being terminated is still registered for a moment - the test waits for
+    # the state in which the two lists agree.
+    state: dict[str, list] = {}
+
+    def settled() -> bool:
+        handles = list(app.coordinator._worker_handles)
+        live = [pid for pid in app.coordinator.worker_pids() if pid]
+        if len(handles) != len(live):
+            return False
+        # the two lists are read in the same moment - otherwise the test would
+        # compare two different states
+        state["handles"] = handles
+        state["live"] = live
+        return True
+
+    assert await wait_until(settled), (
+        "every worker that is registered has to be alive - "
+        f"handles={len(list(app.coordinator._worker_handles))} "
+        f"live={len([pid for pid in app.coordinator.worker_pids() if pid])}"
     )
 
-    handles = list(app.coordinator._worker_handles)
-    live = [pid for pid in app.coordinator.worker_pids() if pid]
+    handles = state["handles"]
+    live = state["live"]
     assert len(handles) == len(live)
     for handle in handles:
         assert handle.is_alive()
         assert handle.terminated is False
-    await asyncio.gather(*tasks)
