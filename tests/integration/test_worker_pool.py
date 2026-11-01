@@ -15,6 +15,8 @@ import time
 import psutil
 import pytest
 
+from tests.support import wait_for_process_exit
+
 from agentfuse.core.state import RuntimeMode
 from agentfuse.scenarios.common import DEMO_FILES
 
@@ -203,7 +205,10 @@ async def test_the_shutdown_leaves_no_worker_behind(app, snapshot):
     assert not app.coordinator._worker_handles
     assert not app.coordinator._idle_workers
 
-    time.sleep(0.2)
+    # the workers have to be gone - a bounded wait instead of a fixed sleep
+    assert await wait_for_process_exit(list(pids)), (
+        "worker processes are still running"
+    )
     alive = []
     for pid in pids:
         try:

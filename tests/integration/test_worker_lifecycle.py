@@ -20,6 +20,8 @@ import time
 import psutil
 import pytest
 
+from tests.support import wait_for_process_exit, wait_until
+
 from agentfuse.scenarios.common import DEMO_FILES
 
 ME = os.getpid()
@@ -75,11 +77,13 @@ async def test_a_worker_created_during_the_shutdown_does_not_leak(app, snapshot,
             snapshot_id=snapshot.snapshot_id,
         )
     )
-    await asyncio.sleep(0.3)
     # the runtime closes while the worker is still being created
     await app.coordinator.shutdown()
     call.cancel()
-    await asyncio.sleep(2.0)
+    # the worker must be gone - the wait is bounded, the test fails if it is not
+    assert await wait_for_process_exit(worker_processes()), (
+        "worker processes survived the shutdown"
+    )
 
     leaked = [pid for pid in worker_processes() if pid not in before]
     assert not leaked, f"worker processes survived the shutdown: {leaked}"
@@ -114,7 +118,9 @@ async def test_terminate_retries_until_the_process_is_gone(app, snapshot):
     # the second attempt has to kill the worker
     assert handle.terminate() is True
     assert handle.confirmed_gone is True
-    time.sleep(0.3)
+    assert await wait_for_process_exit([handle.process.pid]), (
+        "the killed worker is still running"
+    )
     assert not psutil.pid_exists(handle.process.pid)
 
 
@@ -141,7 +147,7 @@ async def test_the_real_worker_process_is_terminated(app, snapshot):
         assert real_pid == started_pid or real_pid in children
     finally:
         handle.terminate()
-    time.sleep(0.5)
+    assert await wait_for_process_exit([started_pid, real_pid, *children])
 
     for pid in {started_pid, real_pid, *children}:
         try:
@@ -175,7 +181,9 @@ async def test_no_worker_survives_the_runtime_lifetime(app, snapshot):
     assert pids
 
     await app.coordinator.shutdown()
-    time.sleep(0.5)
+    assert await wait_for_process_exit(list(pids)), (
+        "worker processes survived the shutdown"
+    )
 
     alive = []
     for pid in pids:
@@ -221,18 +229,22 @@ async def test_the_runtime_owns_exactly_its_workers(app, snapshot):
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
 
-    await asyncio.gather(
-        *[
+    tasks = [
+        asyncio.create_task(
             app.coordinator.submit_tool_call(
                 workflow_id=workflow.workflow_id,
                 tool_name="ast_analyzer",
                 arguments={"files": list(DEMO_FILES)},
                 snapshot_id=snapshot.snapshot_id,
             )
-            for _ in range(4)
-        ]
+        )
+        for _ in range(4)
+    ]
+    # the invariant has to hold **while** the workers run - after the calls
+    # are done the workers may already be terminated
+    assert await wait_until(lambda: app.coordinator._worker_handles), (
+        "the worker handles have to exist"
     )
-    await asyncio.sleep(0.2)
 
     handles = list(app.coordinator._worker_handles)
     live = [pid for pid in app.coordinator.worker_pids() if pid]
@@ -240,3 +252,4 @@ async def test_the_runtime_owns_exactly_its_workers(app, snapshot):
     for handle in handles:
         assert handle.is_alive()
         assert handle.terminated is False
+    await asyncio.gather(*tasks)

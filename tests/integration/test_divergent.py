@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 
+from tests.support import wait_until
+
 from agentfuse.core.state import EventType, ParticipantStatus, RuntimeMode, ValidationStatus
 from agentfuse.scenarios.common import (
     DEMO_FILES,
@@ -221,8 +223,9 @@ async def test_a_late_joiner_validates_the_early_dependencies(app, snapshot):
             reads += 1
 
     app.event_bus.subscribe(observer)
-    while reads < 2:
-        await asyncio.sleep(0.01)
+    assert await wait_until(lambda: reads >= 2), (
+        "the leader has to read two dependencies before the follower joins"
+    )
 
     follower = await asyncio.wait_for(
         app.coordinator.submit_tool_call(
@@ -349,18 +352,32 @@ async def test_a_rejected_candidate_is_recorded_as_detached(app, snapshot):
     arguments = {"files": list(DEMO_FILES), "rounds": 1200}
     # the leader reads the conflicting file first, therefore the follower
     # finds a mismatch in the ledger when it tries to join
-    leader = app.coordinator.submit_tool_call(
-        workflow_id=workflow.workflow_id,
-        tool_name="content_digest",
-        arguments=arguments,
-        snapshot_id=snapshot.snapshot_id,
+    leader = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
     )
-    await asyncio.sleep(0.2)
-    follower = app.coordinator.submit_tool_call(
+    # the leader has to have read the conflicting file - the event is the
+    # barrier, a fixed sleep would be a guess
+    await wait_for_event(
+        app.event_bus,
+        EventType.TOOL_READ_OBSERVED,
         workflow_id=workflow.workflow_id,
-        tool_name="content_digest",
-        arguments=arguments,
-        snapshot_id=branch.snapshot_id,
+        predicate=lambda event: (getattr(event, "metadata", None) or {}).get(
+            "relative_path"
+        )
+        == DIVERGENT_FILE,
+    )
+    follower = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=branch.snapshot_id,
+        )
     )
     await asyncio.wait_for(asyncio.gather(leader, follower), timeout=60)
 

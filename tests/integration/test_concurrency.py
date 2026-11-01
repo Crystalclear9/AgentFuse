@@ -7,6 +7,8 @@ import contextlib
 
 import pytest
 
+from tests.support import wait_for_process_exit, wait_until
+
 from agentfuse.core.state import EventType
 from agentfuse.scenarios.common import (
     DEMO_FILES,
@@ -102,7 +104,8 @@ async def test_a_cancelled_follower_does_not_stop_the_leader(app, snapshot):
             snapshot_id=snapshot.snapshot_id,
         )
     )
-    await asyncio.sleep(0.05)
+    # the leader has to be running - the follower can only join a running group
+    await wait_for_running_execution(app.event_bus, workflow.workflow_id)
     follower = asyncio.create_task(
         app.coordinator.submit_tool_call(
             workflow_id=workflow.workflow_id,
@@ -111,7 +114,13 @@ async def test_a_cancelled_follower_does_not_stop_the_leader(app, snapshot):
             snapshot_id=snapshot.snapshot_id,
         )
     )
-    await asyncio.sleep(0.1)
+    # the follower has to **wait** for the leader - the event is the barrier
+    await wait_for_event(
+        app.event_bus,
+        EventType.TOOL_CALL_WAITING,
+        workflow_id=workflow.workflow_id,
+        timeout=30,
+    )
 
     cancelled = False
     for call in app.coordinator.active_calls(workflow.workflow_id):
@@ -141,7 +150,8 @@ async def test_a_cancelled_leader_keeps_the_follower_alive(app, snapshot):
             snapshot_id=snapshot.snapshot_id,
         )
     )
-    await asyncio.sleep(0.05)
+    # the leader has to be running before the follower joins
+    await wait_for_running_execution(app.event_bus, workflow.workflow_id)
     follower = asyncio.create_task(
         app.coordinator.submit_tool_call(
             workflow_id=workflow.workflow_id,
@@ -150,7 +160,13 @@ async def test_a_cancelled_leader_keeps_the_follower_alive(app, snapshot):
             snapshot_id=snapshot.snapshot_id,
         )
     )
-    await asyncio.sleep(0.1)
+    # the follower waits for the leader - the event is the barrier
+    await wait_for_event(
+        app.event_bus,
+        EventType.TOOL_CALL_WAITING,
+        workflow_id=workflow.workflow_id,
+        timeout=30,
+    )
 
     leader_call = None
     for call in app.coordinator.active_calls(workflow.workflow_id):
@@ -186,7 +202,9 @@ async def test_cancelling_every_participant_terminates_the_execution(app, snapsh
         )
         for _ in range(2)
     ]
-    await asyncio.sleep(0.4)
+    assert await wait_until(
+        lambda: len(app.coordinator.active_calls(workflow.workflow_id)) >= 2
+    ), "the calls have to be queued before they are cancelled"
     for call in list(app.coordinator.active_calls(workflow.workflow_id)):
         await app.coordinator.cancel_logical_call(call.logical_call_id, "cancel all")
 
@@ -442,8 +460,10 @@ async def test_no_worker_processes_are_leaked(app, snapshot):
             for _ in range(4)
         ]
     )
-    await asyncio.sleep(0.3)
-
+    assert await wait_until(
+        lambda: app.coordinator.live_snapshot()["physical_executions"] >= 1
+    ), "an execution has to run before the pids are read"
+    app.repository.db.flush()
     pids = {execution["worker_pid"] for execution in app.repository.list_executions(workflow.workflow_id)}
 
     def running(pids: set) -> list:
@@ -487,7 +507,7 @@ async def test_no_worker_processes_are_leaked(app, snapshot):
     # after the runtime shuts down no worker may survive
     known = identity(pids)
     await app.coordinator.shutdown()
-    await asyncio.sleep(0.3)
+    await wait_for_process_exit(list(pids))
 
     survivors = []
     for pid in running(pids):
@@ -771,7 +791,14 @@ async def test_a_participant_that_left_is_not_failed_by_the_group_it_left(app, s
             snapshot_id=snapshot.snapshot_id,
         )
     )
-    await asyncio.sleep(0.2)
+    # the follower has to **join** the group - the group exists as soon as the
+    # leader created it
+    assert await wait_until(
+        lambda: any(
+            len(candidate.participants) >= 2
+            for candidate in app.coordinator._groups.values()
+        )
+    ), "the two calls have to share one group"
 
     groups = list(app.coordinator._groups.values())
     assert groups, "the two calls have to share one group"
@@ -868,7 +895,11 @@ async def test_a_separated_call_is_not_shared_anymore(app, snapshot):
             snapshot_id=snapshot.snapshot_id,
         )
     )
-    await asyncio.sleep(0.1)
+    assert await wait_until(
+        lambda: any(
+            len(group.participants) >= 2 for group in app.coordinator._groups.values()
+        )
+    ), "the follower has to join the group"
 
     group = next(iter(app.coordinator._groups.values()))
     participant = next(
@@ -959,7 +990,12 @@ async def test_every_failure_kind_is_persisted(app, snapshot):
             snapshot_id=snapshot.snapshot_id,
         )
     )
-    await asyncio.sleep(0.2)
+    assert await wait_until(
+        lambda: app.repository.list_logical_calls(cancelled.workflow_id)
+    ), "the call has to be in the database before it is cancelled"
+    assert await wait_until(
+        lambda: app.repository.list_logical_calls(cancelled.workflow_id)
+    ), "the call has to be in the database before it is cancelled"
     for call in app.repository.list_logical_calls(cancelled.workflow_id):
         await app.coordinator.cancel_logical_call(call["logical_call_id"], "audit")
     with pytest.raises(asyncio.CancelledError):
@@ -983,7 +1019,12 @@ async def test_an_interrupted_run_is_marked_with_its_kind(app, snapshot):
             snapshot_id=snapshot.snapshot_id,
         )
     )
-    await asyncio.sleep(0.2)
+    # the call **and** the execution have to be in the database before the
+    # crash is simulated - otherwise the recovery would find nothing to mark
+    assert await wait_until(
+        lambda: app.repository.list_logical_calls(workflow.workflow_id)
+        and app.repository.list_executions(workflow.workflow_id)
+    ), "the records have to be in the database before the crash is simulated"
     # the runtime "crashes": the records stay in the running state
     app.repository.db.write(
         "UPDATE logical_tool_calls SET status = 'RUNNING_INDEPENDENTLY' "

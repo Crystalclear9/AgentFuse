@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 
 from agentfuse.runtime.scheduler import LocalResourceController
+from tests.support import wait_until
 
 
 async def test_the_worker_limit_is_enforced():
     scheduler = LocalResourceController(max_workers=1, max_memory_budget_mb=1024)
     await scheduler.acquire("exec-1", 64)
     pending = asyncio.create_task(scheduler.acquire("exec-2", 64))
-    await asyncio.sleep(0.05)
+    assert await wait_until(lambda: scheduler.snapshot()["waiting"] >= 1)
     assert not pending.done()
     scheduler.release("exec-1")
     reason = await asyncio.wait_for(pending, timeout=1.0)
@@ -23,7 +24,7 @@ async def test_the_memory_budget_blocks_new_executions():
     scheduler = LocalResourceController(max_workers=4, max_memory_budget_mb=128)
     await scheduler.acquire("exec-1", 100)
     pending = asyncio.create_task(scheduler.acquire("exec-2", 100))
-    await asyncio.sleep(0.05)
+    assert await wait_until(lambda: scheduler.snapshot()["waiting"] >= 1)
     assert not pending.done()
     scheduler.release("exec-1")
     await asyncio.wait_for(pending, timeout=1.0)
@@ -47,9 +48,10 @@ async def test_the_queue_is_fifo():
 
     await scheduler.acquire("first", 8)
     tasks = [asyncio.create_task(worker(name)) for name in ("second", "third")]
-    await asyncio.sleep(0.05)
+    assert await wait_until(lambda: scheduler.snapshot()["waiting"] >= 2)
     scheduler.release("first")
-    await asyncio.sleep(0.05)
+    # the second worker takes the slot - the order is the contract
+    assert await wait_until(lambda: order == ["second"])
     scheduler.release("second")
     await asyncio.gather(*tasks)
     assert order == ["second", "third"]
@@ -70,9 +72,9 @@ async def test_the_fifo_strategy_admits_the_oldest_request():
     scheduler = LocalResourceController(max_workers=1, max_memory_budget_mb=1024, strategy="fifo")
     await scheduler.acquire("exec-1", 8)
     first = asyncio.create_task(scheduler.acquire("exec-old", 8, estimated_cpu_seconds=100.0))
-    await asyncio.sleep(0.05)
+    assert await wait_until(lambda: scheduler.snapshot()["waiting"] >= 1)
     second = asyncio.create_task(scheduler.acquire("exec-new", 8, estimated_cpu_seconds=1.0))
-    await asyncio.sleep(0.05)
+    assert await wait_until(lambda: scheduler.snapshot()["waiting"] >= 2)
     scheduler.release("exec-1")
     await asyncio.wait_for(first, timeout=1.0)
     scheduler.release("exec-old")

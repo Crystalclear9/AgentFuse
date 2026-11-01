@@ -7,6 +7,7 @@ import asyncio
 from agentfuse.core.state import EventType
 from agentfuse.runtime.scheduler import LocalResourceController
 from agentfuse.scenarios.common import DEMO_FILES, create_branch
+from tests.support import wait_until
 
 
 # ----------------------------------------------------------------------
@@ -34,7 +35,7 @@ async def test_the_pending_queue_explains_the_waiting_reason():
     scheduler = LocalResourceController(max_workers=1, max_memory_budget_mb=1024)
     await scheduler.acquire("exec-1", 8)
     task = asyncio.create_task(scheduler.acquire("exec-2", 8))
-    await asyncio.sleep(0.05)
+    assert await wait_until(lambda: scheduler.snapshot()["waiting"] >= 1)
 
     snapshot = scheduler.snapshot()
     assert snapshot["waiting"] == 1
