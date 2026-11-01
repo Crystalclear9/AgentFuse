@@ -878,6 +878,57 @@ MUTATIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "共享状态不再原子落库",
+        "clause": "16",
+        "file": "agentfuse/storage/repository.py",
+        "old": """        rows: list[tuple[str, tuple[Any, ...]]] = [self._share_group_row(group)]
+        rows.extend(self._share_participant_row(participant) for participant in participants)
+        rows.extend(self._logical_call_row(call) for call in calls)
+        self.db.transaction(rows)""",
+        "new": """        self.db.write(*self._share_group_row(group))
+        for participant in participants:
+            self.db.write(*self._share_participant_row(participant))
+        for call in calls:
+            self.db.write(*self._logical_call_row(call))""",
+        "expect": "半写",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/acceptance_check.py",
+            ],
+        ],
+    },
+    {
+        "name": "公平性不再比较数据",
+        "clause": "13.2",
+        "file": "scripts/audit_requirements.py",
+        "old": """    if not tools:
+        return {}
+    return {
+        "same tool implementations and requests": len(
+            {frozenset(value) for value in tools.values()}
+        )
+        == 1,
+        "same timeout": len({frozenset(value) for value in limits.values()}) == 1,
+    }""",
+        "new": """    if not tools:
+        return {}
+    return {
+        "same tool implementations and requests": True,
+        "same timeout": True,
+    }""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_audit_fairness.py::"
+                "test_the_fairness_comparison_reports_the_differences",
+                "-q",
+            ],
+        ],
+    },
+    {
         "name": "被拒候选者仍算作组员",
         "clause": "8.2",
         "file": "agentfuse/runtime/coordinator.py",

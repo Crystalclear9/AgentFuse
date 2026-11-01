@@ -1560,15 +1560,17 @@ def audit_benchmark() -> None:
         record("13.1", f"比较模式 {mode}", f'"{mode}"' in runner or f'"{mode}"' in cli)
     record("13.1", "模式 C 可选且已实现", "deferred" in runner or "deferred" in cli)
 
-    # the fairness rules of the module docstring
-    for rule in (
-        "same input repository and same snapshots",
-        "same tool implementations",
-        "same request sequence",
-        "same worker limit, memory budget and timeout",
-        "same random seed",
-    ):
-        record("13.2", f"公平性规则 {rule}", rule in runner)
+    # The fairness rules are not only **documented** - the modes of a
+    # comparison have to use the same tool, the same request and the same
+    # limits.  The data of a comparison run is the proof (the checks above
+    # compare the seed, the request sequence and the snapshot content).
+    fair = _fairness_of_the_modes()
+    record(
+        "13.2",
+        "对比模式使用相同的工具与限制",
+        bool(fair) and all(fair.values()),
+        f"{fair}",
+    )
 
     # the metrics of requirement 13.3
     for metric in (
@@ -1747,6 +1749,88 @@ TEST_CATEGORIES = {
         "test_the_shared_results_are_identical_to_the_baseline",
     ],
 }
+
+
+def _fairness_of_the_modes() -> dict[str, bool]:
+    """Compare the modes of a comparison run with each other.
+
+    The modes have to use the same tool and the same limits - otherwise the
+    comparison measures the difference of the **setup** and not the difference
+    of the sharing.
+    """
+
+    import asyncio
+    import shutil
+    import tempfile
+
+    from agentfuse.api.app import create_app
+    from agentfuse.benchmarks.runner import compare
+    from agentfuse.core.state import RuntimeMode
+    from agentfuse.settings import load_settings
+
+    # the database file of the worker threads may still be open - the
+    # temporary directory is cleaned by the operating system
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        home = Path(tmp) / "fairness"
+        shutil.rmtree(home, ignore_errors=True)
+        settings = load_settings(home=str(home))
+        app = create_app(settings=settings)
+        runtime = app.state.runtime
+
+        async def run() -> dict[str, Any]:
+            return await compare(
+                runtime,
+                "shared",
+                repeats=1,
+                modes=("baseline", "online"),
+            )
+
+        try:
+            report = asyncio.run(run())
+        except Exception:
+            return {}
+        finally:
+            asyncio.run(runtime.close())
+
+        runs = report.get("runs") or {}
+        if len(runs) < 2:
+            return {}
+        tools: dict[str, set[tuple[str, str, str]]] = {}
+        limits: dict[str, set[float]] = {}
+        for mode, entries in runs.items():
+            used: set[tuple[str, str, str]] = set()
+            timeouts: set[float] = set()
+            for entry in entries:
+                for row in runtime.repository.list_executions(entry["workflow_id"]):
+                    used.add(
+                        (row["tool_name"], row["tool_version"], row["arguments_hash"])
+                    )
+                    timeouts.add(float(row["timeout_seconds"] or 0))
+            tools[mode] = used
+            limits[mode] = timeouts
+        return _compare_modes(tools, limits)
+
+
+def _compare_modes(
+    tools: dict[str, set[tuple[str, str, str]]],
+    limits: dict[str, set[float]],
+) -> dict[str, bool]:
+    """Compare the modes of a comparison run with each other.
+
+    The modes have to use the same tool, the same request and the same limits
+    - otherwise the comparison measures the difference of the **setup** and not
+    the difference of the sharing.
+    """
+
+    if not tools:
+        return {}
+    return {
+        "same tool implementations and requests": len(
+            {frozenset(value) for value in tools.values()}
+        )
+        == 1,
+        "same timeout": len({frozenset(value) for value in limits.values()}) == 1,
+    }
 
 
 def _migrate_an_old_database() -> int | None:

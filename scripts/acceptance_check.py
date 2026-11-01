@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
+import time
 import sys
 from pathlib import Path
 
@@ -62,7 +63,9 @@ def main() -> int:
     ]
     missing = [name for name in required if not (ROOT / name).exists()]
     # workspace/manifest.py is covered by workspace/fingerprint.py + snapshots.py
-    missing = [name for name in missing if name != "agentfuse/workspace/manifest.py"]
+    # every file of the layout has to be there - the file exists, the exclusion
+    # was a leftover of an earlier version
+    missing = [name for name in missing]
     check("工程目录结构完整", not missing, f"missing: {missing}")
 
     # --- runtime --------------------------------------------------------
@@ -89,9 +92,30 @@ def main() -> int:
                   kinds.count("agent") == 5 and kinds.count("invocation") == 5
                   and kinds.count("logical_call") == 4,
                   f"nodes={len(kinds)}")
-            check("多 Agent 并发工作流完成",
-                  multi.metrics["logical_calls"] == 4
-                  and multi.metrics["physical_executions"] == 3)
+            # the counts are not enough: the aggregator has to have received
+            # the results of the three workers and the two shared calls have to
+            # have the same result
+            multi_calls = app.repository.list_logical_calls(multi.workflow_id)
+            shared_calls = [
+                call
+                for call in multi_calls
+                if call["tool_name"] == "ast_analyzer"
+            ]
+            multi_payload = multi.results[0]
+            check(
+                "多 Agent 并发工作流完成",
+                multi.metrics["logical_calls"] == 4
+                and multi.metrics["physical_executions"] == 3
+                and isinstance(multi_payload, dict)
+                and multi_payload.get("workers") == 3
+                and multi_payload.get("aggregated_functions", 0) > 0
+                and len(shared_calls) == 2
+                and len({call["result_hash"] for call in shared_calls}) == 1
+                and all(call["result_hash"] for call in shared_calls),
+                f"calls={multi.metrics['logical_calls']} "
+                f"executions={multi.metrics['physical_executions']} "
+                f"aggregator={multi_payload if isinstance(multi_payload, dict) else multi_payload}",
+            )
 
             # every scenario of the requirement has to run for real
             from agentfuse.scenarios.definitions import (
@@ -221,40 +245,91 @@ def main() -> int:
                 not missing_relations,
                 f"缺: {missing_relations}" if missing_relations else f"{len(expected_relations)} 条关系",
             )
-            check("调用与执行原子落库",
-                  all(call["physical_execution_id"] for call in calls)
-                  and all(execution["result_reference"] for execution in executions),
-                  f"calls={[c['physical_execution_id'] for c in calls]}")
+            # The name promises **atomicity**: the group row and the rows of
+            # its participants describe the same state - they have to be
+            # written in one transaction.  The check drives the **runtime's**
+            # own write path (``Repository.save_share_state``), not a
+            # synthetic probe.
+            from agentfuse.storage.models import ShareGroupRecord, ShareParticipantRecord
 
-            # The name promises **atomicity**: a state transition that spans
-            # two tables must not be split across two transactions.  The
-            # check proves it: a transaction whose second statement fails
-            # must not leave the first statement behind.
-            probe = Database(home / "atomicity-probe.sqlite3")
-            probe.initialize()
-            probe.start()
-            probe.transaction([
-                (
-                    "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
-                    "VALUES ('wf-atomicity', 'demo', 1.0, 'RUNNING', 'online')",
-                    (),
-                ),
-                (
-                    # a NOT NULL violation: the statement cannot succeed
-                    "INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) "
-                    "VALUES ('wf-atomicity-broken', 'demo', 1.0, NULL, 'online')",
-                    (),
-                ),
-            ])
-            probe.flush()
-            survived = probe.query(
-                "SELECT * FROM workflows WHERE workflow_id = 'wf-atomicity'"
+            run_stamp = str(int(time.time() * 1000))
+
+            def share_state(group_id: str, call_id: str) -> tuple[ShareGroupRecord, ShareParticipantRecord]:
+                group = ShareGroupRecord(
+                    share_group_id=group_id,
+                    workflow_id=shared.workflow_id,
+                    candidate_key="acceptance-atomicity",
+                    leader_execution_id=None,
+                    leader_logical_call_id=call_id,
+                    creation_time=1.0,
+                    closed_time=None,
+                    status="EXECUTING",
+                    participant_count=1,
+                    participant_calls=[call_id],
+                    mode="online",
+                    tool_name="ast_analyzer",
+                    tool_version="1.0.0",
+                )
+                participant = ShareParticipantRecord(
+                    share_group_id=group_id,
+                    logical_call_id=call_id,
+                    workflow_id=shared.workflow_id,
+                    agent_id=None,
+                    invocation_id=None,
+                    snapshot_id=None,
+                    status="SHARED_WAIT",
+                    validated_prefix_length=0,
+                    validation_status="MATCH",
+                    attached_time=1.0,
+                    detached_time=None,
+                    delivered_time=None,
+                    wait_duration=None,
+                    wait_reason=None,
+                    detach_reason=None,
+                    detach_kind=None,
+                    is_leader=True,
+                )
+                return group, participant
+
+            # the positive case: one write, both rows are there
+            group, participant = share_state(
+                f"sg-acceptance-{run_stamp}", calls[0]["logical_call_id"]
             )
-            probe.close()
+            app.repository.save_share_state(group, [participant])
+            app.database.flush()
+            check(
+                "调用与执行原子落库",
+                all(call["physical_execution_id"] for call in calls)
+                and all(execution["result_reference"] for execution in executions)
+                and bool(app.repository.list_share_groups(shared.workflow_id))
+                and len(app.repository.list_participants(shared.workflow_id)) > 0,
+                f"calls={[c['physical_execution_id'] for c in calls]}",
+            )
+
+            # The negative case: the participant row violates a foreign key -
+            # the group row must not survive it either.
+            broken_group_id = f"sg-acceptance-broken-{run_stamp}"
+            broken_group, broken_participant = share_state(
+                broken_group_id, "call-acceptance-missing"
+            )
+            errors_before = app.database.write_errors
+            # one statement per batch: the two rows would then land in **two**
+            # transactions - which is exactly what the check has to detect
+            batch_size = app.database._batch_size
+            app.database._batch_size = 1
+            try:
+                app.repository.save_share_state(broken_group, [broken_participant])
+                app.database.flush()
+            finally:
+                app.database._batch_size = batch_size
             check(
                 "失败的事务不会留下半写的状态",
-                not survived and probe.write_errors >= 1,
-                f"rows={len(survived)} errors={probe.write_errors}",
+                app.database.write_errors > errors_before
+                and not any(
+                    row["share_group_id"] == broken_group_id
+                    for row in app.repository.list_share_groups(shared.workflow_id)
+                ),
+                f"errors={app.database.write_errors} last={(app.database.last_error or '')[:120]}",
             )
         finally:
             await app.close()
@@ -434,11 +509,18 @@ def main() -> int:
                 scenarios.status_code == 200 and scenarios.json().get("scenarios"),
             )
             metrics = await client.get(f"/api/workflows/{workflow_id}/metrics")
+            metric_payload = metrics.json()
+            api_executions = api_app.state.runtime.repository.list_executions(workflow_id)
+            api_calls = api_app.state.runtime.repository.list_logical_calls(workflow_id)
             check(
                 "工作流指标端点返回真实指标",
                 metrics.status_code == 200
-                and metrics.json().get("physical_executions", 0) >= 1,
-                metrics.text[:120],
+                and metric_payload.get("physical_executions") == len(api_executions)
+                and metric_payload.get("logical_calls") == len(api_calls)
+                and len(api_executions) >= 1,
+                f"executions={metric_payload.get('physical_executions')}"
+                f"/{len(api_executions)} calls={metric_payload.get('logical_calls')}"
+                f"/{len(api_calls)}",
             )
             graph = await client.get(f"/api/workflows/{workflow_id}/graph")
             graph_payload = graph.json()
