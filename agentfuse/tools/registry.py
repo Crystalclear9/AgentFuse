@@ -20,7 +20,7 @@ from .base import (
 from .ast_analyzer import python_ast_analyzer
 from .dependency_analyzer import source_dependency_analyzer
 from .duplicate_blocks import duplicate_block_finder
-from .fixtures import random_reader, raw_reader, test_tools_enabled
+from .fixtures import directory_lister, random_reader, raw_reader, test_tools_enabled
 from .digest_analyzer import content_digest_analyzer
 from .fault_injector import fault_injector
 from .import_graph import import_graph_builder
@@ -326,6 +326,24 @@ def build_default_registry() -> ToolRegistry:
                 implementation_reference="agentfuse.tools.fixtures:random_reader",
                 env_signature={"scope": "workspace-filesystem"},
                 description="Test fixture: reads the workspace and draws a number.",
+            )
+        )
+        # a tool that only **lists** directories: it never opens a file, so
+        # its ledger would be empty - the audit hook has to catch the listing
+        registry.register(
+            ToolSpec(
+                tool_name="directory_lister",
+                tool_version="1.0.0",
+                deterministic=True,
+                read_only=True,
+                dependency_tracking=True,  # the tool *claims* a complete ledger
+                resource_estimate={"cpu_seconds": 0.1, "memory_mb": 32.0},
+                input_schema={"type": "object", "properties": {}, "required": []},
+                output_schema={"type": "object"},
+                implementation=directory_lister,
+                implementation_reference="agentfuse.tools.fixtures:directory_lister",
+                env_signature={"scope": "workspace-filesystem"},
+                description="Test fixture: lists the workspace without the reader.",
             )
         )
         # a second version of the same tool: the version is part of the

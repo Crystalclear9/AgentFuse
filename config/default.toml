@@ -30,10 +30,6 @@ worker_pool_size = 2
 default_timeout_seconds = 60
 # Sampling interval for worker RSS / CPU monitoring.
 resource_sample_interval_ms = 50
-# Coalescing window (ms) applied before a brand new physical execution is
-# started. 0 disables the window (used for fair baseline comparisons).
-share_coalesce_window_ms = 0
-
 [workspace]
 # Hard limits applied when materialising a snapshot.
 max_files = 5000

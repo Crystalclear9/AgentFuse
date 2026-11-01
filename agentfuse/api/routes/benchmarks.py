@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from ...benchmarks.runner import compare
 from ...core.ids import new_id
 from ...scenarios import list_scenarios, resolve_scenario
+from ._reads import read
 from .deps import jobs, runtime
 
 router = APIRouter(prefix="/api/benchmarks", tags=["benchmarks"])
@@ -30,7 +31,7 @@ class BenchmarkRequest(BaseModel):
 @router.get("")
 async def list_benchmarks(request: Request, scenario: str | None = None) -> dict[str, Any]:
     app = runtime(request)
-    return {"runs": app.repository.list_benchmark_runs(scenario)}
+    return {"runs": await read(lambda: app.repository.list_benchmark_runs(scenario))}
 
 
 @router.get("/scenarios")

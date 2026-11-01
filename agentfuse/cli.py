@@ -87,12 +87,9 @@ def cmd_init(args: argparse.Namespace) -> int:
 def _is_loopback(host: str) -> bool:
     """True when the address only reaches the local machine."""
 
-    import ipaddress
+    from agentfuse.core.net import is_loopback
 
-    try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return host in ("localhost", "")
+    return is_loopback(host)
 
 
 def cmd_serve(args: argparse.Namespace) -> int:

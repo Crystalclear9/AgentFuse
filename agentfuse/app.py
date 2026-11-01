@@ -89,6 +89,7 @@ class AgentFuseApp:
             default_timeout_seconds=self.settings.default_timeout_seconds,
             result_cache_entries=self.settings.result_cache_entries,
             worker_pool_size=self.settings.worker_pool_size,
+            resource_sample_interval_ms=self.settings.resource_sample_interval_ms,
         )
         self._workflows: list[WorkflowRuntime] = []
         # Start the pool workers while the runtime is idle.

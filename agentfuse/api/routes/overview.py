@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 
 from ...core.state import EventType
+from ._reads import read
 from .deps import runtime
 
 router = APIRouter(prefix="/api", tags=["overview"])
@@ -26,12 +27,14 @@ async def health(request: Request) -> dict[str, Any]:
     }
 
 
-@router.get("/overview")
-async def overview(request: Request) -> dict[str, Any]:
-    """Everything the dashboard needs - all of it read from real state."""
+def _overview(repository: Any, registry: Any) -> dict[str, Any]:
+    """Collect the state of the dashboard (a blocking read).
 
-    app = runtime(request)
-    repository = app.repository
+    Everything that comes from the database is read here - the caller runs
+    this function in a worker thread, so that the wait for the writer does not
+    block the event loop.
+    """
+
     workflows = repository.list_workflows(limit=25)
 
     running = [row for row in workflows if row["status"] == "RUNNING"]
@@ -83,7 +86,6 @@ async def overview(request: Request) -> dict[str, Any]:
         )
     ]
 
-    live = app.coordinator.live_snapshot()
     return {
         "running_workflows": len(running),
         "total_workflows": len(workflows),
@@ -95,8 +97,6 @@ async def overview(request: Request) -> dict[str, Any]:
         "detached": detached,
         "rejected_candidates": rejected,
         "retried_participants": retried,
-        "workers": live["resources"],
-        "mode": live["mode"],
         "workflows": workflows,
         "recent_events": recent_events,
         "recent_share_events": share_events,
@@ -109,9 +109,23 @@ async def overview(request: Request) -> dict[str, Any]:
                 "read_only": spec.read_only,
                 "dependency_tracking": spec.dependency_tracking,
             }
-            for spec in app.registry.list_tools()
+            for spec in registry.list_tools()
         ],
     }
+
+
+@router.get("/overview")
+async def overview(request: Request) -> dict[str, Any]:
+    """Everything the dashboard needs - all of it read from real state."""
+
+    app = runtime(request)
+    # the database reads run in a worker thread: they have to wait for the
+    # writer, and that wait must not block the event loop
+    data = await read(lambda: _overview(app.repository, app.registry))
+    live = app.coordinator.live_snapshot()
+    data["workers"] = live["resources"]
+    data["mode"] = live["mode"]
+    return data
 
 
 @router.get("/resources")

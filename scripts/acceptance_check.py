@@ -116,12 +116,17 @@ def main() -> int:
             failures = await scenario_cancel_failure(
                 app, RuntimeMode.ONLINE, {"timeout_seconds": 0.5}
             )
+            shared_failure = failures.notes.get("shared_failure", {})
             check("取消与失败场景覆盖全部情形",
                   failures.notes["follower_cancel"]["follower_result"] == {"cancelled": True}
                   and failures.notes["leader_cancel"]["cancelled_was_the_leader"] is True
                   and "timed out" in failures.notes["timeout"]["error"]
-                  and failures.notes["crash"]["kind"] in ("worker_crash", "internal_error"),
-                  "取消/超时/崩溃")
+                  and failures.notes["crash"]["kind"] in ("worker_crash", "internal_error")
+                  # the fifth case: the shared execution fails - both agents
+                  # have to learn about it
+                  and bool(shared_failure.get("agent_a", {}).get("error"))
+                  and bool(shared_failure.get("agent_b", {}).get("error")),
+                  "取消/超时/崩溃/共享失败")
 
             calls = app.repository.list_logical_calls(shared.workflow_id)
             executions = app.repository.list_executions(shared.workflow_id)
@@ -130,13 +135,43 @@ def main() -> int:
             check("SQLite 保存真实执行记录",
                   len(calls) == 2 and len(executions) == 1
                   and executions[0]["worker_pid"] is not None)
+            samples = app.repository.list_resource_samples(executions[0]["execution_id"])
             check("资源数据被采集",
-                  executions[0]["peak_rss"] and executions[0]["peak_rss"] > 0,
-                  f"peak_rss={executions[0]['peak_rss']}")
+                  executions[0]["peak_rss"] and executions[0]["peak_rss"] > 0
+                  and bool(samples)
+                  and all((row["rss_bytes"] or 0) > 0 for row in samples),
+                  f"peak_rss={executions[0]['peak_rss']} samples={len(samples)}")
             events = app.repository.list_events(shared.workflow_id)
+            # the protocol is not only "more than five events": the required
+            # event types have to be there, the sequence has to be contiguous
+            # and every parent has to resolve to a row of the same workflow
+            required_events = {
+                "WORKFLOW_STARTED",
+                "AGENT_INVOKED",
+                "TOOL_CALL_REQUESTED",
+                "TOOL_READ_OBSERVED",
+                "SHARE_CANDIDATE_FOUND",
+                "SHARE_VALIDATION_PASSED",
+                "TOOL_EXECUTION_STARTED",
+                "TOOL_EXECUTION_FINISHED",
+                "TOOL_RESULT_DELIVERED",
+                "AGENT_RETURNED",
+                "WORKFLOW_FINISHED",
+            }
+            event_types = {event["event_type"] for event in events}
+            sequences = sorted(event["sequence"] for event in events)
+            event_ids = {event["event_id"] for event in events}
+            parents_resolve = all(
+                event["parent_event_id"] is None
+                or event["parent_event_id"] in event_ids
+                for event in events
+            )
             check("事件协议落库",
-                  len(events) > 5
-                  and any(e["event_type"] == "TOOL_READ_OBSERVED" for e in events))
+                  required_events <= event_types
+                  and sequences == list(range(len(sequences)))
+                  and parents_resolve,
+                  f"types={len(required_events & event_types)}/{len(required_events)} "
+                  f"sequence={sequences[:3]}..{sequences[-1:]} parents={parents_resolve}")
 
             # --- referential integrity ------------------------------------
             database = app.repository.db
@@ -151,8 +186,12 @@ def main() -> int:
             violations = database.foreign_key_violations()
             check("外键约束无违规", not violations, f"violations={violations[:5]}")
             foreign_keys = database.foreign_keys()
+            # every foreign key has to be deferrable and to clean up its rows
+            # the pragma reports (table, id, seq, table, from, to, on_update,
+            # on_delete, match) - the cleanup rule has to be there
             check("外键约束已声明",
-                  len(foreign_keys) >= 14,
+                  len(foreign_keys) == 14
+                  and all(row[7] in ("CASCADE", "SET NULL") for row in foreign_keys),
                   f"declared={len(foreign_keys)}")
             # the count alone proves nothing - the *relations* have to be there
             # the pragma reports (id, seq, table, from, to, ...) - the row of
@@ -242,14 +281,31 @@ def main() -> int:
     cli_commands.append(["trace", trace_id])
     cli_commands.append(["inspect", execution_id])
 
+    # the commands have to print **something** - an exit code of zero with an
+    # empty output is not a usable command
+    cli_expectations = {
+        "demo": "物理执行数",
+        "compare": "baseline",
+        "trace": trace_id[:12],
+        "inspect": execution_id[:12],
+        "tools": "ast_analyzer",
+        "--version": "0.",
+    }
     for command in cli_commands:
         process = subprocess.run(
             [sys.executable, "-m", "agentfuse", "--home", str(home), *command],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             cwd=str(ROOT), timeout=600,
         )
+        expected = ""
+        for key, needle in cli_expectations.items():
+            if key in command:
+                expected = needle
+                break
+        output = (process.stdout or "") + (process.stderr or "")
         check(f"CLI 命令可用: agentfuse {' '.join(command)}",
-              process.returncode == 0, process.stderr[-200:] if process.returncode else "")
+              process.returncode == 0 and (not expected or expected in output),
+              process.stderr[-200:] if process.returncode else f"missing {expected!r}")
 
     # --- api ------------------------------------------------------------
     import httpx
@@ -271,7 +327,16 @@ def main() -> int:
         transport = httpx.ASGITransport(app=api_app)
         async with httpx.AsyncClient(transport=transport, base_url="http://x") as client:
             index = await client.get("/")
-            check("Web UI 可打开", index.status_code == 200 and "AgentFuse" in index.text)
+            tabs = [f'data-tab="{tab}"' for tab in
+                    ("overview", "workflow", "dependency", "benchmark", "tools")]
+            assets = [await client.get(path) for path in
+                      ("/static/app.js", "/static/styles.css")]
+            check("Web UI 可打开",
+                  index.status_code == 200
+                  and "AgentFuse" in index.text
+                  and all(tab in index.text for tab in tabs)
+                  and all(asset.status_code == 200 for asset in assets),
+                  "the page has to have its tabs and its assets")
             overview = await client.get("/api/overview")
             check("Dashboard 读取真实后端状态", overview.status_code == 200)
             payload = overview.json()
@@ -290,7 +355,9 @@ def main() -> int:
                 # dashboard shows (the overview only lists the most recent
                 # ones), otherwise the check would depend on how many runs
                 # the home directory already contains.
-                payload["logical_tool_calls"]
+                payload["logical_tool_calls"] >= 1
+                and payload["physical_executions"] >= 1
+                and payload["logical_tool_calls"]
                 == sum(
                     len(
                         api_app.state.runtime.repository.list_logical_calls(
@@ -314,10 +381,41 @@ def main() -> int:
             )
             check(
                 "工具注册表带依赖声明",
-                all("dependency_tracking" in tool for tool in payload["tools"]),
+                len(payload["tools"]) >= 7
+                and all(
+                    "dependency_tracking" in tool
+                    and isinstance(tool["dependency_tracking"], bool)
+                    and "deterministic" in tool
+                    and "read_only" in tool
+                    and "shareable" in tool
+                    for tool in payload["tools"]
+                ),
+                f"tools={len(payload['tools'])}",
             )
             tools = await client.get("/api/tools")
             check("工具注册表可查询", tools.status_code == 200)
+
+            # §14.3 the workflow detail shows the confirmed dependencies and
+            # the reason a participant waits
+            detail_response = await client.get(f"/api/workflows/{workflow_id}")
+            detail = detail_response.json()
+            confirmed = [
+                record
+                for records in (detail.get("dependencies") or {}).values()
+                for record in records
+            ]
+            waiting = [
+                participant
+                for participant in (detail.get("share_participants") or [])
+                if participant.get("wait_reason")
+            ]
+            check(
+                "工作流详情显示已确认依赖与等待原因",
+                detail_response.status_code == 200
+                and bool(confirmed)
+                and bool(waiting),
+                f"dependencies={len(confirmed)} waiting={len(waiting)}",
+            )
 
             # the endpoints that were never called before
             resources = await client.get("/api/resources")

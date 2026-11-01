@@ -188,6 +188,7 @@ class RuntimeCoordinator:
         default_timeout_seconds: int = 60,
         result_cache_entries: int = 64,
         worker_pool_size: int = 0,
+        resource_sample_interval_ms: int = 50,
     ) -> None:
         self.repository = repository
         self.registry = registry
@@ -201,6 +202,8 @@ class RuntimeCoordinator:
         self.validator = DependencyValidator(snapshots)
         self.result_cache = ResultCache(max_entries=result_cache_entries)
         self.worker_pool_size = max(0, int(worker_pool_size))
+        #: how often the resource monitor samples the RSS of the workers
+        self.resource_sample_interval_ms = max(1, int(resource_sample_interval_ms))
         self._pool_lock = threading.Lock()
         self._idle_workers: list[WorkerHandle] = []
         self._worker_handles: set[WorkerHandle] = set()
@@ -214,7 +217,9 @@ class RuntimeCoordinator:
         self._pool_epoch = 0
         self._pool_warmup_thread: threading.Thread | None = None
         self._shutdown_done = False
-        self._resource_monitor = ResourceMonitor(repository=repository, interval=0.05)
+        self._resource_monitor = ResourceMonitor(
+            repository=repository, interval=self.resource_sample_interval_ms / 1000
+        )
 
         self._lock = asyncio.Lock()
         self._calls: dict[str, LogicalCall] = {}
@@ -418,6 +423,14 @@ class RuntimeCoordinator:
                     execution = self._executions.get(group.leader_execution_id)
                     if execution is not None and execution.status is ExecutionStatus.RUNNING:
                         terminate.append(execution)
+            else:
+                # The call runs on its own (a tool that is not shareable) - it
+                # has no group, therefore its **own** execution has to be
+                # terminated.  Otherwise the worker would keep running after
+                # the call was cancelled.
+                execution = self._executions.get(call.physical_execution_id or "")
+                if execution is not None and execution.status is ExecutionStatus.RUNNING:
+                    terminate.append(execution)
             if group is not None:
                 # the call row, the participant row and the group describe the
                 # same state - they have to be written together
@@ -761,6 +774,11 @@ class RuntimeCoordinator:
         )
 
     def _create_group_locked(self, call: LogicalCall) -> None:
+        # A logical call belongs to at most **one** running physical execution
+        # (requirement 8.2).  The guard is checked here as well - not only in
+        # the failure path - so that the invariant holds structurally.
+        if self._running_execution_of(call) is not None:
+            return
         mode = self.mode_for(call.workflow_id)
         group = ShareGroup(
             share_group_id=new_id("sg"),
@@ -1706,13 +1724,17 @@ class RuntimeCoordinator:
                         "dependency validation incomplete at commit time",
                     )
                     continue
-                if not self._snapshot_is_trustworthy(participant.snapshot_id or "", force=True):
-                    self._detach_participant_locked(
-                        group,
-                        participant,
-                        "snapshot integrity check failed before the result was shared",
-                    )
-                    continue
+            # The **final** integrity check runs in every mode: a snapshot that
+            # was tampered with after the join must not receive a shared
+            # result - not even in the deferred mode (requirement 8.7 and the
+            # correctness checklist of the sharing protocol).
+            if not self._snapshot_is_trustworthy(participant.snapshot_id or "", force=True):
+                self._detach_participant_locked(
+                    group,
+                    participant,
+                    "snapshot integrity check failed before the result was shared",
+                )
+                continue
             call = self._calls.get(participant.logical_call_id)
             if call is not None:
                 self._deliver_locked(
@@ -2019,6 +2041,10 @@ class RuntimeCoordinator:
                     return
         # nobody compatible is running -> lead a new group so that further
         # detached participants of the same branch can join it
+        if self._running_execution_of(call) is not None:
+            # the call already owns a running execution - it must not get a
+            # second one (requirement 8.2)
+            return
         self._create_group_locked(call)
 
     def _deliver_locked(

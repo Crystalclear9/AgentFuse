@@ -126,6 +126,54 @@ async def test_a_bypassing_tool_is_never_shared(app, snapshot, monkeypatch):
     assert results[0].result["functions"] == results[1].result["functions"]
 
 
+async def test_a_tool_that_only_lists_directories_is_detected(
+    app, snapshot, monkeypatch
+):
+    """A directory listing is a workspace read as well.
+
+    The tool never opens a file - it only lists the directories.  Its
+    dependency ledger would therefore be empty and the runtime could not know
+    what it read.  The audit hook has to report the bypass and the result
+    must not be shared.
+    """
+
+    monkeypatch.setenv("AGENTFUSE_TEST_TOOLS", "1")
+    app.coordinator.registry = build_default_registry()
+    app.coordinator.worker_pool_size = 0
+
+    workflow = app.create_workflow("test-listing-bypass")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    events = []
+    app.event_bus.subscribe(events.append)
+
+    await asyncio.gather(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="directory_lister",
+            arguments={},
+            snapshot_id=snapshot.snapshot_id,
+        ),
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="directory_lister",
+            arguments={},
+            snapshot_id=snapshot.snapshot_id,
+        ),
+    )
+
+    bypass_events = [
+        event for event in events if event.event_type == EventType.DEPENDENCY_BYPASS
+    ]
+    assert bypass_events, "the directory listing must be reported as a bypass"
+
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert len(executions) == 2, (
+        "a tool that lists the workspace directly must not share its result"
+    )
+
+
 async def test_a_controlled_tool_is_shared(app, snapshot):
     """The normal case still shares - the audit hook does not interfere."""
 

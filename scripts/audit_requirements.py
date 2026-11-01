@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import json
 import os
 import shutil
@@ -38,6 +39,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from agentfuse.console import configure_console  # noqa: E402
+from agentfuse.core.state import EventType  # noqa: E402
+from agentfuse.storage.database import SCHEMA_VERSION  # noqa: E402
 from agentfuse.storage.database import Database  # noqa: E402
 
 configure_console()
@@ -390,8 +393,21 @@ def audit_data_model() -> None:
             not missing,
             f"缺: {missing}" if missing else f"{len(columns)} 列",
         )
-    record("16", "保存数据库 Schema 版本", "SCHEMA_VERSION" in schema_source, f"v{version}")
-    record("16", "提供必要迁移", "_MIGRATIONS" in schema_source)
+    # The version is not only **named** in the source - the database has to
+    # carry it and a database of an older version has to be migrated.
+    record(
+        "16",
+        "保存数据库 Schema 版本",
+        version == SCHEMA_VERSION,
+        f"db={version} code={SCHEMA_VERSION}",
+    )
+    migrated = _migrate_an_old_database()
+    record(
+        "16",
+        "提供必要迁移",
+        migrated is not None and migrated >= SCHEMA_VERSION,
+        f"v1 -> v{migrated}" if migrated is not None else "the migration failed",
+    )
 
 
 # ----------------------------------------------------------------------
@@ -477,19 +493,6 @@ def audit_core() -> None:
     coordinator = read("agentfuse/runtime/coordinator.py")
     group = read("agentfuse/sharing/share_group.py")
 
-    record("8.2", "共享组状态机", all(
-        state in group for state in
-        ("CREATED", "EXECUTING", "VALIDATING", "COMPLETED", "FAILED", "CLOSED")
-    ))
-    record("8.2", "参与者状态机", all(
-        state in group for state in
-        ("WAITING", "SHARED_WAIT", "DETACHED", "RUNNING_INDEPENDENTLY",
-         "COMPLETED", "FAILED", "CANCELLED")
-    ))
-    record("8.5", "在线增量依赖验证", "_handle_dependency" in coordinator)
-    record("8.7", "最终提交验证门禁", "validated_prefix_length != len(ledger)" in coordinator)
-    record("8.8", "分离后独立执行", "_reassign_after_detach_locked" in coordinator)
-    record("21.1", "单一协调者状态锁", "self._lock = asyncio.Lock()" in coordinator)
     # §21.3 the boundary of the dependency tracking: a tool that bypasses the
     # controlled reader must never be shared
     record(
@@ -515,13 +518,6 @@ def audit_core() -> None:
         not framework_imports,
         str(framework_imports),
     )
-    record("21.2", "快照被篡改时拒绝共享", "_snapshot_is_trustworthy" in coordinator)
-    record("21.4", "真实执行次数来自 PhysicalExecution", "physical_executions" in read("agentfuse/monitoring/metrics.py"))
-    record("9.1", "LocalResourceController", "class LocalResourceController" in read("agentfuse/runtime/scheduler.py"))
-    record("9.3", "psutil 采集 RSS", "psutil" in read("agentfuse/monitoring/resource_monitor.py"))
-    record("9.4", "工具在独立进程执行",
-           "worker_child" in read("agentfuse/runtime/pool.py"))
-    record("10.5", "中断运行标记 INTERRUPTED", "recover_interrupted_workflows" in read("agentfuse/storage/repository.py"))
 
 
 # ----------------------------------------------------------------------
@@ -535,13 +531,24 @@ def audit_surface() -> None:
         record("12", f"演示场景 {scenario}", scenario in definitions)
 
     cli = read("agentfuse/cli.py")
-    for command in ("init", "serve", "demo", "compare", "trace", "inspect"):
-        record("15", f"CLI {command}", f'"{command}"' in cli)
-
     html = read("agentfuse/web/index.html")
-    for tab in ("overview", "workflow", "dependency", "benchmark", "tools"):
-        record("14", f"界面页签 {tab}", f'data-tab="{tab}"' in html)
-
+    # §15 the commands have to be **usable** - the audit runs them itself
+    for command in ("init", "serve", "demo", "compare", "trace", "inspect", "tools"):
+        result = subprocess.run(
+            [sys.executable, "-m", "agentfuse", command, "--help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(ROOT),
+            timeout=120,
+        )
+        record(
+            "15",
+            f"CLI {command}",
+            result.returncode == 0,
+            result.stderr[-160:] if result.returncode else "",
+        )
     try:
         import asyncio
         import shutil
@@ -1240,6 +1247,116 @@ def _audit_behaviour() -> None:
                 app.database.write_errors > errors_before,
                 f"errors={app.database.write_errors} last={app.database.last_error}",
             )
+
+            # ---------------------------------------------------------------
+            # §2.2 the runtime does not talk to the outside world
+            # ---------------------------------------------------------------
+            # The text scan above only finds the *names* of the vendor
+            # packages.  The runtime itself has to prove that it did not open
+            # a single outbound connection while the scenarios ran.
+            try:
+                import psutil
+
+                connections = psutil.Process().net_connections(kind="inet")
+                external = [
+                    connection
+                    for connection in connections
+                    if connection.status == psutil.CONN_ESTABLISHED
+                    and connection.raddr
+                    and connection.raddr.ip not in ("127.0.0.1", "::1", "0.0.0.0")
+                ]
+                record(
+                    "2.2",
+                    "运行时没有对外连接",
+                    not external,
+                    f"connections={[(c.raddr.ip, c.raddr.port) for c in external[:3]]}",
+                )
+            except Exception as exc:  # pragma: no cover - depends on the platform
+                record(
+                    "2.2",
+                    "运行时没有对外连接",
+                    False,
+                    f"无法检查连接: {exc}",
+                )
+
+            # ---------------------------------------------------------------
+            # §10.4 a cancellation is recorded as a cancellation
+            # ---------------------------------------------------------------
+            # A cancelled execution must not look like a timeout - the two
+            # have different causes and different consequences.
+            cancel_workflow = app.create_workflow("audit-cancel")
+            cancel_workflow.default_snapshot_id = base.snapshot_id
+            cancel_workflow.start()
+            cancel_call = asyncio.create_task(
+                app.coordinator.submit_tool_call(
+                    workflow_id=cancel_workflow.workflow_id,
+                    tool_name="fault_injector",
+                    arguments={"mode": "sleep", "seconds": 30},
+                    snapshot_id=base.snapshot_id,
+                )
+            )
+            await asyncio.sleep(0.5)
+            for row in app.repository.list_logical_calls(cancel_workflow.workflow_id):
+                await app.coordinator.cancel_logical_call(row["logical_call_id"], "audit")
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await asyncio.wait_for(cancel_call, timeout=30)
+            # the row of the execution is written when the worker is gone
+            for _attempt in range(50):
+                app.database.flush()
+                cancel_executions = app.repository.list_executions(cancel_workflow.workflow_id)
+                if cancel_executions and all(
+                    row["execution_status"] != "RUNNING" for row in cancel_executions
+                ):
+                    break
+                await asyncio.sleep(0.1)
+            cancel_executions = app.repository.list_executions(cancel_workflow.workflow_id)
+            record(
+                "10.4",
+                "取消被记录为取消而不是超时",
+                bool(cancel_executions)
+                and all(
+                    row["execution_status"] == "CANCELLED"
+                    and row["error_kind"] == "cancelled"
+                    for row in cancel_executions
+                ),
+                f"executions={[(r['execution_status'], r['error_kind']) for r in cancel_executions]}",
+            )
+
+            # ---------------------------------------------------------------
+            # §16.5 the event write does not block the event loop
+            # ---------------------------------------------------------------
+            # The events are published without an await between them - a
+            # blocking write would stop the loop and the counter would stay
+            # at zero.
+            ticks = 0
+
+            async def ticker() -> None:
+                nonlocal ticks
+                while True:
+                    await asyncio.sleep(0.005)
+                    ticks += 1
+
+            burst = app.create_workflow("audit-burst")
+            burst.default_snapshot_id = base.snapshot_id
+            burst.start()
+            ticker_task = asyncio.create_task(ticker())
+            try:
+                for _index in range(200):
+                    app.event_bus.publish(
+                        EventType.WORKFLOW_STARTED,
+                        workflow_id=burst.workflow_id,
+                    )
+                await asyncio.sleep(0.05)
+            finally:
+                ticker_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await ticker_task
+            record(
+                "16.5",
+                "事件写入不阻塞主循环",
+                ticks > 0,
+                f"ticks={ticks}",
+            )
         finally:
             await app.close()
 
@@ -1632,20 +1749,71 @@ TEST_CATEGORIES = {
 }
 
 
+def _migrate_an_old_database() -> int | None:
+    """Create a database of the first version and migrate it.
+
+    The migration has to work on a database that was written by an **older**
+    build - the audit proves it with a database whose ``user_version`` is 1.
+    """
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "old.sqlite3"
+        connection = sqlite3.connect(path)
+        try:
+            connection.execute("PRAGMA user_version = 1")
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS workflows ("
+                "workflow_id TEXT PRIMARY KEY, scenario TEXT NOT NULL, "
+                "start_time REAL NOT NULL, end_time REAL, status TEXT NOT NULL, "
+                "configuration TEXT)"
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        database = Database(str(path))
+        try:
+            database.initialize()
+            version = database.schema_version()
+        except Exception:
+            return None
+        finally:
+            database.close()
+    return int(version)
+
+
+def _test_function_names() -> set[str]:
+    """The names of the test functions of the suite."""
+
+    names: set[str] = set()
+    for path in sorted(ROOT.glob("tests/**/*.py")):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:  # pragma: no cover - defensive
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.name.startswith("test_"):
+                    names.add(node.name)
+    return names
+
+
 def audit_layout_tests_docs() -> None:
     missing = [name for name in LAYOUT if not (ROOT / name).exists()]
     record("20", "工程目录结构", not missing, f"缺: {missing}" if missing else f"{len(LAYOUT)} 项")
 
-    tests = "\n".join(
-        path.read_text(encoding="utf-8") for path in ROOT.glob("tests/**/*.py")
-    )
+    # The categories are not only **named** in the test sources - the test
+    # functions have to exist.  A renamed or deleted test would still satisfy
+    # a text match.
+    test_names = _test_function_names()
     for category, markers in TEST_CATEGORIES.items():
-        absent = [marker for marker in markers if marker not in tests]
+        absent = [marker for marker in markers if marker not in test_names]
         record(
             category,
             "自动化测试类别覆盖",
             not absent,
-            f"缺: {absent}" if absent else f"{len(markers)} 个关键用例",
+            f"缺失的用例: {absent}" if absent else f"{len(markers)} 个关键用例",
         )
 
     for doc, needles in DOC_SECTIONS.items():

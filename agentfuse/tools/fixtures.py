@@ -14,6 +14,11 @@ the runtime:
     therefore never shared - a result that depends on randomness must not be
     reused (requirement 7.4).
 
+``directory_lister``
+    only **lists** the directories of the workspace - it never opens a file.
+    Its dependency ledger would therefore be empty and the runtime could not
+    know what it read.  The audit hook has to detect the listing as well.
+
 They are only registered when ``AGENTFUSE_TEST_TOOLS=1`` is set, so the
 production registry stays clean.
 """
@@ -50,6 +55,28 @@ def random_reader(context: ToolContext) -> dict[str, Any]:
     payload = raw_reader(context)
     payload["random"] = context.random().random()
     return payload
+
+
+def directory_lister(context: ToolContext) -> dict[str, Any]:
+    """List the directories of the workspace without the controlled reader.
+
+    The tool never opens a file - it only walks the directories.  Its
+    dependency ledger would be empty, so the runtime would share a result
+    that was computed from an unknown state.  The audit hook has to report the
+    bypass.
+    """
+
+    root = Path(context.reader.root)
+    directories = sorted(
+        str(path.relative_to(root)).replace("\\", "/")
+        for path in root.rglob("*")
+        if path.is_dir()
+    )
+    # ``os.scandir`` raises an audit event - ``Path.rglob`` would not
+    entries: list[str] = []
+    with os.scandir(root) as iterator:
+        entries = sorted(entry.name for entry in iterator)
+    return {"directories": len(directories), "entries": entries}
 
 
 def test_tools_enabled() -> bool:

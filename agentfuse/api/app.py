@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..app import AgentFuseApp
+from ..core.net import require_loopback
 from ..settings import RuntimeSettings, load_settings
 from .routes import benchmarks as benchmark_routes
 from .routes import executions as execution_routes
@@ -21,10 +22,19 @@ from .routes import workflows as workflow_routes
 WEB_ROOT = Path(__file__).resolve().parent.parent / "web"
 
 
-def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
-    """Create the local web application (used by ``agentfuse serve``)."""
+def create_app(
+    settings: RuntimeSettings | None = None, allow_remote: bool = False
+) -> FastAPI:
+    """Create the local web application (used by ``agentfuse serve``).
+
+    The dashboard has **no** authentication.  It therefore refuses to be
+    created for a public address unless the user confirmed it explicitly
+    (``allow_remote``) - the check lives here so that **every** entry point
+    enforces it, not only the command line.
+    """
 
     settings = settings or load_settings()
+    require_loopback(settings.api_host, allow_remote=allow_remote)
     runtime = AgentFuseApp(settings=settings)
 
     @asynccontextmanager
@@ -76,12 +86,14 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
     return app
 
 
-async def run_server(settings: RuntimeSettings | None = None) -> None:  # pragma: no cover
+async def run_server(
+    settings: RuntimeSettings | None = None, allow_remote: bool = False
+) -> None:  # pragma: no cover
     import uvicorn
 
     settings = settings or load_settings()
     uvicorn.run(
-        create_app(settings),
+        create_app(settings, allow_remote=allow_remote),
         host=settings.api_host,
         port=settings.api_port,
         log_level=settings.api_log_level,

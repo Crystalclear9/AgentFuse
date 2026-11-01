@@ -14,21 +14,34 @@ from tests.support import wait_until
 # resource admission
 # ----------------------------------------------------------------------
 async def test_the_rss_soft_limit_blocks_new_admissions():
+    """The admission has to use the **real** path of the scheduler.
+
+    The resource block lives in the scheduling strategy - the scheduler only
+    asks it.  A second (dead) implementation of the same rules could drift
+    away from the one that really admits the executions.
+    """
+
     scheduler = LocalResourceController(max_workers=4, max_memory_budget_mb=1024)
     await scheduler.acquire("exec-1", 8)
     scheduler.record_rss("exec-1", 900 * 1024 * 1024)
 
     scheduler.max_rss_soft_limit_mb = 512
     assert scheduler.rss_limit_exceeded() is True
-    allowed, reason = scheduler.admission_check(8)
-    assert allowed is False
-    assert "RSS" in reason
 
-    # lowering the limit again lets the execution pass
+    # the execution waits - the strategy refuses it
+    task = asyncio.create_task(scheduler.acquire("exec-2", 8))
+    assert await wait_until(lambda: scheduler.snapshot()["waiting"] >= 1)
+    reason = scheduler.snapshot()["pending"][0]["reason"]
+    assert "RSS" in reason, reason
+
+    # lowering the limit again lets the execution pass - the scheduler
+    # re-evaluates the queue when the observed memory changes
     scheduler.max_rss_soft_limit_mb = 0
     assert scheduler.effective_rss_limit_mb == 1024
-    allowed, _ = scheduler.admission_check(8)
-    assert allowed is True
+    scheduler.record_rss("exec-1", 900 * 1024 * 1024)
+    await asyncio.wait_for(task, timeout=5)
+    scheduler.release("exec-1")
+    scheduler.release("exec-2")
 
 
 async def test_the_pending_queue_explains_the_waiting_reason():
@@ -180,3 +193,70 @@ async def test_an_intact_snapshot_passes_the_integrity_check(app, snapshot):
     assert app.snapshots.check_integrity(snapshot.snapshot_id) is True
     branch = create_branch(app, snapshot, None, "branch")
     assert app.snapshots.check_integrity(branch.snapshot_id) is True
+
+
+async def test_a_snapshot_tampered_after_the_join_is_not_shared_in_the_deferred_mode(
+    app, snapshot
+):
+    """The final commit check has to run in **every** mode.
+
+    The deferred mode validates the dependency prefix when the leader
+    finishes.  A snapshot that was modified **after** the join does not change
+    the prefix - only the integrity check can catch it.  The result must not be
+    shared in that case either.
+    """
+
+    from agentfuse.core.state import EventType, RuntimeMode
+    from agentfuse.scenarios.common import wait_for_event, wait_for_running_execution
+
+    branch = create_branch(app, snapshot, None, "branch")
+    workflow = app.create_workflow("test-deferred-integrity", mode=RuntimeMode.DEFERRED)
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 12000}
+    leader = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    await wait_for_running_execution(app.event_bus, workflow.workflow_id)
+    follower = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=branch.snapshot_id,
+        )
+    )
+    # the follower waits for the leader - that is the moment of the join
+    await wait_for_event(
+        app.event_bus,
+        EventType.TOOL_CALL_WAITING,
+        workflow_id=workflow.workflow_id,
+        timeout=30,
+    )
+
+    # somebody modifies the snapshot **after** the join - and outside of the
+    # files the tool reads, so that the dependency prefix stays valid
+    target = branch.tree_path / "README.md"
+    target.write_text("tampered = True\n", encoding="utf-8")
+    # the check has to be forced - the result of the join is cached
+    assert app.snapshots.check_integrity(branch.snapshot_id, force=True) is False
+
+    await asyncio.gather(leader, follower, return_exceptions=True)
+
+    participants = app.repository.list_participants(workflow.workflow_id)
+    followers = [
+        participant
+        for participant in participants
+        if not participant["is_leader"]
+    ]
+    assert followers, "the follower has to join the group"
+    assert followers[0]["status"] == "DETACHED", (
+        "the tampered snapshot must not receive the shared result - "
+        f"the participant is {followers[0]['status']}"
+    )

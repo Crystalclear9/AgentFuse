@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 import httpx
 import pytest
@@ -128,3 +129,64 @@ async def test_the_benchmark_endpoint_runs_a_comparison(client):
     assert report["aggregated"]["baseline"]["physical_executions"]["mean"] == 2
     assert report["correctness"]["online"]["mismatched"] == 0
     assert (await client.get("/api/benchmarks")).json()["runs"]
+
+
+async def test_the_api_does_not_block_the_event_loop(client):
+    """§16.5 - the HTTP API must not freeze the event loop.
+
+    A read waits for the writer to commit the pending statements.  That wait
+    belongs into a worker thread - done directly in the route it would stop
+    the whole runtime (the dashboard, the benchmark polling, the coordinator)
+    for the duration of the commit.
+    """
+
+    app = client.agentfuse_app.state.runtime
+    ticks = 0
+
+    async def ticker() -> None:
+        nonlocal ticks
+        while True:
+            await asyncio.sleep(0.005)
+            ticks += 1
+
+    # the writer gets a lot of work - the read has to wait for it
+    for index in range(20000):
+        app.database.write(
+            "INSERT INTO runtime_events "
+            "(event_id, workflow_id, sequence, event_type, timestamp, metadata) "
+            "VALUES (?, NULL, ?, 'WORKFLOW_STARTED', 1.0, '{}')",
+            (f"evt-busy-{index}", index),
+        )
+
+    task = asyncio.create_task(ticker())
+    try:
+        response = await client.get("/api/overview")
+        assert response.status_code == 200
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+    assert ticks > 0, (
+        "the event loop was blocked while the API answered - the database "
+        "reads have to run in a worker thread"
+    )
+    app.database.flush()
+
+
+async def test_the_api_refuses_a_public_address(settings):
+    """§2.2 - the dashboard has no authentication.
+
+    It may therefore only be served on a loopback address - unless the user
+    confirmed it explicitly.  The check lives in the application factory, so
+    that every entry point enforces it.
+    """
+
+    from dataclasses import replace
+
+    public = replace(settings, api_host="0.0.0.0")
+    with pytest.raises(PermissionError):
+        create_app(settings=public)
+    # the explicit confirmation works
+    app = create_app(settings=public, allow_remote=True)
+    await app.state.runtime.close()

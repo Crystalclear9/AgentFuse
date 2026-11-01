@@ -1048,3 +1048,52 @@ async def test_an_interrupted_run_is_marked_with_its_kind(app, snapshot):
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+
+
+async def test_a_cancelled_independent_call_stops_its_worker(app, snapshot):
+    """§10.4 - a cancelled call must not leave its worker running.
+
+    A tool that is not shareable runs on its own - it has no share group.
+    The cancellation therefore has to terminate its **own** execution,
+    otherwise the worker keeps running after the call is gone.
+    """
+
+    workflow = app.create_workflow("test-cancel-independent")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    task = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="fault_injector",
+            arguments={"mode": "sleep", "seconds": 30},
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+    # the worker has to be running
+    assert await wait_until(
+        lambda: any(
+            execution.status.value == "RUNNING"
+            for execution in app.coordinator._executions.values()
+        )
+    ), "the execution has to run before it is cancelled"
+
+    for row in app.repository.list_logical_calls(workflow.workflow_id):
+        await app.coordinator.cancel_logical_call(row["logical_call_id"], "test cancel")
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, timeout=30)
+
+    # the execution is recorded as cancelled - not as running or timed out
+    assert await wait_until(
+        lambda: all(
+            execution["execution_status"] != "RUNNING"
+            for execution in app.repository.list_executions(workflow.workflow_id)
+        )
+    ), "the execution of a cancelled call must not stay in the running state"
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert executions
+    for execution in executions:
+        assert execution["execution_status"] == "CANCELLED", (
+            f"the execution is {execution['execution_status']}"
+        )
+        assert execution["error_kind"] == "cancelled"

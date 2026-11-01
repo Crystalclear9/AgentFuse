@@ -56,7 +56,6 @@ class RuntimeSettings:
     worker_pool_size: int
     default_timeout_seconds: int
     resource_sample_interval_ms: int
-    share_coalesce_window_ms: int
     snapshot_max_files: int
     snapshot_max_total_bytes: int
     snapshot_exclude: tuple[str, ...]
@@ -97,7 +96,6 @@ class RuntimeSettings:
             "worker_pool_size": self.worker_pool_size,
             "default_timeout_seconds": self.default_timeout_seconds,
             "resource_sample_interval_ms": self.resource_sample_interval_ms,
-            "share_coalesce_window_ms": self.share_coalesce_window_ms,
             "snapshot_max_files": self.snapshot_max_files,
             "snapshot_max_total_bytes": self.snapshot_max_total_bytes,
             "snapshot_exclude": list(self.snapshot_exclude),
@@ -166,7 +164,6 @@ def load_settings(
         worker_pool_size=int(runtime.get("worker_pool_size", 0)),
         default_timeout_seconds=int(runtime.get("default_timeout_seconds", 60)),
         resource_sample_interval_ms=int(runtime.get("resource_sample_interval_ms", 50)),
-        share_coalesce_window_ms=int(runtime.get("share_coalesce_window_ms", 0)),
         snapshot_max_files=int(workspace.get("max_files", 5000)),
         snapshot_max_total_bytes=int(workspace.get("max_total_bytes", 64 * 1024 * 1024)),
         snapshot_exclude=tuple(workspace.get("exclude", ())),

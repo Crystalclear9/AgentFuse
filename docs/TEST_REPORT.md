@@ -67,7 +67,7 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 | 目录 | 数量 | 结果 |
 |---|---|---|
 | `tests/unit` | 120 passed, 1 skipped（Windows）/ 121 passed（Linux） | 全部通过 |
-| `tests/integration` | 115 passed | 全部通过 |
+| `tests/integration` | 120 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 | `tests/frontend` | 4 passed | 全部通过（需要 node） |
 
@@ -141,10 +141,10 @@ python scripts/run_ci_like.py --matrix
 |---|---|---|
 | `pytest tests` | **241 passed, 1 skipped** | **241 passed, 1 skipped** |
 | `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
-| `scripts/acceptance_check.py` | **42 / 42 通过** | **42 / 42 通过** |
-| `scripts/audit_requirements.py`（271 项 / 49 个需求小节；**50 条真实运行了运行时** / 221 条只读取源码） | **271 / 271 通过** | **271 / 271 通过** |
+| `scripts/acceptance_check.py` | **43 / 43 通过** | **43 / 43 通过** |
+| `scripts/audit_requirements.py`（258 项 / 49 个需求小节；**53 条真实运行了运行时** / 205 条只读取源码） | **258 / 258 通过** | **258 / 258 通过** |
 | `scripts/check_regression.py --repeat 3` | **无性能回归** | — |
-| `scripts/guard_selftest.py`（守卫自检） | **37 / 37 个守卫证明了它们能发现问题** | — |
+| `scripts/guard_selftest.py`（守卫自检） | **42 / 42 个守卫证明了它们能发现问题** | — |
 
 > 验收自检新增了 4 项与 P0 语义直接相关的断言：**数据库写入零错误**、
 > **外键约束无违规**、**外键约束已声明**、**调用与执行原子落库**。
@@ -253,8 +253,8 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 | 工具 | 命令 | 作用 |
 |---|---|---|
 | 交付验收自检 | `python scripts/acceptance_check.py` | **42 项**：目录结构、共享行为、CLI 全部命令、API 与真实字段、数据库与外键、离线依赖、场景目录一致性 |
-| 需求条款审计 | `python scripts/audit_requirements.py` | **271 个检查 / 49 个需求小节**逐条对照（25 章）；报告会说出每条检查的**性质**（真实运行了运行时 / 只读取源码） |
-| 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 37 处行为，断言对应的守卫**必须报红** |
+| 需求条款审计 | `python scripts/audit_requirements.py` | **258 个检查 / 49 个需求小节**逐条对照（25 章）；报告会说出每条检查的**性质**（真实运行了运行时 / 只读取源码） |
+| 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 42 处行为，断言对应的守卫**必须报红** |
 | 性能回归守卫 | `python scripts/check_regression.py` | 对比 `benchmarks/baseline.json`，超出容差即失败 |
 | CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 + 守卫自检 |
 

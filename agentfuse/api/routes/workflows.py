@@ -10,6 +10,7 @@ from ...core.events import RuntimeEvent
 from ...core.execution_graph import ExecutionGraph
 from ...monitoring.metrics import collect_workflow_metrics
 from ...monitoring.timeline import build_timeline
+from ._reads import read
 from .deps import runtime
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
@@ -18,16 +19,15 @@ router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 @router.get("")
 async def list_workflows(request: Request, limit: int = 50) -> dict[str, Any]:
     app = runtime(request)
-    return {"workflows": app.repository.list_workflows(limit=limit)}
+    return {"workflows": await read(lambda: app.repository.list_workflows(limit=limit))}
 
 
-@router.get("/{workflow_id}")
-async def workflow_detail(request: Request, workflow_id: str) -> dict[str, Any]:
-    app = runtime(request)
-    workflow = app.repository.get_workflow(workflow_id)
+def _detail(repository: Any, workflow_id: str, registry: Any) -> dict[str, Any]:
+    """Collect the detail of a workflow (a blocking read)."""
+
+    workflow = repository.get_workflow(workflow_id)
     if workflow is None:
-        raise HTTPException(status_code=404, detail=f"unknown workflow: {workflow_id}")
-    repository = app.repository
+        return {"missing": True}
     executions = repository.list_executions(workflow_id)
     # the confirmed dependencies of every execution - this is what the
     # dependency check actually confirmed, not what the tool declared
@@ -55,8 +55,17 @@ async def workflow_detail(request: Request, workflow_id: str) -> dict[str, Any]:
             for validation in validations
             if validation["share_group_id"] in group_ids
         ],
-        "metrics": collect_workflow_metrics(repository, workflow_id, app.registry),
+        "metrics": collect_workflow_metrics(repository, workflow_id, registry),
     }
+
+
+@router.get("/{workflow_id}")
+async def workflow_detail(request: Request, workflow_id: str) -> dict[str, Any]:
+    app = runtime(request)
+    detail = await read(lambda: _detail(app.repository, workflow_id, app.registry))
+    if detail.get("missing"):
+        raise HTTPException(status_code=404, detail=f"unknown workflow: {workflow_id}")
+    return detail
 
 
 @router.get("/{workflow_id}/graph")

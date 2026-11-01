@@ -37,31 +37,6 @@ configure_console()
 #: the guards that have to notice.
 MUTATIONS: list[dict[str, Any]] = [
     {
-        "name": "最终提交验证门禁被删除",
-        "clause": "8.7",
-        "file": "agentfuse/runtime/coordinator.py",
-        "old": """                if (
-                    participant.validated_prefix_length != len(ledger)
-                    or participant.validation_status is not ValidationStatus.MATCH
-                ):""",
-        "new": """                if False:""",
-        "guards": [
-            [
-                sys.executable,
-                "scripts/audit_requirements.py",
-                "--json",
-            ],
-            [
-                sys.executable,
-                "-m",
-                "pytest",
-                "tests/integration/test_divergent.py::"
-                "test_a_follower_that_fails_the_final_validation_gets_no_result",
-                "-q",
-            ],
-        ],
-    },
-    {
         "name": "依赖完整性不再决定工具能否共享",
         "clause": "7.2 / 21.3",
         "file": "agentfuse/tools/registry.py",
@@ -777,6 +752,128 @@ MUTATIONS: list[dict[str, Any]] = [
                 "tests/frontend/test_frontend.py::"
                 "test_the_recorded_payloads_have_the_shape_of_the_current_api",
                 "-q",
+            ],
+        ],
+    },
+    {
+        "name": "deferred 模式不再校验快照完整性",
+        "clause": "8.7",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """            # The **final** integrity check runs in every mode: a snapshot that
+            # was tampered with after the join must not receive a shared
+            # result - not even in the deferred mode (requirement 8.7 and the
+            # correctness checklist of the sharing protocol).
+            if not self._snapshot_is_trustworthy(participant.snapshot_id or "", force=True):
+                self._detach_participant_locked(
+                    group,
+                    participant,
+                    "snapshot integrity check failed before the result was shared",
+                )
+                continue
+""",
+        "new": "",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_resources_and_integrity.py::"
+                "test_a_snapshot_tampered_after_the_join_is_not_shared_in_the_deferred_mode",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "绕过检测不再覆盖目录列举",
+        "clause": "21.3",
+        "file": "agentfuse/workspace/reader.py",
+        "old": """    "os.scandir",
+    "os.listdir",
+""",
+        "new": "",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_dependency_tracking.py::"
+                "test_a_tool_that_only_lists_directories_is_detected",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "API 读路径不再让出事件循环",
+        "clause": "16.5",
+        "file": "agentfuse/api/routes/overview.py",
+        "old": """    data = await read(lambda: _overview(app.repository, app.registry))""",
+        "new": """    data = _overview(app.repository, app.registry)""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_api.py::test_the_api_does_not_block_the_event_loop",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "API 不再拒绝非回环监听",
+        "clause": "2.2",
+        "file": "agentfuse/api/app.py",
+        "old": """    require_loopback(settings.api_host, allow_remote=allow_remote)""",
+        "new": """    pass  # the dashboard would be exposed""",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_api.py::test_the_api_refuses_a_public_address",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "取消的调用不再终止自己的 worker",
+        "clause": "10.4",
+        "file": "agentfuse/runtime/coordinator.py",
+        "old": """            else:
+                # The call runs on its own (a tool that is not shareable) - it
+                # has no group, therefore its **own** execution has to be
+                # terminated.  Otherwise the worker would keep running after
+                # the call was cancelled.
+                execution = self._executions.get(call.physical_execution_id or "")
+                if execution is not None and execution.status is ExecutionStatus.RUNNING:
+                    terminate.append(execution)
+""",
+        "new": "",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_concurrency.py::"
+                "test_a_cancelled_independent_call_stops_its_worker",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "审计不再运行 CLI 命令",
+        "clause": "15",
+        "file": "scripts/audit_requirements.py",
+        "old": """    for command in ("init", "serve", "demo", "compare", "trace", "inspect", "tools"):
+        result = subprocess.run(
+            [sys.executable, "-m", "agentfuse", command, "--help"],""",
+        "new": """    for command in ():
+        result = subprocess.run(
+            [sys.executable, "-m", "agentfuse", command, "--help"],""",
+        "expect": "P0",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
             ],
         ],
     },

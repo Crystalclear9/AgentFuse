@@ -151,31 +151,6 @@ class LocalResourceController:
         limit = self.effective_rss_limit_mb
         return bool(limit) and self.observed_rss_mb > limit
 
-    def admission_check(self, estimated_memory_mb: float) -> tuple[bool, str]:
-        """Return ``(allowed, reason)`` for a new execution."""
-
-        with self._lock:
-            if len(self._running) >= self.max_workers:
-                return False, f"worker limit reached ({self.max_workers})"
-
-            limit = self.effective_rss_limit_mb
-            if limit and self.observed_rss_mb > limit:
-                return False, (
-                    f"observed RSS {self.observed_rss_mb:.1f} MiB exceeds the limit "
-                    f"({limit} MiB)"
-                )
-
-            projected = self.reserved_estimate_mb + estimated_memory_mb
-            if projected > self.max_memory_budget_mb:
-                if not self._running:
-                    # Never deadlock: a single oversized tool still has to run.
-                    return True, "single execution exceeds the memory budget (allowed to avoid deadlock)"
-                return False, (
-                    f"memory admission refused: projected {projected:.1f} MiB > "
-                    f"{self.max_memory_budget_mb} MiB"
-                )
-            return True, "admitted"
-
     async def acquire(
         self,
         execution_id: str,
@@ -233,19 +208,6 @@ class LocalResourceController:
             if not slot.future.done():
                 slot.future.set_result(reason)
 
-    def _admission_check_locked(self, estimated_memory_mb: float) -> tuple[bool, str]:
-        if len(self._running) >= self.max_workers:
-            return False, "worker limit reached"
-        limit = self.effective_rss_limit_mb
-        if limit and self.observed_rss_mb > limit:
-            return False, "observed RSS exceeds the limit"
-        projected = self.reserved_estimate_mb + estimated_memory_mb
-        if projected > self.max_memory_budget_mb:
-            if not self._running:
-                return True, "single execution exceeds the memory budget"
-            return False, "memory admission refused"
-        return True, "admitted"
-
     # ------------------------------------------------------------------
     # monitoring
     # ------------------------------------------------------------------
@@ -255,6 +217,9 @@ class LocalResourceController:
             self._observed_rss_mb[execution_id] = rss_mb
             if rss_mb > self._peak_rss_mb:
                 self._peak_rss_mb = rss_mb
+        # The observed memory changed - a waiting execution that was refused
+        # because of the memory limit may be admissible now.
+        self._pump()
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:

@@ -68,17 +68,33 @@ def in_controlled_access() -> bool:
     return bool(getattr(_ACCESS, "active", False))
 
 
+#: The CPython audit events of the file system calls that read the workspace.
+#: ``os.stat`` and ``os.lstat`` do **not** raise an audit event - a tool that
+#: only stats a file cannot be detected.  That limitation is documented in
+#: ``KNOWN_LIMITATIONS.md``.
+AUDITED_ACCESS_EVENTS = (
+    "open",
+    "os.open",
+    "os.scandir",
+    "os.listdir",
+    "os.stat",
+    "os.lstat",
+)
+
+
 def install_access_audit_hook(snapshot_root: str | os.PathLike[str]) -> list[str]:
     """Detect workspace reads that bypass the controlled reader.
 
     The hook uses the CPython audit interface (``sys.addaudithook``): every
-    ``open`` of a file inside the snapshot that does not happen inside
-    :func:`controlled_access` is recorded.  The returned list is filled while
-    the tool runs.
+    ``open`` **and every directory listing** of a file inside the snapshot
+    that does not happen inside :func:`controlled_access` is recorded.  The
+    returned list is filled while the tool runs.
 
     This is what turns the declaration of a tool into an *enforced* contract:
     a tool that reads the workspace directly is detected at runtime and its
-    execution is never shared.
+    execution is never shared.  A tool that only **lists** a directory would
+    otherwise produce an incomplete dependency ledger - and its result would
+    be shared although the runtime cannot know what it read.
     """
 
     import sys
@@ -87,11 +103,11 @@ def install_access_audit_hook(snapshot_root: str | os.PathLike[str]) -> list[str
     violations: list[str] = []
 
     def hook(event: str, args: tuple[Any, ...]) -> None:
-        if event not in ("open", "os.open"):
+        if event not in AUDITED_ACCESS_EVENTS:
             return
         if in_controlled_access():
             return
-        target = args[0]
+        target = args[0] if args else None
         if not isinstance(target, (str, bytes, os.PathLike)):
             return
         try:
