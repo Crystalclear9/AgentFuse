@@ -735,6 +735,52 @@ MUTATIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "前端不再显示等待原因",
+        "clause": "14",
+        "file": "agentfuse/web/app.js",
+        "old": """event.metadata.reason || event.metadata.wait_reason || event.metadata.relative_path""",
+        "new": """event.metadata.reason || event.metadata.relative_path""",
+        "guards": [
+            [
+                sys.executable,
+                "tests/frontend/dom_harness.mjs",
+            ],
+        ],
+    },
+    {
+        "name": "前端不再显示加入被拒的计数",
+        "clause": "14",
+        "file": "agentfuse/web/app.js",
+        "old": """      { label: "加入被拒", value: data.rejected_candidates, sub: "rejected_at_join" },
+""",
+        "new": "",
+        "guards": [
+            [
+                sys.executable,
+                "tests/frontend/dom_harness.mjs",
+            ],
+        ],
+    },
+    {
+        "name": "前端录制的响应与接口不一致",
+        "clause": "14",
+        "file": "tests/frontend/payloads.json",
+        # the last occurrence belongs to the metrics
+        "old": """   "retried_participants": 0,
+""",
+        "new": "",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/frontend/test_frontend.py::"
+                "test_the_recorded_payloads_have_the_shape_of_the_current_api",
+                "-q",
+            ],
+        ],
+    },
+    {
         "name": "被拒候选者仍算作组员",
         "clause": "8.2",
         "file": "agentfuse/runtime/coordinator.py",

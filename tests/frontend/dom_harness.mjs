@@ -5,10 +5,16 @@
  * uses, feeds it the **recorded responses of the real backend**
  * (``tests/frontend/payloads.json``) and then drives the interface:
  *
- *   * every tab is opened,
- *   * a workflow is selected (the graph and the timeline are rendered),
+ *   * every tab is opened (the tabs are the real buttons of index.html),
+ *   * a workflow is selected by **clicking its row** (the graph and the
+ *     timeline are rendered),
  *   * an execution is selected (the dependency inspector is rendered),
  *   * the benchmark table is rendered.
+ *
+ * The DOM is built by parsing the **real** ``agentfuse/web/index.html``:
+ * an element that the page does not have does not exist in the harness, and
+ * the rows that the script writes are parsed back into elements - therefore
+ * the click handlers of the rows and the tabs really run.
  *
  * Afterwards it asserts that the rendered HTML contains the values of the
  * real payloads.  A JavaScript error or a wrong field therefore fails the
@@ -27,6 +33,7 @@ import vm from "node:vm";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..", "..");
 const SCRIPT = join(ROOT, "agentfuse", "web", "app.js");
+const PAGE = join(ROOT, "agentfuse", "web", "index.html");
 const PAYLOADS = JSON.parse(
   readFileSync(join(HERE, "payloads.json"), "utf-8"),
 );
@@ -53,6 +60,8 @@ class ClassList {
   }
 }
 
+const VOID_TAGS = new Set(["input", "br", "hr", "img", "meta", "link", "source"]);
+
 class Element {
   constructor(tag = "div", id = "") {
     this.tagName = tag.toUpperCase();
@@ -60,14 +69,34 @@ class Element {
     this.children = [];
     this.listeners = {};
     this.className = "";
-    this.innerHTML = "";
-    this.textContent = "";
+    this._text = "";
     this.value = "";
     this.style = {};
     this.dataset = {};
     this.attributes = {};
     this.selectedOptions = [];
     this.classList = new ClassList(this);
+  }
+  /* the text of an element replaces its children (like in a browser) */
+  get textContent() {
+    return this._text;
+  }
+  set textContent(value) {
+    this._text = String(value ?? "");
+    this.children = [];
+  }
+  /* the parser appends the text of a node - it must not clear the children */
+  appendText(text) {
+    this._text += text;
+  }
+  /* setting the HTML **parses** it - the rows become elements and can be
+   * clicked; reading it serialises them again */
+  get innerHTML() {
+    return this.children.map((child) => child.serialize()).join("");
+  }
+  set innerHTML(html) {
+    this.children = parseHtml(String(html ?? ""));
+    this._text = "";
   }
   appendChild(child) {
     this.children.push(child);
@@ -79,8 +108,9 @@ class Element {
       .map(([name, value]) => ` ${name}="${value}"`)
       .join("");
     const children = this.children.map((child) => child.serialize()).join("");
-    const text = this.textContent || "";
-    return `<${this.tagName.toLowerCase()}${attributes}>${text}${children}</${this.tagName.toLowerCase()}>`;
+    const text = this._text || "";
+    const tag = this.tagName.toLowerCase();
+    return `<${tag}${attributes}>${text}${children}</${tag}>`;
   }
   remove() {}
   setAttribute(name, value) {
@@ -118,54 +148,132 @@ class Element {
   }
 }
 
+/* a very small HTML parser - enough for the rows the dashboard writes */
+function parseHtml(html) {
+  const root = new Element("div", "");
+  const stack = [root];
+  const tokens = html.match(/<[^>]*>|[^<]+/g) || [];
+  for (const token of tokens) {
+    if (!token.startsWith("<")) {
+      stack[stack.length - 1].appendText(token);
+      continue;
+    }
+    if (token.startsWith("</")) {
+      const name = token.slice(2, -1).trim().toLowerCase();
+      for (let index = stack.length - 1; index > 0; index -= 1) {
+        if (stack[index].tagName.toLowerCase() === name) {
+          stack.length = index;
+          break;
+        }
+      }
+      continue;
+    }
+    const match = token.match(/^<([a-zA-Z][\w-]*)([^>]*?)(\/?)>$/);
+    if (!match) {
+      continue;
+    }
+    const element = new Element(match[1], "");
+    const attributePattern = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*"([^"]*)"/g;
+    let attribute;
+    while ((attribute = attributePattern.exec(match[2] || "")) !== null) {
+      element.setAttribute(attribute[1], attribute[2]);
+      if (attribute[1] === "id") {
+        element.id = attribute[2];
+      }
+      if (attribute[1] === "class") {
+        element.className = attribute[2];
+      }
+      if (attribute[1].startsWith("data-")) {
+        element.dataset[attribute[1].slice(5)] = attribute[2];
+      }
+    }
+    stack[stack.length - 1].appendChild(element);
+    const tag = match[1].toLowerCase();
+    if (!match[3] && !VOID_TAGS.has(tag)) {
+      stack.push(element);
+    }
+  }
+  return root.children;
+}
+
+/* the selectors of the dashboard: a tag, classes, an id and attributes */
 function matchesSelector(element, selector) {
   const wanted = selector.trim();
-  if (wanted.startsWith(".")) {
-    return (element.className || "").split(/\s+/).includes(wanted.slice(1));
+  const match = wanted.match(/^([a-zA-Z][\w-]*)?((?:[.#][\w-]+|\[[^\]]*\])*)$/);
+  if (!match) {
+    return false;
   }
-  if (wanted.startsWith("#")) {
-    return element.id === wanted.slice(1);
+  if (match[1] && element.tagName !== match[1].toUpperCase()) {
+    return false;
   }
-  return element.tagName === wanted.toUpperCase();
-}
-
-/* the tables of the dashboard - every table has a body */
-const TABLES = [
-  "bench-history",
-  "call-table",
-  "dependency-table",
-  "event-table",
-  "participant-table",
-  "share-table",
-  "tool-table",
-  "workflow-agent-table",
-  "workflow-table",
-  "workflow-dependency-table",
-];
-
-const ELEMENTS = new Map();
-
-function element(id, tag = "div") {
-  if (!ELEMENTS.has(id)) {
-    const created = new Element(TABLES.includes(id) ? "table" : tag, id);
-    if (TABLES.includes(id)) {
-      created.appendChild(new Element("tbody", `${id}-tbody`));
+  const tokens = (match[2] || "").match(/[.#][\w-]+|\[[^\]]*\]/g) || [];
+  for (const token of tokens) {
+    if (token.startsWith(".")) {
+      if (!(element.className || "").split(/\s+/).includes(token.slice(1))) {
+        return false;
+      }
+    } else if (token.startsWith("#")) {
+      if (element.id !== token.slice(1)) {
+        return false;
+      }
+    } else {
+      const attribute = token.slice(1, -1).match(/^([\w-]+)(?:=["']?([^"']*)["']?)?$/);
+      if (!attribute) {
+        return false;
+      }
+      const actual = element.getAttribute(attribute[1]);
+      if (actual === undefined || actual === null) {
+        return false;
+      }
+      if (attribute[2] !== undefined && actual !== attribute[2]) {
+        return false;
+      }
     }
-    ELEMENTS.set(id, created);
   }
-  return ELEMENTS.get(id);
+  return true;
 }
 
-/* the ids the dashboard uses - they are created on demand */
+/* ------------------------------------------------------------------ */
+/* the document: the real index.html                                  */
+/* ------------------------------------------------------------------ */
+const BODY = new Element("body", "");
+const DOCUMENT = new Element("html", "");
+DOCUMENT.appendChild(BODY);
+
+function collect(element, found = []) {
+  for (const child of element.children) {
+    found.push(child);
+    collect(child, found);
+  }
+  return found;
+}
+
+/* the page provides the structure - an element that is not in the page does
+ * not exist in the harness */
+const page = parseHtml(readFileSync(PAGE, "utf-8"));
+for (const element of page) {
+  BODY.appendChild(element);
+}
+
 const document = {
-  getElementById: (id) => element(id),
-  querySelector: (selector) => element(selector.replace(/^[#.]/, "")),
-  querySelectorAll: (selector) => [element(selector.replace(/^[#.]/, ""))],
-  createElement: (tag) => new Element(tag),
-  createElementNS: (_ns, tag) => new Element(tag),
+  getElementById: (id) => collect(BODY).find((item) => item.id === id) || null,
+  querySelector: (selector) => collect(BODY).find((item) => matchesSelector(item, selector)) || null,
+  querySelectorAll: (selector) => collect(BODY).filter((item) => matchesSelector(item, selector)),
+  createElement: (tag) => new Element(tag, ""),
+  createElementNS: (_ns, tag) => new Element(tag, ""),
   addEventListener: () => {},
-  body: new Element("body"),
+  body: BODY,
 };
+
+/* the harness helpers - an element that the page does not have is a failure,
+ * it must not be fabricated */
+function element(id) {
+  const found = document.getElementById(id);
+  if (!found) {
+    throw new Error(`the page has no element with the id ${id}`);
+  }
+  return found;
+}
 
 /* ------------------------------------------------------------------ */
 /* the recorded backend                                               */
@@ -177,16 +285,19 @@ const ROUTES = [
   [/^\/api\/workflows\/[^/]+\/graph$/, () => PAYLOADS.graph],
   [/^\/api\/workflows\/[^/]+\/timeline$/, () => PAYLOADS.timeline],
   [/^\/api\/workflows\/[^/]+$/, () => PAYLOADS.workflow],
-  [/^\/api\/executions\?/, () => PAYLOADS.executions],
+  [/^\/api\/executions(\?|$)/, () => PAYLOADS.executions],
   [/^\/api\/executions\/[^/]+\/dependencies$/, () => PAYLOADS.dependencies],
   [/^\/api\/executions\/[^/]+$/, () => PAYLOADS.execution],
   [/^\/api\/tools$/, () => PAYLOADS.tools],
   [/^\/api\/benchmarks\/scenarios$/, () => PAYLOADS.scenarios],
   [/^\/api\/benchmarks$/, () => PAYLOADS.benchmarks],
-  [/^\/api\/health$/, () => ({ status: "ok" })],
+  // the health endpoint reports the path of the database - the dashboard
+  // shows it, so the stub has to know it
+  [/^\/api\/health$/, () => ({ status: "ok", database: "C:/agentfuse/agentfuse.db" })],
 ];
 
 const REQUESTED = [];
+const UNMATCHED = [];
 
 async function fetchStub(path) {
   REQUESTED.push(path);
@@ -200,6 +311,7 @@ async function fetchStub(path) {
       };
     }
   }
+  UNMATCHED.push(path);
   return {
     ok: false,
     status: 404,
@@ -214,7 +326,9 @@ async function fetchStub(path) {
 const sandbox = {
   document,
   fetch: fetchStub,
-  location: { hash: "" },
+  location: {
+    hash: "",
+  },
   window: { location: { hash: "" }, addEventListener: () => {} },
   console,
   setTimeout: (handler, delay) => setTimeout(handler, delay),
@@ -235,6 +349,17 @@ const sandbox = {
 };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
+
+/* the browser normalises the hash to "#name" */
+Object.defineProperty(sandbox.location, "hash", {
+  get() {
+    return this._hash || "";
+  },
+  set(value) {
+    const text = String(value || "");
+    this._hash = text.startsWith("#") ? text : `#${text}`;
+  },
+});
 
 const source = readFileSync(SCRIPT, "utf-8");
 vm.runInContext(source, sandbox, { filename: "app.js" });
@@ -259,7 +384,7 @@ function htmlOf(id) {
   if (body) {
     return body.innerHTML;
   }
-  return node.innerHTML + node.children.map((child) => child.serialize()).join("");
+  return node.innerHTML;
 }
 
 /* ------------------------------------------------------------------ */
@@ -277,8 +402,31 @@ check(
   summary.includes(String(overview.physical_executions)),
 );
 check(
+  "总览显示加入被拒的计数",
+  summary.includes("加入被拒") && summary.includes(String(overview.rejected_candidates)),
+  `expected ${overview.rejected_candidates}`,
+);
+check(
+  "总览显示离组重试的计数",
+  summary.includes("离组重试") && summary.includes(String(overview.retried_participants)),
+  `expected ${overview.retried_participants}`,
+);
+/* the share events show the reason of the event - the waiting call carries
+ * the wait reason, not a plain reason */
+const waitingEvent = (overview.recent_share_events || []).find(
+  (event) => event.metadata && event.metadata.wait_reason,
+);
+check(
+  "分享事件显示等待原因",
+  waitingEvent
+    ? htmlOf("share-table").includes(waitingEvent.metadata.wait_reason)
+    : false,
+  waitingEvent ? waitingEvent.metadata.wait_reason : "no waiting event",
+);
+check(
   "工具列表来自真实注册表",
-  htmlOf("tool-table").includes(overview.tools[0].tool_name),
+  htmlOf("tool-table").includes(PAYLOADS.tools.tools[0].tool_name),
+  PAYLOADS.tools.tools[0].tool_name,
 );
 
 /* the workflow list is filled from the real workflow records */
@@ -288,31 +436,36 @@ check(
   workflowRows.includes(PAYLOADS._ids.workflow),
 );
 
+/* the rows are elements - the click handler of a row has to run */
+const workflowRow = element("workflow-table").querySelectorAll("tr[data-workflow]")[0];
+check("工作流列表的行是可点击的元素", Boolean(workflowRow), "no tr[data-workflow]");
+if (workflowRow) {
+  await workflowRow.click();
+}
+
 /* select a workflow: the graph and the timeline are rendered */
-await sandbox.switchToWorkflow(PAYLOADS._ids.workflow);
-check("执行图被渲染", htmlOf("graph-container").length > 0);
+const graph = htmlOf("graph-container");
 check(
-  "执行图包含真实的节点",
-  htmlOf("graph-container").includes(PAYLOADS.graph.nodes[0].label),
+  "执行图被渲染",
+  graph.includes(PAYLOADS.graph.nodes[0].label),
   PAYLOADS.graph.nodes[0].label,
 );
-check("时间线被渲染", htmlOf("timeline-container").length > 0);
+const timeline = htmlOf("timeline-container");
 check(
-  "时间线包含真实的泳道",
-  htmlOf("timeline-container").includes(PAYLOADS.timeline.lanes[0].label),
+  "时间线被渲染",
+  timeline.includes(PAYLOADS.timeline.lanes[0].label),
   PAYLOADS.timeline.lanes[0].label,
 );
 
 /* select an execution: the dependency inspector is rendered */
 await sandbox.selectExecution(PAYLOADS._ids.execution);
 const dependencyRows = htmlOf("dependency-table");
-check("依赖检查器被渲染", dependencyRows.length > 0);
 check(
   "依赖检查器显示真实的依赖路径",
   dependencyRows.includes(PAYLOADS.dependencies.dependencies[0].relative_path),
+  PAYLOADS.dependencies.dependencies[0].relative_path,
 );
 const participantRows = htmlOf("participant-table");
-check("参与者表被渲染", participantRows.length > 0);
 const participantId = PAYLOADS.dependencies.participants[0].logical_call_id;
 check(
   "参与者表显示真实的调用",
@@ -371,7 +524,7 @@ check("基准表格显示节省的执行数", benchmarkRows.includes("1.0"));
 check("基准表格显示加速比", benchmarkRows.includes("1.500x"));
 check(
   "基准表格显示资源稳定性",
-  benchmarkRows.includes("stable") || benchmarkRows.includes("稳定"),
+  benchmarkRows.includes("稳定"),
 );
 check(
   "基准表格显示共享次数",
@@ -393,34 +546,62 @@ check(
   "工作流详情显示 Agent 列表",
   agentRows.includes(PAYLOADS.workflow.agents[0].agent_id.slice(0, 16)),
 );
+const identity = PAYLOADS.workflow.agents[0].identity_status;
 check(
   "工作流详情显示身份状态",
-  agentRows.includes("已确认") || agentRows.includes("未确定"),
+  identity === "CONFIRMED"
+    ? agentRows.includes("已确认")
+    : agentRows.includes("未确定"),
+  `identity_status=${identity}`,
 );
 
 /* the workflow detail shows the confirmed dependencies and the wait reason */
 const detail = PAYLOADS.workflow;
-const workflowCalls = htmlOf("call-table");
+const firstDependency = Object.values(detail.dependencies)[0][0];
 check(
   "工作流详情显示已确认依赖",
-  htmlOf("workflow-dependency-table").includes(
-    Object.values(detail.dependencies)[0][0].relative_path,
-  ),
+  htmlOf("workflow-dependency-table").includes(firstDependency.relative_path),
+  firstDependency.relative_path,
+);
+/* the wait reason is shown in the participant table of the inspector */
+const waiting = (PAYLOADS.dependencies.participants || []).find(
+  (participant) => participant.wait_reason,
 );
 check(
-  "工作流详情显示等待原因",
-  workflowCalls.includes("等待 Leader") || workflowCalls.includes("Leader"),
+  "依赖检查器显示真实的等待原因",
+  waiting ? participantRows.includes(waiting.wait_reason) : false,
+  waiting ? waiting.wait_reason : "the execution has no waiting participant",
 );
 
-/* every tab has to be reachable */
-for (const tab of ["overview", "workflow", "dependency", "benchmark", "tools"]) {
-  check(`页签 ${tab} 存在`, Boolean(element(`tab-${tab}`)));
+/* every tab has to be reachable - and the click really switches the panel */
+const TABS = ["overview", "workflow", "dependency", "benchmark", "tools"];
+for (const tab of TABS) {
+  const button = document.querySelector(`.tab[data-tab="${tab}"]`);
+  check(`页签 ${tab} 存在`, Boolean(button));
+  if (!button) {
+    continue;
+  }
+  await button.click();
+  const panel = element(`tab-${tab}`);
+  check(
+    `页签 ${tab} 的面板被激活`,
+    panel.classList.contains("active") && button.classList.contains("active"),
+    `panel=${panel.className} button=${button.className}`,
+  );
 }
+
+/* the health badge shows the state of the backend */
+const healthBadge = element("health-badge").textContent;
+check(
+  "状态徽标显示后端的真实状态",
+  healthBadge.includes("ok"),
+  healthBadge,
+);
 
 check(
   "所有请求都命中了后端路由",
-  REQUESTED.length > 0 && REQUESTED.every((path) => path.startsWith("/api/")),
-  REQUESTED.filter((path) => !path.startsWith("/api/")).join(", "),
+  REQUESTED.length > 0 && UNMATCHED.length === 0,
+  UNMATCHED.join(", "),
 );
 
 if (failures.length) {

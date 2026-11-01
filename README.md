@@ -66,7 +66,7 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 | 数据存储 | SQLite（WAL，独立写入线程） |
 | 本地 API | FastAPI + Uvicorn |
 | 前端 | 原生 HTML / CSS / JavaScript（无框架、无构建链、无 CDN）；测试用 Node 执行真实脚本 |
-| 自动化测试 | pytest + pytest-asyncio + httpx（240 个用例，含前端脚本的执行测试） |
+| 自动化测试 | pytest + pytest-asyncio + httpx（241 个用例，含前端脚本的执行测试） |
 | 配置 | TOML（`config/default.toml`） |
 | 命令行 | argparse |
 
@@ -103,8 +103,8 @@ uv pip install --python .agentfuse/wsl/venv/bin/python -e ".[dev]"
 .agentfuse/wsl/venv/bin/python scripts/acceptance_check.py
 ```
 
-实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 240 passed /
-WSL2 240 passed，两平台验收自检（42/42））。
+实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 241 passed /
+WSL2 241 passed，两平台验收自检（42/42））。
 
 > 跨平台实测发现并修复了一个 Linux 专属缺陷：父进程未 `wait()` 回收 worker
 > 导致僵尸进程堆积。详见 TEST_REPORT §4。
@@ -158,7 +158,7 @@ agentfuse inspect <execution_id>
 agentfuse tools
 ```
 
-所有命令支持 `--json`，便于脚本化处理。
+查询类命令（`demo` / `compare` / `trace` / `inspect`）支持 `--json`，便于脚本化处理。
 
 ---
 
@@ -195,13 +195,17 @@ agentfuse demo --scenario shared --mode online
 场景: shared   模式: online   workflow: wf-...
 指标       | 数值
 ---------+---------
-工作流耗时    | 0.230 s
+工作流耗时    | 0.103 s
 逻辑调用数    | 2
 物理执行数    | 1        <- 两次逻辑调用只做了一次真实计算
 节省执行数    | 1
 共享成功率    | 50.0%
 分离次数    | 0
 验证次数    | 5
+验证失败    | 0
+总 CPU 时间 | 0.016 s
+峰值 RSS   | 23.2 MiB
+平均共享等待   | 0.085 s
 ```
 
 然后：
@@ -215,7 +219,7 @@ agentfuse serve
 
 ```bash
 agentfuse compare --scenario shared-heavy --repeat 5 --workers 1 --modes baseline online
-# baseline 0.818s / 2 次物理执行  →  online 0.436s / 1 次物理执行  (1.88x)
+# baseline 0.537s / 2 次物理执行  →  online 0.288s / 1 次物理执行  (1.87x)
 ```
 
 ---

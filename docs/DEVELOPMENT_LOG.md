@@ -151,8 +151,8 @@
 
 **关键设计**：`divergent` 场景中 Follower 等待 Leader 报告**第一条**依赖后才提交
 请求 —— 这是一个确定性会合点，保证 Follower 一定在冲突被观测**之前**加入共享组，
-从而真实演示"在线分离"。冲突文件 `src/zeta_variant.py` 的名字按排序放在最后，
-保证冲突在其它依赖都已验证之后才出现。
+  从而真实演示“在线分离”。冲突文件现在是 `src/gamma.py`（按排序第三个，
+  保证冲突在其它依赖都已验证之后才出现（当时的 `src/zeta_variant.py` 已在阶段 27 改为第三个文件）。
 
 ---
 
@@ -290,7 +290,7 @@ Windows: 124 passed, 1 skipped（符号链接需管理员权限）
 | P2-1 | **可插拔调度策略** | `runtime/strategy.py`：`fifo`（默认，公平）与 `sjf`（最短作业优先，吞吐更高）；由 `runtime.scheduling_strategy` 选择，配置 `scheduling_strategy` |
 | P2-2 | **会话内已完成结果复用** | `sharing/result_cache.py`：CandidateKey 相同 + 快照**内容**相同 + 依赖复验通过才命中；默认关闭（`result_cache_entries = 0`），因为它会改变工作流的���观测行为 |
 | P2-3 | **Worker 预热池** | `runtime/pool.py`：worker 变成"多任务"进程（按行读取 payload），池在 Runtime 空闲时预启动；`runtime.worker_pool_size`（默认 2） |
-| P2-4 | **性能基线与回归守卫** | `benchmarks/baseline.json` + `scripts/check_regression.py`（容差同时考虑百分比、3 倍标准差与 50 ms 绝对噪声底线） |
+| P2-4 | **性能基线与回归守卫** | `benchmarks/baseline.json` + `scripts/check_regression.py`（容差同时考虑百分比、3 倍标准差与 150 ms 绝对噪声底线） |
 | P2-5 | **CI 工作流** | `.github/workflows/ci.yml`：Windows / Ubuntu / macOS × Python 3.11–3.13，跑 pytest + 验收自检 + 性能守卫 |
 
 ### 16.1 性能优化：把进程启动移出关键路径
@@ -778,6 +778,37 @@ Follower 拿不到共享结果 · 交付途中取消的 Follower 只收到一次
 ### 30.3 守卫自检
 
 变异点 **30 → 34**：新增「关闭时不再关闭数据库」「共享状态不再原子落库」「文本检查被算成行为检查」「审计不再检查 CI 工作流的内容」。
+
+## 阶段 31 · 前端与文档的最后一轮
+
+### 31.1 前端测试之前**证明不了什么**
+
+| 编号 | 问题 | 修复 |
+|---|---|---|
+| K1 | 录制的真实响应**过期**（缺 `retried_participants`）→ 前端测试证明的不是当前契约 | 重新录制（全新 home）+ 新增「录制内容 vs 实时接口」的**形状**漂移测试（递归比较键集，忽略按运行 id 索引的映射） |
+| K2 | harness 的 `/api/health` 桩缺 `database` → `app.js` 抛 TypeError 被吞 → harness 显示「状态: 错误」而浏览器显示「状态: ok」 | 桩补字段 + 断言徽标文本 |
+| K3 | harness 的假 DOM **按需伪造元素** → 从 `index.html` 删掉一个元素测试照样绿 | DOM 改为**解析真实的 index.html**；找不到元素即失败 |
+| K4 | 属性选择器 / `querySelectorAll` / `innerHTML` 解析都没有 → **页签切换与工作流行点击从未被执行** | 补最小 HTML 解析器与选择器 → 5 个页签真的被点击、面板真的被激活、真的点击了工作流那一行 |
+| K5 | 6 条断言**几乎不可能失败**（`length > 0` 命中空状态文案、`Boolean(element(...))` 命中伪造元素、`startsWith("/api/")` 不证明路由命中） | 逐条改成断言**具体的渲染值**；新增「每个请求都命中了路由」的真断言 |
+| K6 | 分享事件的「详情」读 `metadata.reason`，事件带的却是 `wait_reason` → 最关键的那类事件显示 `-` | `app.js` 补 `wait_reason`；harness 断言真实的等待原因 |
+| K7 | 后端算了 `rejected_candidates` / `retried_participants`，界面**不显示** | 总览新增两张卡片；harness 断言它们 |
+
+### 31.2 文档漂移（8 处）
+
+| 编号 | 位置 | 修正 |
+|---|---|---|
+| K8 | `README.md` 的基准数字 | 换成**实测值**（0.537s → 0.288s，1.87x） |
+| K9 | `README.md` 的「所有命令支持 `--json`」 | 只有查询类命令有（demo / compare / trace / inspect） |
+| K10 | `README.md` 的 demo 预期输出 | 换成真实的 11 行输出 |
+| K11 | `EXECUTION_MODEL.md` 的状态机 | 去掉运行时**从不**进入的 `WAITING`；补上重试（→ PENDING）与分离（→ DETACHED） |
+| K12 | `EXECUTION_MODEL.md` 的状态清单 | 同步去掉 `WAITING` |
+| K13 | `DEVELOPMENT_LOG.md` §8 的冲突文件 | 改成 `src/gamma.py`（排序第三个），并注明旧的 `zeta_variant.py` 已在阶段 27 改掉 |
+| K14 | `DEVELOPMENT_LOG.md` 的噪声底线 | 50 ms → **150 ms** |
+| K15 | `BENCHMARK.md` 的 `--seed` | `compare` 不接受 `--seed`，种子固定为 `DEFAULT_SEED = 20240917` |
+
+### 31.3 守卫自检
+
+变异点 **34 → 37**：新增「前端不再显示等待原因」「前端不再显示加入被拒的计数」「前端录制的响应与接口不一致」。
 
 ## 下一阶段建议（P3）
 

@@ -107,6 +107,8 @@ function renderOverview(data) {
     { label: "物理执行", value: data.physical_executions, sub: "PhysicalExecution" },
     { label: "共享等待中", value: data.shared_waiting, sub: "SHARED_WAIT" },
     { label: "已分离", value: data.detached, sub: "依赖不一致" },
+      { label: "加入被拒", value: data.rejected_candidates, sub: "rejected_at_join" },
+      { label: "离组重试", value: data.retried_participants, sub: "left_group" },
     { label: "运行 Worker", value: `${workers.running || 0}/${workers.max_workers || 0}`, sub: `等待 ${workers.waiting || 0}` },
     { label: "系统 CPU", value: `${(workers.system_cpu_percent || 0).toFixed(1)}%`, sub: "psutil 采样" },
     { label: "已用 RSS", value: `${((workers.observed_rss_mb || 0)).toFixed(1)} MiB`, sub: `预算 ${workers.max_memory_budget_mb || 0} MiB` },
@@ -173,7 +175,7 @@ function renderOverview(data) {
     <tr>
       <td>${fmtTime(event.timestamp)}</td>
       <td>${event.event_type}</td>
-      <td class="mono">${short(event.metadata && (event.metadata.reason || event.metadata.relative_path || ""), 70)}</td>
+      <td class="mono">${short(event.metadata && (event.metadata.reason || event.metadata.wait_reason || event.metadata.relative_path || ""), 70)}</td>
     </tr>`).join("");
   $("share-table").querySelector("tbody").innerHTML = shareRows || `<tr><td colspan="3">暂无共享事件</td></tr>`;
 }

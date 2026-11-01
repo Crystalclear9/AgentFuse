@@ -79,14 +79,16 @@ Agent 发起的一次**逻辑**工具请求。
 状态机：
 
 ```text
-PENDING ──► WAITING ──► SHARED_WAIT ──► COMPLETED
-   │            │             │
-   │            │             ├──► DETACHED ──► RUNNING_INDEPENDENTLY ──► COMPLETED
-   │            │             └──► FAILED / CANCELLED
-   │            └──► RUNNING_INDEPENDENTLY ──► COMPLETED / FAILED
-   │
-   └──► FAILED / CANCELLED
+PENDING ──► SHARED_WAIT ──► COMPLETED
+   │            │            ├──► DETACHED ──► RUNNING_INDEPENDENTLY ──► COMPLETED / FAILED
+   │            │            ├──► PENDING（重试：退回 PENDING 再独立执行）
+   │            │            └──► FAILED / CANCELLED
+   │            └──► DETACHED（分离）
+   └─► RUNNING_INDEPENDENTLY ──► COMPLETED / FAILED / CANCELLED
 ```
+
+> 运行时**从不**把逻辑调用置为 `WAITING`：该状态只在崩溃恢复的 SQL 里
+> 作为历史值出现（将未完成的调用标记为 `INTERRUPTED`）。
 
 一次**可重试**的失败（`worker_crash` / `timeout`）会把状态退回 `PENDING` 并
 启动一次独立重试；重试的参与者以 `RUNNING_INDEPENDENTLY` 继续，它的参与者行与
@@ -209,7 +211,7 @@ Runtime 进程中断：
 * 启动时 `Repository.recover_interrupted_workflows()` 把所有
   `status=RUNNING` 且 `end_time IS NULL` 的工作流标记为 `INTERRUPTED`，
   并把对应的 `physical_executions`（状态 CREATED/QUEUED/RUNNING）与
-  `logical_tool_calls`（状态 PENDING/WAITING/SHARED_WAIT/RUNNING_INDEPENDENTLY/DETACHED）
+  `logical_tool_calls`（状态 PENDING/SHARED_WAIT/RUNNING_INDEPENDENTLY/DETACHED）
   一并标记为 `INTERRUPTED`；
 * 不存在的 Worker 状态随之被清理（worker 进程随父进程一起消失）；
 * 中断状态不会被误判为完成；
