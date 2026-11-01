@@ -91,8 +91,8 @@ PENDING ──► SHARED_WAIT ──► COMPLETED
 > 作为历史值出现（将未完成的调用标记为 `INTERRUPTED`）。
 
 一次**可重试**的失败（`worker_crash` / `timeout`）会把状态退回 `PENDING` 并
-启动一次独立重试；重试的参与者以 `RUNNING_INDEPENDENTLY` 继续，它的参与者行与
-逻辑调用行始终一致：**调用行**是 `RUNNING_INDEPENDENTLY`（它在独立重试），
+启动一次独立重试；这里的两行不是一回事：
+**逻辑调用**行始终一致：**调用行**是 `RUNNING_INDEPENDENTLY`（它在独立重试），
 **参与者行**是终态 `DETACHED` + `detach_kind="left_group"`（它离开了组）。
 
 **两个 Agent 共享同一次物理执行时，它们依然拥有各自独立的 LogicalToolCall。**
@@ -198,9 +198,8 @@ CPU 时间与内存的语义区别见 `KNOWN_LIMITATIONS.md`。
   （`FAILED`）；
 * **不会**把部分结果当作成功；
 * 允许参与者进入独立重试队列**一次**，防止无限重试；
-* 会被重试的参与者**不是**失败的：它离开组、以 `RUNNING_INDEPENDENTLY` 继续，
-  它的参与者行与逻辑调用行始终一致（参与者行是终态 `DETACHED` +
-  `detach_kind="left_group"`）；
+* 会被重试的参与者**不是**失败的：它离开组（**参与者行**是终态 `DETACHED` +
+  `detach_kind="left_group"`），**逻辑调用行**退回 `PENDING` 并以 `RUNNING_INDEPENDENTLY` 继续；
 * 失败原因写入 `logical_tool_calls.error` 与 `physical_executions.error`，
   类型写入 `error_kind`；
 * Runtime 进程中断后恢复的行同样带有 `error_kind`（`interrupted`），

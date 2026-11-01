@@ -61,11 +61,8 @@ def main() -> int:
         "docs/ADAPTER_GUIDE.md", "docs/BENCHMARK.md", "docs/TEST_REPORT.md",
         "docs/KNOWN_LIMITATIONS.md", "docs/DEVELOPMENT_LOG.md",
     ]
+    # every file of the layout has to be there
     missing = [name for name in required if not (ROOT / name).exists()]
-    # workspace/manifest.py is covered by workspace/fingerprint.py + snapshots.py
-    # every file of the layout has to be there - the file exists, the exclusion
-    # was a leftover of an earlier version
-    missing = [name for name in missing]
     check("工程目录结构完整", not missing, f"missing: {missing}")
 
     # --- runtime --------------------------------------------------------

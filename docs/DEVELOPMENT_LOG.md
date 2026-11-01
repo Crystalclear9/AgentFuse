@@ -852,6 +852,16 @@ Follower 拿不到共享结果 · 交付途中取消的 Follower 只收到一次
 | 13h | 公平性的 5 条仍是**文档字符串 grep** | 改为**数据比较**：审计自己跑一次对比（baseline vs online），比对两个模式的 `tool_name@tool_version@arguments_hash` 与 `timeout_seconds`；删掉了 5 条 grep |
 
 守卫自检 **42 → 44**：新增“共享状态不再原子落库”与“公平性不再比较数据”。
+### 31.6 全面回溯核验后的文档属实
+
+把历次请求逐条对照代码核验时发现：**代码全部正确**，但有 5 处**文档**滞8后于第四轮的代码变更（共享状态改为终态 `DETACHED`）。
+
+| 位置 | 不准确的表述 | 修正 |
+|---|---|---|
+| `SHARING_PROTOCOL.md` §13 正确性清单第 11 项 | “快照被篡改时必须拒绝共享”没有打 ✔（代码已修） | 补上 ✔ |
+| `SHARING_PROTOCOL.md` §3 状态机与 清单第 12 项 | 说“被重试的参与者离组并以 `RUNNING_INDEPENDENTLY` 继续” | 区分**参与者行**（终态 `DETACHED` + `left_group`）与**调用行**（退回 `PENDING` 后以 `RUNNING_INDEPENDENTLY` 继续） |
+| `EXECUTION_MODEL.md` §4 与 §10 | 同一段里两种矛盾的表述 | 合并为一种 |
+| `scripts/acceptance_check.py` 的目录检查 | 一条**过期注释**（对已删除的排除的说明）与一处**无意义自赋值** | 删掉注释与自赋值 |
 ## 下一阶段建议（P3）
 
 1. 跨会话持久化结果缓存（需要持久化依赖账本 + 快照内容寻址）。

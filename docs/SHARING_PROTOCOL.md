@@ -105,8 +105,8 @@ WAITING ──► SHARED_WAIT ──► COMPLETED
    └──► RUNNING_INDEPENDENTLY (Leader 拥有自己的物理执行)
 ```
 
-`SHARED_WAIT ──► RUNNING_INDEPENDENTLY` 是**共享执行失败后进入独立重试**的路径：
-会被重试的参与者离开这个组，它不是失败的。
+`SHARED_WAIT ──► DETACHED` 是**共享执行失败后进入独立重试**的路径：
+会被重试的**参与者**行变成终态 `DETACHED`（`detach_kind="left_group"`），它不是失败的；它的**逻辑调用**行退回 `PENDING`，然后以 `RUNNING_INDEPENDENTLY` 独立执行。
 
 `DETACHED` 有两种去向：
 
@@ -315,6 +315,6 @@ runtime.result_cache_entries = 64      # 0 = 关闭（默认）
 8. 共享不能改变工具的逻辑输出。 ✔
 9. 没有证据时宁可不共享。 ✔
 10. 共享必须有可检查的验证记录（`validation_records` 表）。 ✔
-11. 快照被篡改时必须拒绝共享（完整性校验）。
+11. 快照被篡改时必须拒绝共享（完整性校验）。 ✔
 12. **参与者的状态与它的逻辑调用状态必须一致**：被标记为 `FAILED` 的参与者不得拿到结果，
-    被重试的参与者离组并以 `RUNNING_INDEPENDENTLY` 继续。 ✔
+    被重试的参与者**离组**并以终态 `DETACHED` + `detach_kind="left_group"`记录，它的**逻辑调用**则退回 `PENDING` 并以 `RUNNING_INDEPENDENTLY` 继续；
