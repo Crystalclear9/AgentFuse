@@ -40,9 +40,15 @@ def test_a_mutation_is_reverted_even_if_the_guard_fails(tmp_path):
             "old": "VALUE = 1",
             "new": "VALUE = 2",
             "guards": [[sys.executable, "-c", "raise SystemExit(1)"]],
+            # the guard has to name the check that has to fail - without a
+            # name a non zero exit proves nothing
+            "expect": "the named check",
         }
     )
-    assert result["ok"], "the guard failed, therefore it caught the mutation"
+    assert not result["ok"], (
+        "a guard without a named expectation does not count as a proof"
+    )
+    assert result["detail"], "the reason has to be reported"
     assert target.read_text(encoding="utf-8") == original, (
         "the mutation has to be reverted"
     )
@@ -105,3 +111,33 @@ def test_the_expected_signature_is_the_test_name():
         {},
     )
     assert signature == "test_the_thing"
+
+
+def test_a_guard_without_a_named_expectation_is_not_proven():
+    """A guard that only fails is **not** a proof.
+
+    The self test used to count every non zero exit as "the mutation was
+    detected".  A mutation that crashes the test file for an unrelated reason
+    would then have been counted as a proof.  A guard has to name the check
+    that has to fail - without a name the exit code proves nothing.
+    """
+
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "guard_selftest", ROOT / "scripts" / "guard_selftest.py"
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    caught, reason = module._caught(
+        1,
+        "some output of a guard that failed for an unrelated reason",
+        "",
+        [sys.executable, "-m", "pytest"],
+        "some output of a guard that failed for an unrelated reason",
+        {},
+    )
+    assert not caught, "a guard without a named expectation must not count"
+    assert "named expectation" in reason, reason

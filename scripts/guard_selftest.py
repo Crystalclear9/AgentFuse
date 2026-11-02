@@ -35,24 +35,157 @@ configure_console()
 
 #: The mutations.  Every entry breaks one behaviour of the runtime and names
 #: the guards that have to notice.
-MUTATIONS: list[dict[str, Any]] = [
+_NEW_MUTATIONS: list[dict[str, Any]] = [
+    {
+        "name": "P2 清单不再完整",
+        "clause": "19",
+        "file": "scripts/audit_requirements.py",
+        # one clause disappears from the list - the audit has to notice that
+        # the document no longer lists all ten clauses of the requirement
+        "old": """    "跨会话持久化结果缓存",
+    "GPU 资源调度",""",
+        "new": """    "GPU 资源调度",""",
+        "expect_audit": "19",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
+    {
+        "name": "验收清单不再完整",
+        "clause": "23",
+        "file": "scripts/audit_requirements.py",
+        # one box of the acceptance checklist disappears
+        "old": """    ("\u53ef\u6253\u5f00\u672c\u5730 Web UI", "test", "test_the_dashboard_is_served"),""",
+        "new": """    ("\u53ef\u6253\u5f00\u672c\u5730 Web UI", "test", "test_the_dashboard_is_served"),
+    ("\u4e34\u65f6\u653e\u5165\u7684\u4f1a\u8bae", "test", "test_the_dashboard_is_served"),""",
+        "expect_audit": "23",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
+    {
+        "name": "守卫自检不再要求指名的检查",
+        "clause": "17.2",
+        "file": "scripts/guard_selftest.py",
+        # the proof becomes weak again: any non zero exit counts
+        "old": """    if not signature:
+        return False, (
+            "the guard has no named expectation - a non zero exit proves "
+            "nothing (add \\"expect\\" or a tests/...::test_name selector)"
+        )""",
+        "new": """    if not signature:
+        return True, "the guard failed as expected\"""",
+        "expect": "test_a_guard_without_a_named_expectation_is_not_proven",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_guard_selftest.py::test_a_guard_without_a_named_expectation_is_not_proven",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "绕过检测不再覆盖 stat",
+        "clause": "7.2",
+        "file": "agentfuse/workspace/reader.py",
+        # os.stat is no longer audited - a tool that only stats a file would
+        # not be detected any more
+        "old": """    "os.scandir",
+    "os.listdir",
+    "os.stat",
+    "os.lstat",
+)""",
+        "new": """    "os.scandir",
+    "os.listdir",
+)""",
+        "expect_audit": "7.2",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
+    {
+        "name": "长跑观测不再是门",
+        "clause": "17.5",
+        "file": "scripts/soak.py",
+        # the gate is removed: the soak reports a problem but passes anyway
+        "old": """    if problems:
+        print()
+        print("  长跑观测未通过：")
+        for problem in problems:
+            print(f"    - {problem}")
+        return 1""",
+        "new": """    if problems:
+        print()
+        print("  长跑观测未通过：")
+        for problem in problems:
+            print(f"    - {problem}")
+        return 0""",
+        "expect": "test_the_soak_gate_reports_a_problem",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_soak_gate.py::test_the_soak_gate_reports_a_problem",
+                "-q",
+            ],
+        ],
+    },
+]
+
+
+
+
+
+
+#: Every mutation of the delivery: the new ones first, the older ones after.
+
+def _node_executable() -> str:
+    """The node executable - the front end harness is JavaScript.
+
+    The mutation points that guard the front end have to run it with **node**;
+    running it with the python interpreter would fail for the wrong reason and
+    would prove nothing.
+    """
+
+    import shutil
+
+    return shutil.which("node") or "node"
+
+
+_LEGACY_MUTATIONS: list[dict[str, Any]] = [
     {
         "name": "依赖完整性不再决定工具能否共享",
         "clause": "7.2 / 21.3",
         "file": "agentfuse/tools/registry.py",
         "old": (
-            '            tool_name="ast_analyzer",\n'
-            '            tool_version="1.0.0",\n'
-            '            deterministic=True,\n'
-            '            read_only=True,\n'
+            '            implementation=python_ast_analyzer,\n'
+            '            implementation_reference=describe_implementation(python_ast_analyzer),\n'
+            '            dependency_tracking=True,\n'
         ),
         "new": (
-            '            tool_name="ast_analyzer",\n'
-            '            tool_version="1.0.0",\n'
-            '            deterministic=True,\n'
-            '            read_only=True,\n'
+            '            implementation=python_ast_analyzer,\n'
+            '            implementation_reference=describe_implementation(python_ast_analyzer),\n'
             '            dependency_tracking=False,\n'
         ),
+        "expect": [
+            "test_a_controlled_tool_is_shared",
+            "test_two_equivalent_calls_share_a_single_physical_execution",
+        ],
         "guards": [
             [
                 sys.executable,
@@ -76,6 +209,7 @@ MUTATIONS: list[dict[str, Any]] = [
         "file": "agentfuse/storage/database.py",
         "old": "        physical_execution_id TEXT REFERENCES physical_executions(execution_id) ON DELETE SET NULL DEFERRABLE INITIALLY DEFERRED,",
         "new": "        physical_execution_id TEXT,",
+        "expect_audit": "16",
         "guards": [
             [
                 sys.executable,
@@ -101,6 +235,7 @@ MUTATIONS: list[dict[str, Any]] = [
             "            # committed - the failure must not take the writer thread down\n"
             "            self.last_error = f\"transaction failed: {type(exc).__name__}: {exc}\""
         ),
+        "expect_audit": "16",
         "guards": [
             [
                 sys.executable,
@@ -156,6 +291,7 @@ MUTATIONS: list[dict[str, Any]] = [
         "file": "agentfuse/web/app.js",
         "old": '  $("tool-table").querySelector("tbody").innerHTML = rows;',
         "new": '  $("tool-table-broken").querySelector("tbody").innerHTML = rows;',
+        "expect": "test_the_dashboard_renders_the_real_data",
         "guards": [
             [
                 sys.executable,
@@ -175,6 +311,7 @@ MUTATIONS: list[dict[str, Any]] = [
         else:
             execution.outcome.set_result(_cancelled_outcome(reason))""",
         "new": """        execution.outcome.set_result(_cancelled_outcome(reason))""",
+        "expect_audit": "10.1",
         "guards": [
             [
                 sys.executable,
@@ -192,6 +329,7 @@ MUTATIONS: list[dict[str, Any]] = [
         "new": """            "arguments": arguments,
             "snapshot_id": "the-snapshot-must-not-be-part-of-the-key",
             "environment": spec.environment_signature(),""",
+        "expect": "test_candidate_key_does_not_contain_the_snapshot",
         "guards": [
             [
                 sys.executable,
@@ -208,6 +346,7 @@ MUTATIONS: list[dict[str, Any]] = [
         "file": "agentfuse/runtime/worker.py",
         "old": """    return random.Random(f"{seed}:{call_id}")""",
         "new": """    return random.Random()""",
+        "expect": "test_the_random_source_of_a_call_is_reproducible",
         "guards": [
             [
                 sys.executable,
@@ -342,6 +481,7 @@ MUTATIONS: list[dict[str, Any]] = [
         "new": """    return {
         "generated_at": time.time(),
         "file_count": len(per_file),""",
+        "expect_audit": "7.4",
         "guards": [
             [
                 sys.executable,
@@ -566,6 +706,7 @@ MUTATIONS: list[dict[str, Any]] = [
         # The working copy has to be left untouched - always, also when the
         # guard command or the script itself fails.
         _MUTATED.pop(path, None)""",
+        "expect": "test_a_mutation_is_reverted_even_if_the_guard_fails",
         "guards": [
             [
                 sys.executable,
@@ -573,20 +714,6 @@ MUTATIONS: list[dict[str, Any]] = [
                 "pytest",
                 "tests/unit/test_guard_selftest.py",
                 "-q",
-            ],
-        ],
-    },
-    {
-        "name": "审计不再检查 CI 工作流",
-        "clause": "19",
-        "file": "scripts/audit_requirements.py",
-        "old": """        paths = re.findall(r"`([\w./]+\.(?:py|yml|yaml|toml|md))`", entry)""",
-        "new": """        paths = re.findall(r"`([\w./]+\.py)`", entry)""",
-        "expect": "CI 工作流",
-        "guards": [
-            [
-                sys.executable,
-                "scripts/audit_requirements.py",
             ],
         ],
     },
@@ -657,39 +784,6 @@ MUTATIONS: list[dict[str, Any]] = [
         ],
     },
     {
-        "name": "审计不再检查 CI 工作流的内容",
-        "clause": "19",
-        "file": "scripts/audit_requirements.py",
-        # the check has to be **gone** - an empty list would only skip it
-        "old": """        # the file has to contain the job it promises
-        needles = P2_CONTENT_EXPECTATIONS.get(clause, ())
-        if not needles or missing:
-            continue
-        content = ""
-        for path in paths:
-            candidate = ROOT / path
-            if candidate.exists():
-                content += candidate.read_text(encoding="utf-8", errors="ignore")
-        absent_needles = [needle for needle in needles if needle not in content]
-        record(
-            "19",
-            f"P2 条款 {clause} 的入口包含所承诺的内容",
-            not absent_needles,
-            f"缺少: {absent_needles}" if absent_needles else f"{len(needles)} 项都在",
-        )""",
-        "new": """        # the check of the content is gone""",
-        "guards": [
-            [
-                sys.executable,
-                "-m",
-                "pytest",
-                "tests/unit/test_audit_report.py::"
-                "test_the_ci_workflow_is_checked_for_its_content",
-                "-q",
-            ],
-        ],
-    },
-    {
         "name": "审计不再报告检查的种类",
         "clause": "17.2",
         "file": "scripts/audit_requirements.py",
@@ -710,14 +804,56 @@ MUTATIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "审计不再检查 CI 工作流",
+        "clause": "19",
+        "file": ".github/workflows/ci.yml",
+        # the workflow without macOS - the audit has to notice that the
+        # promised platform is missing
+        "old": "os: [windows-latest, ubuntu-latest, macos-latest]",
+        "new": "os: [windows-latest, ubuntu-latest]",
+        "expect_audit": "19",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
+    {
+        "name": "审计不再检查 CI 工作流的内容",
+        "clause": "19",
+        "file": "scripts/audit_requirements.py",
+        # the check of the CI workflow has to be **gone** - an empty list would
+        # only skip it
+        "old": """        record(
+            "19",
+            "CI 工作流的内容",
+            not absent,
+            f"缺少: {absent}" if absent else f"{len(CI_WORKFLOW_EXPECTATIONS)} 项都在",
+        )""",
+        "new": """        pass""",
+        "expect": "test_the_ci_workflow_is_checked_for_its_content",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_audit_report.py::test_the_ci_workflow_is_checked_for_its_content",
+                "-q",
+            ],
+        ],
+    },
+    {
         "name": "前端不再显示等待原因",
         "clause": "14",
         "file": "agentfuse/web/app.js",
         "old": """event.metadata.reason || event.metadata.wait_reason || event.metadata.relative_path""",
         "new": """event.metadata.reason || event.metadata.relative_path""",
+        "expect": "分享事件显示等待原因",
         "guards": [
             [
-                sys.executable,
+                _node_executable(),
                 "tests/frontend/dom_harness.mjs",
             ],
         ],
@@ -729,9 +865,10 @@ MUTATIONS: list[dict[str, Any]] = [
         "old": """      { label: "加入被拒", value: data.rejected_candidates, sub: "rejected_at_join" },
 """,
         "new": "",
+        "expect": "总览显示加入被拒的计数",
         "guards": [
             [
-                sys.executable,
+                _node_executable(),
                 "tests/frontend/dom_harness.mjs",
             ],
         ],
@@ -934,6 +1071,7 @@ MUTATIONS: list[dict[str, Any]] = [
         "file": "agentfuse/core/events.py",
         "old": """            sequence = next(self._sequences[workflow_id or "-"])""",
         "new": """            sequence = 0""",
+        "expect_audit": "5.1",
         "guards": [
             [
                 sys.executable,
@@ -950,6 +1088,7 @@ MUTATIONS: list[dict[str, Any]] = [
             raise WorkspaceBoundaryError(f"path escapes the workspace root: {path!r}")""",
         "new": """        if part == "..":
             continue""",
+        "expect_audit": "7.2",
         "guards": [
             [
                 sys.executable,
@@ -1015,6 +1154,7 @@ MUTATIONS: list[dict[str, Any]] = [
         # shared scenario - the audit runs the scenario and compares it
         "old": "物理执行数    | 1        <- 两次逻辑调用只做了一次真实计算",
         "new": "物理执行数    | 2        <- 两次逻辑调用只做了一次真实计算",
+        "expect_audit": "22",
         "guards": [
             [
                 sys.executable,
@@ -1024,6 +1164,10 @@ MUTATIONS: list[dict[str, Any]] = [
         ],
     },
 ]
+
+
+#: Every mutation of the delivery: the new ones first, the older ones after.
+MUTATIONS: list[dict[str, Any]] = _NEW_MUTATIONS + _LEGACY_MUTATIONS
 
 
 #: A guard that runs into the timeout has **not** proven anything: it could
@@ -1066,16 +1210,30 @@ def _run(command: list[str]) -> tuple[int, str, str]:
     )
 
 
-def _expected_signature(command: list[str], mutation: dict[str, Any]) -> str:
+def _expected_signature(
+    command: list[str], mutation: dict[str, Any], index: int = 0
+) -> str:
     """The text the output of the guard has to contain.
 
     A guard that fails for an unrelated reason (a syntax error, a missing
     file) would also exit non zero - and would "prove" that it detects the
     mutation.  The expected signature is therefore part of the proof: the
     guard has to name the check that failed.
+
+    **An empty signature is not an acceptable proof.**  It used to be: a
+    mutation without a named expectation was counted as "caught" as soon as
+    the guard exited non zero, so a crash anywhere in the test file proved
+    the guard worked.  Now an empty signature means the mutation point is
+    **not proven** - the guard has to name the failing check.
     """
 
     explicit = mutation.get("expect")
+    if isinstance(explicit, (list, tuple)):
+        # one expectation per guard: a mutation can break a different test in
+        # every file it is guarded by
+        if index < len(explicit):
+            return str(explicit[index])
+        return ""
     if explicit:
         return str(explicit)
     if "pytest" in command:
@@ -1091,14 +1249,38 @@ def _expected_signature(command: list[str], mutation: dict[str, Any]) -> str:
     return ""
 
 
+def _expected_audit_clause(command: list[str], mutation: dict[str, Any]) -> str:
+    """The clause of the audit that has to fail for this mutation.
+
+    ``expect_audit`` names the clause (``§8.2`` becomes ``8.2``).  Without it
+    the mutation cannot claim that it proved anything about a **specific**
+    clause - the audit may have failed for an unrelated reason.
+    """
+
+    explicit = mutation.get("expect_audit")
+    if not explicit:
+        return ""
+    return str(explicit).lstrip("§")
+
+
 def _caught(
     code: int,
     output: str,
     signature: str,
     command: list[str] | None = None,
     stdout: str = "",
+    mutation: dict[str, Any] | None = None,
 ) -> tuple[bool, str]:
-    """Did the guard really catch **this** mutation?"""
+    """Did the guard really catch **this** mutation?
+
+    The proof has three parts:
+
+    1. the guard has to fail (exit non zero, no timeout);
+    2. the guard has to **name** the check that failed - otherwise a crash
+       anywhere in the test file would count as a proof;
+    3. for the audit the failed check has to be the **expected** one - a
+       mutation that makes *some* check fail is not a proof either.
+    """
 
     if code == TIMEOUT_EXIT_CODE:
         return False, "the guard ran into the timeout - the mutation is not proven"
@@ -1112,15 +1294,47 @@ def _caught(
     command = command or []
     if "audit_requirements" in " ".join(command) and "--json" in command:
         # the machine readable report is stronger than a text match: the
-        # number of the failed checks has to be greater than zero
+        # number of the failed checks has to be greater than zero **and** the
+        # expected clause has to be among them
         try:
             report = json.loads(stdout)
         except Exception:
             return False, "the audit did not produce a report"
-        if int(report.get("failed", 0)) > 0:
-            return True, f"the audit reported {report['failed']} failed checks"
-        return False, "the audit did not report a failed check"
-    if signature and signature not in output:
+        if int(report.get("failed", 0)) <= 0:
+            return False, "the audit did not report a failed check"
+        failed_checks = [
+            (str(item.get("section", "")), str(item.get("clause", "")))
+            for item in report.get("checks", [])
+            if not item.get("ok")
+        ]
+        expected = _expected_audit_clause(command, mutation)
+        if expected:
+            named = [
+                clause
+                for section, clause in failed_checks
+                if section == expected or expected in clause
+            ]
+            if not named:
+                seen = ["\u00a7{0} {1}".format(section, clause) for section, clause in failed_checks[:3]]
+                return False, (
+                    "the audit failed, but not on \u00a7{0} - it failed on {1} instead".format(
+                        expected, seen
+                    )
+                )
+            return True, "the audit reported the expected failure: \u00a7{0} {1}".format(
+                expected, named[0]
+            )
+        # no explicit clause is expected: every failed clause has to be named
+        # in the output, otherwise the proof is not specific enough
+        if not failed_checks:
+            return False, "the audit did not name the failed check"
+        return True, f"the audit reported {len(failed_checks)} failed checks"
+    if not signature:
+        return False, (
+            "the guard has no named expectation - a non zero exit proves "
+            "nothing (add \"expect\" or a tests/...::test_name selector)"
+        )
+    if signature not in output:
         return False, (
             f"the guard failed, but it does not name {signature!r} - "
             "it may have failed for an unrelated reason"
@@ -1237,11 +1451,11 @@ def _check_mutation(mutation: dict[str, Any]) -> dict[str, Any]:
             extra_path.write_text(
                 extra_original.replace(extra[1], extra[2], 1), encoding="utf-8"
             )
-        for command in mutation["guards"]:
+        for index, command in enumerate(mutation["guards"]):
             code, output, stdout = _run(command)
             label = " ".join(command[1:3])
-            signature = _expected_signature(command, mutation)
-            caught, reason = _caught(code, output, signature, command, stdout)
+            signature = _expected_signature(command, mutation, index)
+            caught, reason = _caught(code, output, signature, command, stdout, mutation)
             guards.append(
                 {
                     "guard": label,

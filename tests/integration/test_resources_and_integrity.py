@@ -91,7 +91,7 @@ async def test_a_shared_call_does_not_consume_a_second_worker_slot(app, snapshot
 
     app.event_bus.subscribe(observer)
 
-    arguments = {"files": list(DEMO_FILES), "rounds": 800}
+    arguments = {"files": list(DEMO_FILES), "rounds": 4000}
     await asyncio.gather(
         app.coordinator.submit_tool_call(
             workflow_id=workflow.workflow_id,

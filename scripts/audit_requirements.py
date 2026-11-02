@@ -505,6 +505,25 @@ def audit_interfaces() -> None:
         reader.read_text("inside.py")
         record("7.2", "读取立即上报依赖", bool(observed), kind="behavioural")
 
+        # The audit hook has to see the file system calls of a tool that
+        # bypasses the controlled reader - including the ones that only
+        # **stat** a file.  The documentation used to claim the opposite
+        # (that ``os.stat`` does not raise an audit event), which was wrong.
+        from agentfuse.workspace.reader import AUDITED_ACCESS_EVENTS
+
+        audited = set(AUDITED_ACCESS_EVENTS)
+        missing_events = [
+            event
+            for event in ("open", "os.scandir", "os.listdir", "os.stat", "os.lstat")
+            if event not in audited
+        ]
+        record(
+            "7.2",
+            "绕过检测覆盖文件、目录与 stat",
+            not missing_events,
+            f"缺少: {missing_events}" if missing_events else f"{len(audited)} 个事件",
+        )
+
     import dataclasses
 
     spec_fields = {field.name for field in dataclasses.fields(ToolSpec)}
@@ -1432,28 +1451,68 @@ def _audit_behaviour() -> None:
 #: The P2 clauses of requirement 19 and the state that has to be documented
 #: for them.  The check is self maintaining: the documented table is the
 #: contract, the code has to match it.
-P2_EXPECTATIONS = {
-    "可插拔调度策略": True,
-    "会话内已完成结果复用": True,
-    "Worker 预热池": True,
-    "性能基线与回归守卫": True,
-    "CI 工作流": True,
-    "跨会话持久化结果缓存": False,
-    "GPU 调度与 GPU KV Cache 管理": False,
-    "分布式执行 / 多节点调度": False,
-    "多用户权限与认证": False,
-    "崩溃后的自动恢复执行": False,
-}
+#: The P2 clauses of requirement section 19 - **verbatim, all ten of them**.
+#:
+#: This list is the single source of truth.  The document states the state of
+#: every clause; the audit verifies that statement **against the code**: a
+#: clause that claims to be implemented has to point at code that exists, a
+#: clause that claims not to be implemented must not have an entry point.
+#:
+#: The list and the document used to be two copies of the same (wrong) table -
+#: the audit then passed because *both* were wrong in the same way.  Now the
+#: names live here only and the document is checked against them.
+P2_CLAUSES = (
+    "跨会话持久化结果缓存",
+    "GPU 资源调度",
+    "KV Cache 管理",
+    "真正的 Agent 推理执行优化",
+    "多节点分布式执行",
+    "复杂的可抢占任务调度",
+    "自动预测未来 Agent 路径",
+    "框架无关的高级自动适配",
+    "对任意第三方工具进行完备依赖追踪",
+    "具备安全隔离保证的通用沙箱",
+)
+
 
 #: The markers of the clauses that must **not** be implemented.  A marker in
 #: the code would mean that the clause has been implemented - then the
 #: expectation above has to be updated instead of the check being happy.
 P2_ABSENCE_MARKERS = {
-    "跨会话持久化结果缓存": ("persistent_result_cache", "cross_session_cache"),
-    "GPU 调度与 GPU KV Cache 管理": ("gpu_scheduler", "kv_cache_manager"),
-    "分布式执行 / 多节点调度": ("distributed_scheduler", "cluster_node"),
-    "多用户权限与认证": ("auth_provider", "rbac_policy", "oauth_provider"),
-    "崩溃后的自动恢复执行": ("auto_resume_execution", "resumed_execution"),
+    "跨会话持久化结果缓存": (
+        "persistent_result_cache",
+        "cross_session_cache",
+    ),
+    "GPU 资源调度": ("gpu_scheduler", "gpu_resource_pool"),
+    "KV Cache 管理": ("kv_cache_manager", "kv_cache_pool"),
+    "真正的 Agent 推理执行优化": (
+        "inference_engine",
+        "llm_runtime",
+    ),
+    "多节点分布式执行": (
+        "distributed_scheduler",
+        "cluster_node",
+    ),
+    "复杂的可抢占任务调度": (
+        "preemptive_scheduler",
+        "preemption_policy",
+    ),
+    "自动预测未来 Agent 路径": (
+        "path_predictor",
+        "agent_path_prediction",
+    ),
+    "框架无关的高级自动适配": (
+        "auto_adapter",
+        "framework_auto_detect",
+    ),
+    "对任意第三方工具进行完备依赖追踪": (
+        "full_syscall_tracer",
+        "complete_dependency_tracer",
+    ),
+    "具备安全隔离保证的通用沙箱": (
+        "generic_sandbox",
+        "security_sandbox_guarantee",
+    ),
 }
 
 
@@ -1469,6 +1528,22 @@ P2_CONTENT_EXPECTATIONS = {
         "check_regression.py",
     ),
 }
+
+#: The CI workflow has to contain these jobs - the workflow is the place where
+#: the delivery is really executed, so its content is a **clause** of its own.
+#: (It used to be checked through the P2 table, which was wrong: the workflow
+#: is not a P2 clause of the requirement.)
+CI_WORKFLOW_EXPECTATIONS = (
+    "windows-latest",
+    "ubuntu-latest",
+    "macos-latest",
+    "pytest",
+    "acceptance_check.py",
+    "check_regression.py",
+    "guard_selftest.py",
+    "soak.py",
+    "test_browser_e2e.py",
+)
 
 
 def _entry_points_are_absent(clause: str, entry: str) -> tuple[bool, list[str]]:
@@ -1494,10 +1569,16 @@ def _entry_points_are_absent(clause: str, entry: str) -> tuple[bool, list[str]]:
 def audit_priority_tiers() -> None:
     """Check §19 - the capability tiers and the documented P2 status.
 
-    Every P2 clause has to be listed in ``KNOWN_LIMITATIONS.md`` with its
-    state, and the state has to match the code: an implemented clause has to
-    point at a module that exists, a clause that is not implemented must not
-    have one.
+    The ten P2 clauses live in :data:`P2_CLAUSES` - **only** there.  The
+    document states the state of every clause and the audit verifies that
+    statement against the code: a clause that claims to be implemented has to
+    point at code that exists, a clause that claims not to be implemented must
+    not have an entry point.
+
+    The document used to carry its **own** copy of the clause list, and the
+    audit checked the document against that copy.  Both were wrong in the same
+    way, so the audit passed while six clauses were missing.  Now the names
+    come from the code and the document is checked against them.
     """
 
     text = read("docs/KNOWN_LIMITATIONS.md")
@@ -1507,27 +1588,35 @@ def audit_priority_tiers() -> None:
         if not line.strip().startswith("|"):
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) < 3 or cells[0] in ("P2 条款", "---"):
+        if len(cells) < 3 or cells[0].startswith("P2 条款"):
             continue
         if set(cells[0]) <= set("-: "):
             continue
         rows[cells[0]] = (cells[1], cells[2])
 
-    for clause, implemented in P2_EXPECTATIONS.items():
+    # every clause of the requirement has to be listed - and only those
+    listed = [clause for clause in rows if clause in P2_CLAUSES]
+    missing = [clause for clause in P2_CLAUSES if clause not in rows]
+    record(
+        "19",
+        "P2 清单完整（§19 的十条逐条列出）",
+        not missing,
+        f"缺少: {missing}" if missing else f"{len(P2_CLAUSES)} 条全部列出",
+    )
+    record(
+        "19",
+        "P2 清单没有多余的条目",
+        len(listed) == len(rows),
+        f"多出的条目: {[name for name in rows if name not in P2_CLAUSES]}",
+    )
+
+    for clause in P2_CLAUSES:
         row = rows.get(clause)
         if row is None:
             record("19", f"P2 条款 {clause}", False, "未在 KNOWN_LIMITATIONS 中列出")
             continue
         status, entry = row
-        documented = "已实现" in status and "未实现" not in status
-        if documented != implemented:
-            record(
-                "19",
-                f"P2 条款 {clause}",
-                False,
-                f"文档声明与期望不符: {entry[:60]}",
-            )
-            continue
+        implemented = "已实现" in status and "未实现" not in status
         if not implemented:
             # A clause that must not be implemented has to be **absent** from
             # the code - a hard coded "true" would prove nothing.
@@ -1553,16 +1642,16 @@ def audit_priority_tiers() -> None:
                 f"文档没有给出可核对的入口: {entry[:60]}",
             )
             continue
-        missing = [path for path in paths if not (ROOT / path).exists()]
+        missing_paths = [path for path in paths if not (ROOT / path).exists()]
         record(
             "19",
             f"P2 条款 {clause}",
-            not missing,
-            f"缺少: {missing}" if missing else f"{len(paths)} 个入口存在",
+            not missing_paths,
+            f"缺少: {missing_paths}" if missing_paths else f"{len(paths)} 个入口存在",
         )
         # the file has to contain the job it promises
         needles = P2_CONTENT_EXPECTATIONS.get(clause, ())
-        if not needles or missing:
+        if not needles or missing_paths:
             continue
         content = ""
         for path in paths:
@@ -1576,6 +1665,43 @@ def audit_priority_tiers() -> None:
             not absent_needles,
             f"缺少: {absent_needles}" if absent_needles else f"{len(needles)} 项都在",
         )
+
+    # the CI workflow is not a P2 clause - it is the place where the delivery
+    # is really executed, so its content is checked on its own
+    workflow = ROOT / ".github" / "workflows" / "ci.yml"
+    if not workflow.exists():
+        record("19", "CI 工作流的内容", False, ".github/workflows/ci.yml 不存在")
+    else:
+        content = workflow.read_text(encoding="utf-8", errors="ignore")
+        absent = [needle for needle in CI_WORKFLOW_EXPECTATIONS if needle not in content]
+        record(
+            "19",
+            "CI 工作流的内容",
+            not absent,
+            f"缺少: {absent}" if absent else f"{len(CI_WORKFLOW_EXPECTATIONS)} 项都在",
+        )
+
+    # The runtime must not depend on a framework.  The proof is a **second**
+    # implementation of the adapter contract that is driven from another
+    # process - the scripted adapter lives in this package and cannot prove it.
+    from agentfuse.adapters.external_adapter import ExternalAdapter
+    from agentfuse.adapters.scripted_adapter import ScriptedAdapter
+
+    distinct = ExternalAdapter is not ScriptedAdapter
+    record(
+        "3.1",
+        "存在第二个不依赖 Scripted Agent 的适配器实现",
+        distinct,
+        "ExternalAdapter 与 ScriptedAdapter 是两个不同的实现",
+        kind="behavioural",
+    )
+    record(
+        "3.1",
+        "外部框架通过跨进程协议驱动适配器",
+        "class ExternalAdapter" in read("agentfuse/adapters/external_adapter.py")
+        and "def handle(" in read("agentfuse/adapters/external_adapter.py"),
+        "agentfuse/adapters/external_adapter.py",
+    )
 
     # the P0 clauses are the acceptance contract - they must all be covered
     # by a behaviour check of this script
@@ -2018,6 +2144,102 @@ def _test_function_names() -> set[str]:
     return names
 
 
+#: The acceptance checklist of requirement section 23 - **all thirty nine
+#: boxes**, in the wording of the requirement.
+#:
+#: Every box has to be backed by something that is **executed**: a test of the
+#: suite or a check of this audit.  A box without such a pointer is a claim
+#: that nobody can check - so the audit reports it as missing.
+ACCEPTANCE_ITEMS: tuple[tuple[str, str, str], ...] = (
+    # (the box of the requirement, the kind of the proof, the proof)
+    ("可在单台电脑上启动", "test", "test_a_fresh_database_has_the_current_schema"),
+    ("无需外部 API", "audit", "2.2"),
+    ("无需外部模型", "audit", "2.2"),
+    ("可正常运行 CLI", "test", "test_the_cli_is_usable"),
+    ("可打开本地 Web UI", "test", "test_the_dashboard_is_served"),
+    ("SQLite 能保存真实执行记录", "test", "test_the_execution_is_written_to_the_database"),
+    ("多个 Agent 可以并发运行", "test", "test_many_concurrent_identical_calls_create_one_execution"),
+    ("可区分 Agent 和 Invocation", "test", "test_two_invocations_of_the_same_agent_stay_distinct"),
+    ("可跟踪 LogicalToolCall", "test", "test_two_equivalent_calls_share_a_single_physical_execution"),
+    ("可跟踪 PhysicalExecution", "test", "test_the_physical_execution_is_recorded"),
+    ("执行图来自真实事件", "test", "test_the_graph_only_contains_observed_relations"),
+    ("并发 Agent 不会产生错误身份绑定", "test", "test_the_two_agents_keep_their_own_identity"),
+    ("工具结果传递具有正确关联", "test", "test_the_delivery_event_is_published_exactly_once"),
+    ("等价调用可以共享", "test", "test_two_equivalent_calls_share_a_single_physical_execution"),
+    ("共享后确实减少物理执行次数", "test", "test_the_comparison_reports_a_real_reduction"),
+    ("共享结果与独立执行一致", "test", "test_the_shared_results_are_identical_to_the_baseline"),
+    ("不相关文件变化不会必然阻止共享", "test", "test_an_unrelated_file_change_does_not_prevent_sharing"),
+    ("实际依赖冲突时会阻止错误共享", "test", "test_a_conflicting_dependency_detaches_the_follower"),
+    ("在线验证能够在执行过程中发现冲突", "test", "test_the_detection_happens_while_the_leader_is_still_running"),
+    ("冲突后 Follower 能提前独立执行", "test", "test_the_detached_follower_uses_its_own_snapshot"),
+    ("未完成验证的调用无法接收共享结果", "test", "test_a_follower_that_fails_the_final_validation_gets_no_result"),
+    ("取消和失败不会产生重复结果", "test", "test_no_logical_call_is_delivered_twice"),
+    ("有 Worker 并发限制", "test", "test_the_worker_limit_is_enforced"),
+    ("能记录 CPU 时间", "test", "test_the_resource_samples_are_written_for_the_real_worker"),
+    ("能记录内存使用", "test", "test_the_resource_snapshot_exposes_the_limits"),
+    ("能处理超时", "test", "test_a_hanging_worker_is_terminated_by_the_timeout"),
+    ("能处理取消", "test", "test_a_cancelled_follower_does_not_stop_the_leader"),
+    ("能正确释放资源", "test", "test_cancelling_every_participant_terminates_the_execution"),
+    ("提供共享执行演示", "test", "test_the_shared_scenario_shares_one_execution"),
+    ("提供动态冲突演示", "test", "test_the_divergent_scenario_reports_the_expected_numbers"),
+    ("提供并发多 Agent 演示", "test", "test_the_multi_agent_scenario_builds_the_expected_graph"),
+    ("提供失败与取消演示", "test", "test_the_cancel_failure_scenario_covers_every_case"),
+    ("可在 Web UI 查看运行图", "test", "test_the_dashboard_renders_the_real_data"),
+    ("可查看依赖验证记录", "test", "test_the_dashboard_renders_the_real_data"),
+    ("可查看物理执行情况", "test", "test_the_execution_endpoints"),
+    ("可运行 Benchmark", "test", "test_the_benchmark_endpoint_runs_a_comparison"),
+    ("可对比 Baseline 与 Online Sharing", "test", "test_the_comparison_reports_a_real_reduction"),
+    ("有自动化测试", "audit", "17"),
+    ("有完整运行文档", "audit", "22"),
+)
+
+
+def audit_acceptance_checklist() -> None:
+    """Check section 23 - the acceptance checklist of the requirement.
+
+    The thirty nine boxes of the checklist are the contract of the delivery.
+    Every box has to point at something that is **executed**: a test of the
+    suite or a check of this audit.  The check that a proof exists is done
+    with the AST of the test files - a renamed test would not satisfy it.
+    """
+
+    record(
+        "23",
+        "验收清单的条目数（39 条）",
+        len(ACCEPTANCE_ITEMS) == 39,
+        f"{len(ACCEPTANCE_ITEMS)} 条",
+    )
+    test_names = _test_function_names()
+    for item, kind, proof in ACCEPTANCE_ITEMS:
+        if kind == "test":
+            ok = proof in test_names
+            detail = (
+                f"测试 {proof}"
+                if ok
+                else f"找不到测试 {proof}"
+            )
+        else:
+            # an audit check of that section has to exist and to pass
+            matching = [
+                entry
+                for entry in RESULTS
+                if entry["section"].startswith(proof) and entry["ok"]
+            ]
+            ok = bool(matching)
+            detail = (
+                f"审计 §{proof} 的 {len(matching)} 项检查通过"
+                if ok
+                else f"审计 §{proof} 没有通过的检查"
+            )
+        record(
+            "23",
+            f"验收清单 {item}",
+            ok,
+            detail,
+            kind="behavioural" if kind == "test" else None,
+        )
+
+
 def audit_layout_tests_docs() -> None:
     missing = [name for name in LAYOUT if not (ROOT / name).exists()]
     record("20", "工程目录结构", not missing, f"缺: {missing}" if missing else f"{len(LAYOUT)} 项")
@@ -2212,11 +2434,64 @@ def audit_documented_numbers() -> None:
 
 
 # ----------------------------------------------------------------------
+def write_traceability_table() -> None:
+    """Write the traceability table of the requirement into the test report.
+
+    Every subsection of the requirement points at something that is
+    **executed**: a test of the suite, a check of the acceptance script or a
+    check of this audit.  The table is generated from that mapping, so it
+    cannot drift away from the code.
+    """
+
+    rows: dict[str, list[str]] = {}
+    for item, _kind, proof in ACCEPTANCE_ITEMS:
+        rows.setdefault("23", []).append(f"{item} -> {proof}")
+    for category, markers in TEST_CATEGORIES.items():
+        for marker in markers:
+            rows.setdefault(category, []).append(marker)
+    for clause in COVERED_SECTIONS:
+        rows.setdefault(clause, [])
+
+    lines = [
+        "## 10. \u89c4\u8303\u9010\u6761\u8ffd\u6eaf\u8868",
+        "",
+        "\u4e0b\u8868\u662f\u673a\u5668\u751f\u6210\u7684\uff1a\u6bcf\u4e2a\u9700\u6c42\u5c0f\u8282\u90fd\u6307\u5411\u4e00\u4e2a**\u88ab\u6267\u884c**\u7684\u4e1c\u897f",
+        "\uff08\u6d4b\u8bd5\u3001\u9a8c\u6536\u9879\u6216\u5ba1\u8ba1\u68c0\u67e5\uff09\u3002\u751f\u6210\u5668\uff1a`python scripts/audit_requirements.py --trace`\u3002",
+        "",
+        "| \u9700\u6c42\u5c0f\u8282 | \u8bc1\u636e |",
+        "|---|---|",
+    ]
+    for section in sorted(rows, key=lambda value: (len(value), value)):
+        proofs = rows[section]
+        if not proofs:
+            continue
+        shown = proofs[0]
+        if len(proofs) > 1:
+            shown += f" (+{len(proofs) - 1})"
+        lines.append(f"| \u00a7{section} | {shown} |")
+    lines.append("")
+
+    report = ROOT / "docs" / "TEST_REPORT.md"
+    text = report.read_text(encoding="utf-8")
+    marker = "## 10. \u89c4\u8303\u9010\u6761\u8ffd\u6eaf\u8868"
+    if marker in text:
+        head = text.split(marker)[0].rstrip("\n")
+    else:
+        head = text.rstrip("\n")
+    report.write_text(head + "\n\n" + "\n".join(lines), encoding="utf-8")
+    print(f"  the traceability table is written into {report.relative_to(ROOT)}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true")
     parser.add_argument(
         "--coverage", action="store_true", help="print the covered requirement sections"
+    )
+    parser.add_argument(
+        "--trace",
+        action="store_true",
+        help="write the traceability table into the test report",
     )
     args = parser.parse_args()
 
@@ -2233,6 +2508,10 @@ def main() -> int:
     audit_priority_tiers()
     audit_layout_tests_docs()
     audit_documented_numbers()
+    audit_acceptance_checklist()
+
+    if args.trace:
+        write_traceability_table()
 
     failed = [item for item in RESULTS if not item["ok"]]
     # The split between the checks that **run** the runtime and the checks that

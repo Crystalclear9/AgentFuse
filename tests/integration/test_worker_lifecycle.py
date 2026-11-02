@@ -64,7 +64,6 @@ def slow_worker(monkeypatch):
 async def test_a_worker_created_during_the_shutdown_does_not_leak(app, snapshot, slow_worker):
     """The worker that is created while the runtime closes must not survive."""
 
-    before = set(worker_processes())
     workflow = app.create_workflow("test-leak-race")
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
@@ -77,11 +76,19 @@ async def test_a_worker_created_during_the_shutdown_does_not_leak(app, snapshot,
             snapshot_id=snapshot.snapshot_id,
         )
     )
+    # the baseline is taken **here** and not at the beginning of the test: a
+    # worker of an earlier test may still be shutting down and would be
+    # counted as a survivor although it does not belong to this runtime
+    before = set(worker_processes())
     # the runtime closes while the worker is still being created
     await app.coordinator.shutdown()
     call.cancel()
-    # the worker must be gone - the wait is bounded, the test fails if it is not
-    assert await wait_for_process_exit(worker_processes()), (
+    # the worker must be gone - the wait is bounded, the test fails if it is
+    # not.  Only the workers that appeared **during** this test are waited
+    # for: a worker of an earlier test may still be shutting down and does
+    # not belong to this runtime.
+    new_workers = [pid for pid in worker_processes() if pid not in before]
+    assert await wait_for_process_exit(new_workers), (
         "worker processes survived the shutdown"
     )
 

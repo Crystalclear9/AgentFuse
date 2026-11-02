@@ -206,3 +206,75 @@ async def test_a_burst_of_events_does_not_block_the_event_loop(app, snapshot):
 
     events = app.repository.list_events(workflow.workflow_id)
     assert len(events) >= 200, "every event has to be written"
+
+
+async def test_the_execution_is_written_to_the_database(app, snapshot):
+    """The acceptance checklist: SQLite saves the **real** execution record.
+
+    The row has to contain the values of the run that really happened - the
+    tool, the arguments hash, the worker pid and the timing.  A row that is
+    only "there" would not prove that the database saves the execution.
+    """
+
+    workflow = app.create_workflow("test-execution-row")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    result = await app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="ast_analyzer",
+        arguments={"files": list(DEMO_FILES)},
+        snapshot_id=snapshot.snapshot_id,
+    )
+    workflow.finish()
+
+    rows = app.repository.list_executions(workflow.workflow_id)
+    assert len(rows) == 1, f"exactly one execution, got {len(rows)}"
+    row = rows[0]
+    assert row["tool_name"] == "ast_analyzer"
+    assert row["tool_version"]
+    assert row["arguments_hash"], "the arguments hash has to be recorded"
+    assert row["worker_pid"], "the worker pid has to be recorded"
+    assert row["start_time"] is not None and row["finish_time"] is not None
+    assert float(row["start_time"]) <= float(row["finish_time"])
+    assert row["execution_status"] == "COMPLETED"
+    assert row["result_hash"], "the result hash has to be recorded"
+    # the call that produced it is linked to the execution
+    calls = app.repository.list_logical_calls(workflow.workflow_id)
+    assert len(calls) == 1
+    assert calls[0]["physical_execution_id"] == row["execution_id"]
+    assert result.result_hash == row["result_hash"]
+
+
+async def test_the_physical_execution_is_recorded(app, snapshot):
+    """The acceptance checklist: a physical execution can be tracked.
+
+    The row has to be reachable by its id and has to carry the resource
+    samples of the worker that really ran.
+    """
+
+    workflow = app.create_workflow("test-execution-tracking")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    await app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id,
+        tool_name="ast_analyzer",
+        arguments={"files": list(DEMO_FILES)},
+        snapshot_id=snapshot.snapshot_id,
+    )
+    workflow.finish()
+
+    rows = app.repository.list_executions(workflow.workflow_id)
+    assert len(rows) == 1
+    execution_id = rows[0]["execution_id"]
+
+    detail = app.repository.get_execution(execution_id)
+    assert detail is not None, "the execution has to be reachable by its id"
+    assert detail["execution_id"] == execution_id
+    assert detail["source_snapshot_id"] == snapshot.snapshot_id
+    assert detail["tool_name"] == "ast_analyzer"
+
+    samples = app.repository.list_resource_samples(execution_id)
+    assert samples, "the resource samples of the worker have to be recorded"
+    assert all(row["rss_bytes"] for row in samples), "every sample has an RSS"

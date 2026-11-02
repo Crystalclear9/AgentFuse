@@ -225,3 +225,41 @@ await adapter.record_event(
 
 事件类型见 `agentfuse/core/state.py` 的 `EventType`。
 `metadata` 用于承载事件特有的细节（依赖路径、指纹、分离原因等）。
+
+
+---
+
+## 8. 第二个实现：跨进程的外部框架
+
+本仓库里有**两个**适配器实现：
+
+| 实现 | 用途 |
+|---|---|
+| `agentfuse/adapters/scripted_adapter.py` | 离线演示的 Scripted Agent（就地运行） |
+| `agentfuse/adapters/external_adapter.py` | **外部框架**：在另一个进程里，通过每行一个 JSON 对象的协议驱动 |
+
+第二个实现的作用不是“多一份代码”——它是**证明**：
+运行时不依赖任何框架的内部，因为一个完全不能被 import 的框架
+（甚至一个在另一台超等上的机器上）也能参与共享执行。
+
+### 8.1 协议
+
+```text
+-> {"type": "bind", "external_identity": "planner-1"}
+<- {"type": "bound", "agent_id": "agent-..."}
+-> {"type": "invoke", "agent_id": "planner-1", "parent_invocation_id": null}
+<- {"type": "invoked", "invocation_id": "inv-..."}
+-> {"type": "call", "invocation_id": "inv-...", "tool": "ast_analyzer",
+    "arguments": {...}, "snapshot_id": "snap-..."}
+<- {"type": "result", "logical_call_id": "call-...", "result": {...}}
+-> {"type": "end", "invocation_id": "inv-...", "status": "COMPLETED"}
+```
+
+启动：
+
+```bash
+python -m agentfuse.adapters.external_adapter --home <目录>
+```
+
+一个**未知**的 agent 或 invocation 会得到错误答复——适配器**不会猜**：
+没有被观察到的调用边不会出现在执行图里。

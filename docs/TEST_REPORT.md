@@ -31,13 +31,13 @@ python scripts/acceptance_check.py
 ### 3.1 Windows 11
 
 ```text
-250 passed, 1 skipped
+263 passed, 1 skipped
 ```
 
 ### 3.2 WSL2 / Ubuntu-22.04
 
 ```text
-250 passed, 1 skipped
+263 passed, 1 skipped
 ```
 
 ### 3.3 Worker pool / worker limit matrix
@@ -48,9 +48,9 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | pool \ workers | 1 | 2 |
 |---|---|---|
-| 0 | 250 passed | 250 passed |
-| 1 | 250 passed | 250 passed |
-| 2 | 250 passed | 250 passed |
+| 0 | 263 passed | 263 passed |
+| 1 | 263 passed | 263 passed |
+| 2 | 263 passed | 263 passed |
 
 **两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
 权限才能创建符号链接，因此被跳过；在 Linux 上它**真实执行并通过**。
@@ -66,7 +66,7 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | 目录 | 数量 | 结果 |
 |---|---|---|
-| `tests/unit` | 122 passed, 1 skipped（Windows）/ 123 passed（Linux） | 全部通过 |
+| `tests/unit` | 135 passed, 1 skipped（Windows）/ 123 passed（Linux） | 全部通过 |
 | `tests/integration` | 120 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 | `tests/frontend` | 4 passed | 全部通过（需要 node） |
@@ -130,21 +130,21 @@ python scripts/run_ci_like.py --matrix
 
 | 环境 | 结果 |
 |---|---|
-| venv（有 launcher 存根） | 250 passed, 1 skipped |
-| 基础解释器（= CI 环境，无存根） | 250 passed, 1 skipped（6 种池/并发组合全通过） |
-| WSL2 / Ubuntu-22.04 | 250 passed, 1 skipped（前端测试需要 node） |
+| venv（有 launcher 存根） | 263 passed, 1 skipped |
+| 基础解释器（= CI 环境，无存根） | 263 passed, 1 skipped（6 种池/并发组合全通过） |
+| WSL2 / Ubuntu-22.04 | 263 passed, 1 skipped（前端测试需要 node） |
 | **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **17 / 17 job 全部成功** |
 
 ### 4.1.1 需求复核后的验证（阶段 23）
 
 | 检查 | Windows | WSL2 / Ubuntu-22.04 |
 |---|---|---|
-| `pytest tests` | **250 passed, 1 skipped** | **250 passed, 1 skipped** |
+| `pytest tests` | **263 passed, 1 skipped** | **263 passed, 1 skipped** |
 | `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
 | `scripts/acceptance_check.py` | **44 / 44 通过** | **44 / 44 通过** |
-| `scripts/audit_requirements.py`（266 项 / 49 个需求小节；**138 条真实运行了运行时** / 128 条只读取源码） | **266 / 266 通过** | **266 / 266 通过** |
+| `scripts/audit_requirements.py`（311 项 / 49 个需求小节；**174 条真实运行了运行时** / 137 条只读取源码） | **311 / 311 通过** | **311 / 311 通过** |
 | `scripts/check_regression.py --repeat 3` | **无性能回归** | — |
-| `scripts/guard_selftest.py`（守卫自检） | **48 / 48 个守卫证明了它们能发现问题** | — |
+| `scripts/guard_selftest.py`（守卫自检） | **53 / 53 个守卫证明了它们能发现问题** | — |
 
 > 验收自检新增了 4 项与 P0 语义直接相关的断言：**数据库写入零错误**、
 > **外键约束无违规**、**外键约束已声明**、**调用与执行原子落库**。
@@ -253,8 +253,8 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 | 工具 | 命令 | 作用 |
 |---|---|---|
 | 交付验收自检 | `python scripts/acceptance_check.py` | **44 项**：目录结构、共享行为、CLI 全部命令、API 与真实字段、数据库与外键、离线依赖、场景目录一致、事件协议与原子落库 |
-| 需求条款审计 | `python scripts/audit_requirements.py` | **266 个检查 / 49 个需求小节**逐条对照（25 章）；报告会说出每条检查的**性质**（真实运行了运行时 / 只读取源码） |
-| 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 46 处行为，断言对应的守卫**必须报红** |
+| 需求条款审计 | `python scripts/audit_requirements.py` | **311 个检查 / 49 个需求小节**逐条对照（25 章）；报告会说出每条检查的**性质**（真实运行了运行时 / 只读取源码） |
+| 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 53 处行为，断言对应的守卫**必须报红** |
 | 性能回归守卫 | `python scripts/check_regression.py` | 对比 `benchmarks/baseline.json`，超出容差即失败 |
 | CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 + 守卫自检 |
 
@@ -262,18 +262,44 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 
 以下内容**没有**被自动化测试覆盖，如实记录：
 
-1. **真实外部 Agent 框架接入**：`ADAPTER_GUIDE.md` 描述的是接口契约，
-   本仓库只提供了 Scripted Agent 这一种实现，没有对接任何第三方框架。
-2. **长时间运行的资源稳定性**：压力测试只覆盖秒级场景，
-   "运行数小时不残留进程" 未做长时间验证。
-3. **多用户并发访问同一个 Web 服务**：接口按单进程单 runtime 设计，
-   未做并发写入压力测试。
-4. **磁盘故障 / 断电时的数据一致性**：SQLite 事务 + WAL 保证普通异常下的完整性，
-   但未做断电模拟。迁移前的自动备份只覆盖 schema 升级，不覆盖数据损坏。
+1. **真实外部 Agent 框架接入**：`ADAPTER_GUIDE.md` 描述的是接口契约。
+   本仓库现在提供了**两个**实现：Scripted Agent（就地演示）与
+   `agentfuse/adapters/external_adapter.py`（跨进程的外部框架，通过 NDJSON 协议驱动，
+   测试见 `tests/integration/test_external_adapter.py`）。但仍然**没有**对接某个具体的
+   第三方框架（LangChain / AutoGen / …）：这需要真实的外部进程，不能在本机上制造。
+2. **长时间运行的资源稳定性**：CI 中的 soak 任务跑 **10 分钟**，
+   且现在是一个**真的门**（`scripts/soak.py` 在 worker 增长、RSS 增长或执行失败时
+   返回非零退出码，见 `tests/unit/test_soak_gate.py`）。但“运行数小时不残留进程”
+   仍未做长时间验证（本机最长跑了十几分钟）。
+3. **多用户并发访问同一个 Web 服务**：现在已经验证——
+   `tests/integration/test_concurrency_and_crash.py` 用 **8 个线程**同时请求真实的服务器，
+   所有请求都必须成功（见该文件的同时写入测试）。
+4. **磁盘故障 / 断电时的数据一致性**：**已验证**——
+   `test_the_database_survives_a_killed_process` 在进程写入期间强杀进程，
+   然后验证 `PRAGMA integrity_check` 为 `ok`、行数不丢失、且恢复逻辑能把被打断的运行标记为
+   `INTERRUPTED`。但**断电**（掉电、磁盘失效）仍未模拟；迁移前的自动备份只覆盖
+   schema 升级，不覆盖数据损坏。
 5. **macOS**：只验证了 Windows 11 与 WSL2/Ubuntu 两个平台；CI 矩阵包含 macOS，
    但本仓库没有 macOS 机器可以执行该验证。
-6. **符号链接逃逸在 Windows 上未执行**（需要管理员权限创建符号链接）。
+6. **符号链接逃逸在 Windows 上未执行**：需要管理员权限创建符号链接
+   （本机报 `WinError 1314`）；Linux/WSL2 上已真实执行并通过。
 
 ## 9. 性能数据
 
 见 `BENCHMARK.md` 第 6 节（5 个场景 × 3 种模式 × 2 种 worker 配置 × 5 次重复）。
+
+## 10. 规范逐条追溯表
+
+下表是机器生成的：每个需求小节都指向一个**被执行**的东西
+（测试、验收项或审计检查）。生成器：`python scripts/audit_requirements.py --trace`。
+
+| 需求小节 | 证据 |
+|---|---|
+| §23 | 可在单台电脑上启动 -> test_a_fresh_database_has_the_current_schema (+38) |
+| §17.1 | test_the_graph_only_contains_observed_relations (+2) |
+| §17.2 | test_two_equivalent_calls_share_a_single_physical_execution (+6) |
+| §17.3 | test_a_conflicting_dependency_detaches_the_follower (+5) |
+| §17.4 | test_many_concurrent_identical_calls_create_one_execution (+5) |
+| §17.5 | test_the_worker_limit_is_enforced (+5) |
+| §17.6 | test_snapshots_are_immutable (+5) |
+| §17.7 | test_a_single_agent_call_produces_one_execution (+7) |

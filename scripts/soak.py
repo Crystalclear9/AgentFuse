@@ -123,6 +123,29 @@ async def main_async(args: argparse.Namespace) -> int:
             final["worker_rss_mb"] - samples[0]["worker_rss_mb"], 2
         ),
     }
+
+    # The gate: the soak is only useful if it can **fail**.  It used to
+    # return 0 in every case - a leak or a growing memory would have been
+    # printed and then ignored.  The thresholds are command line arguments so
+    # that a slow machine can be given more room, but the default is the one
+    # the CI uses.
+    problems: list[str] = []
+    if errors:
+        problems.append(f"{errors} 次执行失败")
+    if report["worker_growth"] > args.max_worker_growth:
+        problems.append(
+            f"worker 数增长 {report['worker_growth']} "
+            f"(>阈值 {args.max_worker_growth})：残留了无效进程"
+        )
+    if report["rss_growth_mb"] > args.max_rss_growth_mb:
+        problems.append(
+            f"worker RSS 增长 {report['rss_growth_mb']} MiB "
+            f"(>阈值 {args.max_rss_growth_mb} MiB)"
+        )
+    if args.minutes > 0 and iteration < 1:
+        problems.append("没有完成任何一轮执行")
+    report["problems"] = problems
+
     output = ROOT / ".agentfuse" / "reports" / f"soak-{args.scenario}.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -134,6 +157,13 @@ async def main_async(args: argparse.Namespace) -> int:
     print(f"  worker growth        : {report['worker_growth']}")
     print(f"  worker rss growth    : {report['rss_growth_mb']} MiB")
     print(f"  report               : {output}")
+    if problems:
+        print()
+        print("  长跑观测未通过：")
+        for problem in problems:
+            print(f"    - {problem}")
+        return 1
+    print("  长跑观测通过：没有残留进程，内存稳定")
     return 0
 
 
@@ -144,6 +174,18 @@ def main() -> int:
     parser.add_argument("--workers", type=int, default=2)
     parser.add_argument("--pause", type=float, default=0.2)
     parser.add_argument("--sample-every", type=int, default=5)
+    parser.add_argument(
+        "--max-worker-growth",
+        type=int,
+        default=0,
+        help="允许的 worker 进程数增长（默认 0）",
+    )
+    parser.add_argument(
+        "--max-rss-growth-mb",
+        type=float,
+        default=64.0,
+        help="允许的 worker RSS 增长（MiB，默认 64）",
+    )
     args = parser.parse_args()
     return asyncio.run(main_async(args))
 

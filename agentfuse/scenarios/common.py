@@ -45,7 +45,19 @@ DIVERGENT_FILE = "src/gamma.py"
 #: dashboard) uses the very same constants - a description cannot drift away
 #: from the runtime any more.
 SHARED_HEAVY_ROUNDS = 3000
-DIVERGENT_ROUNDS = 5000
+#: The margin of the divergent scenario: the follower has to join the group
+#: while the leader is still working on the **first** file.  The value is the
+#: number of hash rounds per file - 20000 rounds are about 300 ms per file, so
+#: the follower has a margin of several hundred milliseconds even on a loaded
+#: machine.  A smaller value made the scenario flaky under load: the leader
+#: finished before the follower had joined, and then nothing was detached.
+#: The margin of the divergent scenario: the follower has to join the group
+#: while the leader is still working on the **first** file.  The value is the
+#: number of hash rounds per file - 40000 rounds are about 600 ms per file, so
+#: the follower has a margin of more than a second even on a loaded machine.
+#: A smaller value made the scenario flaky under load: the leader finished
+#: before the follower had joined, and then nothing was detached at all.
+DIVERGENT_ROUNDS = 40000
 
 
 def default_source_repository() -> Path:

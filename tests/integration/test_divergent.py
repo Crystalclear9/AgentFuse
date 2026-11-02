@@ -25,7 +25,7 @@ async def test_a_conflicting_dependency_detaches_the_follower(app, snapshot):
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
 
-    arguments = {"files": list(DEMO_FILES), "rounds": 1200}
+    arguments = {"files": list(DEMO_FILES), "rounds": 8000}
     tasks = [
         app.coordinator.submit_tool_call(
             workflow_id=workflow.workflow_id,
@@ -63,7 +63,7 @@ async def test_the_detection_happens_while_the_leader_is_still_running(app, snap
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
 
-    arguments = {"files": list(DEMO_FILES), "rounds": 1200}
+    arguments = {"files": list(DEMO_FILES), "rounds": 8000}
     detached_at: list[float] = []
     leader_finished: list[float] = []
 
@@ -104,7 +104,7 @@ async def test_the_detached_follower_uses_its_own_snapshot(app, snapshot):
     workflow = app.create_workflow("test-divergent-snapshot")
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
-    arguments = {"files": list(DEMO_FILES), "rounds": 200}
+    arguments = {"files": list(DEMO_FILES), "rounds": 4000}
     await asyncio.wait_for(
         asyncio.gather(
             app.coordinator.submit_tool_call(
@@ -280,7 +280,7 @@ async def test_a_rejected_candidate_is_not_a_member_of_the_group(app, snapshot):
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
 
-    arguments = {"files": list(DEMO_FILES), "rounds": 1200}
+    arguments = {"files": list(DEMO_FILES), "rounds": 8000}
     leader_task = asyncio.create_task(
         app.coordinator.submit_tool_call(
             workflow_id=workflow.workflow_id,
@@ -349,7 +349,7 @@ async def test_a_rejected_candidate_is_recorded_as_detached(app, snapshot):
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
 
-    arguments = {"files": list(DEMO_FILES), "rounds": 1200}
+    arguments = {"files": list(DEMO_FILES), "rounds": 8000}
     # the leader reads the conflicting file first, therefore the follower
     # finds a mismatch in the ledger when it tries to join
     leader = asyncio.create_task(

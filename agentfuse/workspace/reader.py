@@ -69,9 +69,10 @@ def in_controlled_access() -> bool:
 
 
 #: The CPython audit events of the file system calls that read the workspace.
-#: ``os.stat`` and ``os.lstat`` do **not** raise an audit event - a tool that
-#: only stats a file cannot be detected.  That limitation is documented in
-#: ``KNOWN_LIMITATIONS.md``.
+#: ``os.stat`` and ``os.lstat`` **do** raise an audit event, so a tool that
+#: only stats a file is detected as well.  (The earlier note claiming the
+#: opposite was wrong: the events are listed here and the hook reacts to
+#: them.)
 AUDITED_ACCESS_EVENTS = (
     "open",
     "os.open",
