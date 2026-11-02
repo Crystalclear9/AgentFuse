@@ -1007,6 +1007,22 @@ MUTATIONS: list[dict[str, Any]] = [
             ],
         ],
     },
+    {
+        "name": "README 的演示数字不再与实测一致",
+        "clause": "22",
+        "file": "README.md",
+        # the number the README claims for the physical executions of the
+        # shared scenario - the audit runs the scenario and compares it
+        "old": "物理执行数    | 1        <- 两次逻辑调用只做了一次真实计算",
+        "new": "物理执行数    | 2        <- 两次逻辑调用只做了一次真实计算",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
 ]
 
 

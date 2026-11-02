@@ -195,7 +195,7 @@ agentfuse demo --scenario shared --mode online
 场景: shared   模式: online   workflow: wf-...
 指标       | 数值
 ---------+---------
-工作流耗时    | 0.103 s
+工作流耗时    | 0.107 s
 逻辑调用数    | 2
 物理执行数    | 1        <- 两次逻辑调用只做了一次真实计算
 节省执行数    | 1
@@ -203,10 +203,14 @@ agentfuse demo --scenario shared --mode online
 分离次数    | 0
 验证次数    | 5
 验证失败    | 0
-总 CPU 时间 | 0.016 s
-峰值 RSS   | 23.2 MiB
-平均共享等待   | 0.085 s
+总 CPU 时间 | 0.031 s
+峰值 RSS   | 23.1 MiB
+平均共享等待   | 0.088 s
 ```
+
+> 上面的时间是**本机实测值**，随机器而变；**与机器无关**的是那几项计数：
+> 2 个逻辑调用、1 次物理执行、节省 1 次、共享成功率 50.0%、0 次分离、5 次验证、0 次验证失败。
+> `scripts/audit_requirements.py` 会真跑一次这个场景并核对 README 里的这些数字。
 
 然后：
 
@@ -219,8 +223,11 @@ agentfuse serve
 
 ```bash
 agentfuse compare --scenario shared-heavy --repeat 5 --workers 1 --modes baseline online
-# baseline 0.537s / 2 次物理执行  →  online 0.288s / 1 次物理执行  (1.87x)
+# baseline 0.566s / 2 次物理执行 → online 0.306s / 1 次物理执行 (1.85x)
 ```
+
+> 耗时随机器而变（上面是本机实测值）；**稳定的**是物理执行数 2 → 1，
+> 以及 `共享成功率 50%`、`正确性 5/5 一致`。
 
 ---
 

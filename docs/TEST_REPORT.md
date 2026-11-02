@@ -142,9 +142,9 @@ python scripts/run_ci_like.py --matrix
 | `pytest tests` | **250 passed, 1 skipped** | **250 passed, 1 skipped** |
 | `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
 | `scripts/acceptance_check.py` | **44 / 44 通过** | **44 / 44 通过** |
-| `scripts/audit_requirements.py`（253 项 / 49 个需求小节；**125 条真实运行了运行时** / 128 条只读取源码） | **253 / 253 通过** | **253 / 253 通过** |
+| `scripts/audit_requirements.py`（266 项 / 49 个需求小节；**138 条真实运行了运行时** / 128 条只读取源码） | **266 / 266 通过** | **266 / 266 通过** |
 | `scripts/check_regression.py --repeat 3` | **无性能回归** | — |
-| `scripts/guard_selftest.py`（守卫自检） | **47 / 47 个守卫证明了它们能发现问题** | — |
+| `scripts/guard_selftest.py`（守卫自检） | **48 / 48 个守卫证明了它们能发现问题** | — |
 
 > 验收自检新增了 4 项与 P0 语义直接相关的断言：**数据库写入零错误**、
 > **外键约束无违规**、**外键约束已声明**、**调用与执行原子落库**。
@@ -253,7 +253,7 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 | 工具 | 命令 | 作用 |
 |---|---|---|
 | 交付验收自检 | `python scripts/acceptance_check.py` | **44 项**：目录结构、共享行为、CLI 全部命令、API 与真实字段、数据库与外键、离线依赖、场景目录一致、事件协议与原子落库 |
-| 需求条款审计 | `python scripts/audit_requirements.py` | **253 个检查 / 49 个需求小节**逐条对照（25 章）；报告会说出每条检查的**性质**（真实运行了运行时 / 只读取源码） |
+| 需求条款审计 | `python scripts/audit_requirements.py` | **266 个检查 / 49 个需求小节**逐条对照（25 章）；报告会说出每条检查的**性质**（真实运行了运行时 / 只读取源码） |
 | 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 46 处行为，断言对应的守卫**必须报红** |
 | 性能回归守卫 | `python scripts/check_regression.py` | 对比 `benchmarks/baseline.json`，超出容差即失败 |
 | CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 + 守卫自检 |

@@ -2047,6 +2047,156 @@ def audit_layout_tests_docs() -> None:
 
 
 # ----------------------------------------------------------------------
+# 22 the numbers in the documents
+# ----------------------------------------------------------------------
+def _scenario_metrics(mode: str) -> dict[str, Any]:
+    """Run the ``shared`` scenario in one mode and return its metrics."""
+
+    import asyncio
+    import shutil
+    import tempfile
+
+    from agentfuse.app import AgentFuseApp
+    from agentfuse.core.state import RuntimeMode
+    from agentfuse.scenarios.definitions import scenario_shared
+    from agentfuse.settings import load_settings
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        home = Path(tmp) / "documented"
+        shutil.rmtree(home, ignore_errors=True)
+        settings = load_settings(home=str(home))
+        app = AgentFuseApp(settings=settings, mode=RuntimeMode.ONLINE)
+        try:
+            result = asyncio.run(scenario_shared(app, RuntimeMode(mode), {}))
+            return dict(result.metrics)
+        finally:
+            app.close_sync()
+
+
+def _documented_metrics() -> dict[str, str]:
+    """The metric values the README claims in its demo block."""
+
+    import re
+
+    text = read("README.md")
+    # the demo block - the fenced block that follows the marker
+    marker = text.find("预期输出")
+    if marker < 0:
+        return {}
+    start = text.find("```", marker)
+    end = text.find("```", start + 3) if start >= 0 else -1
+    if start < 0 or end < 0:
+        return {}
+    block = text[start:end]
+    values: dict[str, str] = {}
+    for label, value in re.findall(r"^\s*([^|\n]+?)\s*\|\s*([^|\n]+?)\s*$", block, re.M):
+        values[label.strip()] = value.strip()
+    return values
+
+
+def _leading_number(text: str | None) -> float | None:
+    """The number at the beginning of a value (``0.107 s`` -> ``0.107``)."""
+
+    if text is None:
+        return None
+    import re
+
+    match = re.match(r"\s*(-?[0-9]+(?:\.[0-9]+)?)", text)
+    return float(match.group(1)) if match else None
+
+
+def audit_documented_numbers() -> None:
+    """Check that the numbers in the README are the numbers of a real run.
+
+    A document with numbers in it is a claim.  The claim has to be checked
+    against the runtime - otherwise the numbers drift silently every time the
+    runtime changes.  The **counts** are deterministic (two logical calls,
+    one physical execution, ...), the times depend on the machine and are
+    only checked for plausibility.
+    """
+
+    online = _scenario_metrics("online")
+    baseline = _scenario_metrics("baseline")
+    claimed = _documented_metrics()
+
+    record(
+        "22",
+        "README 的演示数字来自一次真实运行",
+        bool(online) and bool(baseline),
+        f"online={len(online)} 指标, baseline={len(baseline)} 指标",
+        kind="behavioural",
+    )
+
+    if not online:
+        return
+
+    # the deterministic counts of the shared scenario
+    expectations = {
+        "逻辑调用数": ("logical_calls", online.get("logical_calls")),
+        "物理执行数": ("physical_executions", online.get("physical_executions")),
+        "节省执行数": ("saved_executions", online.get("saved_executions")),
+        "分离次数": ("detach_count", online.get("detach_count")),
+        "验证次数": ("validation_count", online.get("validation_count")),
+        "验证失败": ("validation_failures", online.get("validation_failures")),
+    }
+    for label, (metric, measured) in expectations.items():
+        text_value = _leading_number(claimed.get(label))
+        record(
+            "22",
+            f"README 的 {label} 与实测一致",
+            text_value is not None and measured is not None and text_value == float(measured),
+            f"README={claimed.get(label)} 实测={measured} ({metric})",
+            kind="behavioural",
+        )
+
+    rate = _leading_number(claimed.get("共享成功率"))
+    measured_rate = float(online.get("share_success_rate") or 0.0) * 100.0
+    record(
+        "22",
+        "README 的 共享成功率 与实测一致",
+        rate is not None and abs(rate - measured_rate) < 0.05,
+        f"README={claimed.get('共享成功率')} 实测={measured_rate:.1f}%",
+        kind="behavioural",
+    )
+
+    # the times depend on the machine - they only have to be plausible
+    for label, metric, upper in (
+        ("工作流耗时", "makespan", 60.0),
+        ("总 CPU 时间", "total_cpu_time", 60.0),
+        ("平均共享等待", "avg_share_wait", 60.0),
+        ("峰值 RSS", "peak_rss", 4 * 1024 * 1024 * 1024),
+    ):
+        text_value = _leading_number(claimed.get(label))
+        measured = float(online.get(metric) or 0.0)
+        record(
+            "22",
+            f"README 的 {label} 数值合理",
+            text_value is not None and 0.0 < text_value < upper and 0.0 <= measured < upper,
+            f"README={claimed.get(label)} 实测={measured:.3f} ({metric})",
+            kind="behavioural",
+        )
+
+    # the comparison example in the README claims the execution counts of the
+    # two modes - they have to be the counts of the two real runs
+    import re
+
+    comparison = [
+        line for line in read("README.md").splitlines() if "次物理执行" in line and "baseline" in line
+    ]
+    counts = re.findall(r"/\s*(\d+)\s*次物理执行", " ".join(comparison))
+    record(
+        "22",
+        "README 的对比示例的执行次数与实测一致",
+        len(counts) >= 2
+        and int(counts[0]) == int(baseline.get("physical_executions") or -1)
+        and int(counts[1]) == int(online.get("physical_executions") or -2),
+        f"README={counts} 实测 baseline={baseline.get('physical_executions')} "
+        f"online={online.get('physical_executions')}",
+        kind="behavioural",
+    )
+
+
+# ----------------------------------------------------------------------
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true")
@@ -2067,6 +2217,7 @@ def main() -> int:
     audit_benchmark()
     audit_priority_tiers()
     audit_layout_tests_docs()
+    audit_documented_numbers()
 
     failed = [item for item in RESULTS if not item["ok"]]
     # The split between the checks that **run** the runtime and the checks that

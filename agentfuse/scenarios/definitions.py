@@ -57,6 +57,19 @@ class ScenarioResult:
         }
 
 
+def _expectation(mode: RuntimeMode, sharing: str) -> str:
+    """Describe what the scenario proves.
+
+    The expectation states the behaviour of the **sharing** modes.  In the
+    baseline mode nothing is shared, so the note would be wrong there - it
+    has to say what the baseline mode does instead.
+    """
+
+    if mode is RuntimeMode.BASELINE:
+        return "baseline mode: no sharing - every logical call is executed separately"
+    return sharing
+
+
 # ----------------------------------------------------------------------
 # scenario 1 - full sharing
 # ----------------------------------------------------------------------
@@ -102,7 +115,7 @@ async def scenario_shared(app: Any, mode: RuntimeMode, options: dict[str, Any]) 
         snapshots={"base": base.snapshot_id},
         results=list(results),
         notes={
-            "expectation": "2 logical calls, 1 physical execution, identical results",
+            "expectation": _expectation(mode, "2 logical calls, 1 physical execution, identical results"),
         },
     )
 
@@ -154,7 +167,7 @@ async def scenario_shared_heavy(
         snapshots={"base": base.snapshot_id},
         results=list(results),
         notes={
-            "expectation": "2 logical calls, 1 physical execution, identical results",
+            "expectation": _expectation(mode, "2 logical calls, 1 physical execution, identical results"),
             "rounds": rounds,
         },
     )
@@ -222,7 +235,9 @@ async def scenario_different_workspace(
         snapshots={"base": base.snapshot_id, "branch_a": branch_a.snapshot_id, "branch_b": branch_b.snapshot_id},
         results=list(results),
         notes={
-            "expectation": "different snapshots but identical analysed dependencies -> sharing allowed",
+            "expectation": _expectation(
+                mode, "different snapshots but identical analysed dependencies -> sharing allowed"
+            ),
             "snapshot_difference": comparison,
         },
     )
@@ -289,7 +304,9 @@ async def scenario_divergent(app: Any, mode: RuntimeMode, options: dict[str, Any
         snapshots={"base": base.snapshot_id, "branch_a": branch_a.snapshot_id, "branch_b": branch_b.snapshot_id},
         results=list(results),
         notes={
-            "expectation": "follower detaches online, both calls return their own correct result",
+            "expectation": _expectation(
+                mode, "follower detaches online, both calls return their own correct result"
+            ),
             "rounds": rounds,
         },
     )
@@ -389,7 +406,9 @@ async def scenario_multi_agent(app: Any, mode: RuntimeMode, options: dict[str, A
         snapshots={"base": base.snapshot_id},
         results=[result],
         notes={
-            "expectation": "3 concurrent workers, 1 shared execution (A+B), aggregator joins afterwards",
+            "expectation": _expectation(
+                mode, "3 concurrent workers, 1 shared execution (A+B), aggregator joins afterwards"
+            ),
         },
     )
 
