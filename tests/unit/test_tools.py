@@ -230,8 +230,11 @@ def test_the_workflow_does_not_seed_the_global_random_state():
     runtime.start()
     observed = [random_module.random() for _ in range(3)]
     assert observed == expected, "the global random state must not change"
-    # the workflow has its own source
-    assert runtime.rng.random() != observed[0]
+    # the seed of the workflow reaches the **tools** - it does not draw a number
+    # on its own and it does not touch the global source
+    from agentfuse.runtime.worker import _call_random
+
+    assert _call_random({"seed": 999, "logical_call_id": "call-1"}).random() != observed[0]
 
 
 def test_the_random_source_of_a_call_is_reproducible():

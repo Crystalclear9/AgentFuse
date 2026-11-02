@@ -1,4 +1,4 @@
-"""The five offline demo scenarios.
+"""The six offline demo scenarios.
 
 Every scenario runs completely offline, uses only the controlled tools and
 produces real events, real physical executions and real results.  The graph of

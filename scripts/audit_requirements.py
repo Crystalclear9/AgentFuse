@@ -1637,6 +1637,7 @@ def audit_benchmark() -> None:
         "对比模式使用相同的工具与限制",
         bool(fair) and all(fair.values()),
         f"{fair}",
+        kind="behavioural",
     )
 
     # the metrics of requirement 13.3

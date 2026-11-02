@@ -83,7 +83,7 @@ class ToolRegistry:
 
 
 def build_default_registry() -> ToolRegistry:
-    """Build the registry of the four built-in controlled tools."""
+    """Build the registry of the built-in controlled tools."""
 
     registry = ToolRegistry()
 

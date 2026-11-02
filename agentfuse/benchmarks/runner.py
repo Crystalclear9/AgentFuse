@@ -398,7 +398,7 @@ async def compare(
     ``workers=1`` the two modes are executed under *resource contention*,
     which is where the shared execution actually saves wall clock time.
 
-    Every run uses the **same random seed** - that is the sixth fairness rule
+    Every run uses the **same random seed** - that is the fifth fairness rule
     of the module docstring.  The seed is also what makes the comparison
     reproducible: two runs with the same seed have to produce the same
     decisions.

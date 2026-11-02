@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import time
 
 import httpx
 import pytest
@@ -131,16 +132,27 @@ async def test_the_benchmark_endpoint_runs_a_comparison(client):
     assert (await client.get("/api/benchmarks")).json()["runs"]
 
 
-async def test_the_api_does_not_block_the_event_loop(client):
+async def test_the_api_does_not_block_the_event_loop(client, monkeypatch):
     """§16.5 - the HTTP API must not freeze the event loop.
 
-    A read waits for the writer to commit the pending statements.  That wait
-    belongs into a worker thread - done directly in the route it would stop
-    the whole runtime (the dashboard, the benchmark polling, the coordinator)
-    for the duration of the commit.
+    The database read of a route waits for the writer.  Done directly in the
+    route it would stop **everything** that runs on the loop - the runtime
+    itself included.  The read therefore runs in a worker thread.
+
+    The proof does not depend on the speed of the machine: the read is
+    slowed down on purpose, so the request is in flight long enough for a
+    concurrent coroutine to be scheduled.
     """
 
-    app = client.agentfuse_app.state.runtime
+    runtime = client.agentfuse_app.state.runtime
+    original = runtime.repository.list_workflows
+
+    def slow_list_workflows(*args, **kwargs):
+        time.sleep(0.5)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(runtime.repository, "list_workflows", slow_list_workflows)
+
     ticks = 0
 
     async def ticker() -> None:
@@ -149,32 +161,25 @@ async def test_the_api_does_not_block_the_event_loop(client):
             await asyncio.sleep(0.005)
             ticks += 1
 
-    # the writer gets a lot of work - the read has to wait for it.  The
-    # number of writes stays moderate: the flush has to finish within its
-    # timeout even on a loaded machine.
-    for index in range(500):
-        app.database.write(
-            "INSERT INTO runtime_events "
-            "(event_id, workflow_id, sequence, event_type, timestamp, metadata) "
-            "VALUES (?, NULL, ?, 'WORKFLOW_STARTED', 1.0, '{}')",
-            (f"evt-busy-{index}", index),
-        )
-
     task = asyncio.create_task(ticker())
+    started = time.perf_counter()
     try:
         response = await client.get("/api/overview")
+        elapsed = time.perf_counter() - started
         assert response.status_code == 200
     finally:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
 
+    assert elapsed > 0.4, (
+        f"the read did not take the expected time ({elapsed:.3f} s) - the test "
+        "would not prove anything"
+    )
     assert ticks > 0, (
         "the event loop was blocked while the API answered - the database "
         "reads have to run in a worker thread"
     )
-    app.database.flush(timeout=30)
-
 
 async def test_the_api_refuses_a_public_address(settings):
     """§2.2 - the dashboard has no authentication.

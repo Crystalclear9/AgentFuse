@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from .console import configure_logging
 from .core.events import EventBus
 from .core.state import RuntimeMode
 from .core.workflow import WorkflowRuntime
@@ -42,6 +43,7 @@ class AgentFuseApp:
     ) -> None:
         self.settings = settings or load_settings()
         self.settings.ensure_directories()
+        configure_logging(self.settings.logs_dir)
         self.mode = mode
 
         self.database = Database(self.settings.db_path)

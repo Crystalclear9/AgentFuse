@@ -209,7 +209,7 @@ SQLite（`agentfuse/storage/database.py`），schema 版本记录在 `PRAGMA use
 | `tool_results` | 结果文件路径、哈希与大小 |
 | `benchmark_runs` | 基准测试记录 |
 
-写入路径：运行时 → `Database.write()` → 有界队列 → 独立写入线程 → 事务提交。
+写入路径：运行时 → `Database.write()` → 队列（**无界**）→ 独立写入线程 → 事务提交。
 读取路径：查询前先 `flush()`，保证读到的数据包含已经产生的写入（read-your-writes）。
 
 ### 崩溃恢复
@@ -255,7 +255,7 @@ Runtime 启动时在后台线程里把它们拉起来（`RuntimeCoordinator.prew
 因此解释器启动与包导入发生在**空闲期**而不是任何一次调用的关键路径上。
 
 实测：worker 冷启动 225 ms → 99 ms（惰性包导出），
-4 次顺序执行 712 ms → 167 ms（预热池）。
+4 次顺序执行 796 ms → 316 ms（预热池）。
 
 worker 本身是"多任务"进程：它按行读取 payload，执行完一个任务后继续等待下一个。
 `runtime/pool.py` 的 `WorkerHandle` 负责把协议流里的消息归属到**当前**任务。

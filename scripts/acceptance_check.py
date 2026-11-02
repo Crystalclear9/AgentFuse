@@ -83,6 +83,56 @@ def main() -> int:
             check("共享结果与独立执行一致",
                   shared.results[0].result_hash == shared.results[1].result_hash)
 
+            # §10 the session result cache is **opt in** - the check has to
+            # enable it through the configuration, otherwise the wiring from
+            # the settings to the coordinator is never exercised
+            cached_settings = load_settings(
+                home=home, overrides={"runtime": {"result_cache_entries": 4}}
+            )
+            cached_app = AgentFuseApp(settings=cached_settings, mode=RuntimeMode.ONLINE)
+            try:
+                from agentfuse.resources import sample_repository_path
+                from agentfuse.scenarios.common import DEMO_FILES
+
+                cache_snapshot = cached_app.snapshots.create_workspace(
+                    source_dir=sample_repository_path()
+                )
+                cached_workflow = cached_app.create_workflow("acceptance-cache")
+                cached_workflow.default_snapshot_id = cache_snapshot.snapshot_id
+                cached_workflow.start()
+                cached_arguments = {"files": list(DEMO_FILES)}
+                first_result = await cached_app.coordinator.submit_tool_call(
+                    workflow_id=cached_workflow.workflow_id,
+                    tool_name="ast_analyzer",
+                    arguments=cached_arguments,
+                    snapshot_id=cache_snapshot.snapshot_id,
+                )
+                second_result = await cached_app.coordinator.submit_tool_call(
+                    workflow_id=cached_workflow.workflow_id,
+                    tool_name="ast_analyzer",
+                    arguments=cached_arguments,
+                    snapshot_id=cache_snapshot.snapshot_id,
+                )
+                cached_executions = cached_app.repository.list_executions(
+                    cached_workflow.workflow_id
+                )
+                cached_events = cached_app.repository.list_events(cached_workflow.workflow_id)
+                cache_hits = [
+                    event
+                    for event in cached_events
+                    if event["event_type"] == "TOOL_RESULT_DELIVERED"
+                    and (event["metadata"] or {}).get("cached")
+                ]
+                check(
+                    "结果缓存按配置开启后相同的请求不再启动物理执行",
+                    len(cached_executions) == 1
+                    and len(cache_hits) == 1
+                    and first_result.result_hash == second_result.result_hash,
+                    f"executions={len(cached_executions)} hits={len(cache_hits)}",
+                )
+            finally:
+                await cached_app.close()
+
             multi = await scenario_multi_agent(app, RuntimeMode.ONLINE, {})
             kinds = [n["kind"] for n in multi.workflow.graph.to_dict()["nodes"]]
             check("执行图由真实事件重建",

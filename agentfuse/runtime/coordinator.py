@@ -186,7 +186,11 @@ class RuntimeCoordinator:
         scheduler: LocalResourceController,
         mode: RuntimeMode = RuntimeMode.ONLINE,
         default_timeout_seconds: int = 60,
-        result_cache_entries: int = 64,
+        # The session cache is **off** by default: it changes the observable
+        # behaviour of a workflow (a repeated request no longer starts a new
+        # physical execution).  The application reads the value from the
+        # configuration.
+        result_cache_entries: int = 0,
         worker_pool_size: int = 0,
         resource_sample_interval_ms: int = 50,
     ) -> None:

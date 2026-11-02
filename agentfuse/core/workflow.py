@@ -8,7 +8,6 @@ relations that were really observed.
 
 from __future__ import annotations
 
-import random
 import time
 from typing import Any
 
@@ -62,13 +61,11 @@ class WorkflowRuntime:
         self.graph = ExecutionGraph(workflow_id=self.workflow_id)
         #: default workspace snapshot used by adapters that do not specify one
         self.default_snapshot_id: str | None = None
-        #: the seeded random source of this workflow.  Every stochastic
-        #: decision of the run has to use it, otherwise the seed would not
-        #: have any effect and the run would not be reproducible.  The source
-        #: is **not** installed globally: seeding ``random`` would change the
-        #: behaviour of the whole process, including the code that embeds
-        #: AgentFuse.
-        self.rng = random.Random(random_seed)
+        # The seed of the workflow reaches the tools through the payload (see
+        # ``RuntimeCoordinator.seed_for``) - the workflow itself does not draw
+        # a number.  The global random source is **not** seeded: that would
+        # change the behaviour of the whole process, including the code that
+        # embeds AgentFuse.
 
         self._unsubscribe = event_bus.subscribe(self._on_event)
 

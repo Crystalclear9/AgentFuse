@@ -9,6 +9,8 @@ Commands::
     agentfuse compare --scenario shared --repeat 5
     agentfuse trace <workflow_id>
     agentfuse inspect <execution_id>
+    agentfuse tools
+    agentfuse serve --host 0.0.0.0 --allow-remote
 """
 
 from __future__ import annotations

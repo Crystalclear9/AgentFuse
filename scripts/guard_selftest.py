@@ -959,6 +959,20 @@ MUTATIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "结果缓存不再按配置开启",
+        "clause": "10.2",
+        "file": "agentfuse/app.py",
+        "old": """            result_cache_entries=self.settings.result_cache_entries,""",
+        "new": """            result_cache_entries=0,""",
+        "expect": "结果缓存",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/acceptance_check.py",
+            ],
+        ],
+    },
+    {
         "name": "被拒候选者仍算作组员",
         "clause": "8.2",
         "file": "agentfuse/runtime/coordinator.py",

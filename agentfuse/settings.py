@@ -47,7 +47,6 @@ class RuntimeSettings:
     results_dir: Path
     reports_dir: Path
     logs_dir: Path
-    screenshots_dir: Path
     max_workers: int
     max_memory_budget_mb: int
     max_rss_soft_limit_mb: int
@@ -76,7 +75,6 @@ class RuntimeSettings:
             self.results_dir,
             self.reports_dir,
             self.logs_dir,
-            self.screenshots_dir,
         ):
             directory.mkdir(parents=True, exist_ok=True)
         return self
@@ -155,18 +153,42 @@ def load_settings(
         results_dir=home_path / "results",
         reports_dir=home_path / "reports",
         logs_dir=home_path / "logs",
-        screenshots_dir=home_path / "screenshots",
         max_workers=int(runtime.get("max_workers", 2)),
         max_memory_budget_mb=int(runtime.get("max_memory_budget_mb", 1024)),
         max_rss_soft_limit_mb=int(runtime.get("max_rss_soft_limit_mb", 0)),
         scheduling_strategy=str(runtime.get("scheduling_strategy", "fifo")),
         result_cache_entries=int(runtime.get("result_cache_entries", 0)),
-        worker_pool_size=int(runtime.get("worker_pool_size", 0)),
+        # The fallbacks are the **documented defaults** - an installation
+        # without a configuration file (a wheel) has to behave like the
+        # repository.  ``tests/unit/test_settings_defaults.py`` compares them
+        # with ``config/default.toml`` so that the two cannot drift apart.
+        worker_pool_size=int(runtime.get("worker_pool_size", 2)),
         default_timeout_seconds=int(runtime.get("default_timeout_seconds", 60)),
         resource_sample_interval_ms=int(runtime.get("resource_sample_interval_ms", 50)),
         snapshot_max_files=int(workspace.get("max_files", 5000)),
         snapshot_max_total_bytes=int(workspace.get("max_total_bytes", 64 * 1024 * 1024)),
-        snapshot_exclude=tuple(workspace.get("exclude", ())),
+        snapshot_exclude=tuple(
+            workspace.get(
+                "exclude",
+                (
+                    ".git",
+                    ".hg",
+                    ".svn",
+                    "__pycache__",
+                    ".venv",
+                    "venv",
+                    "node_modules",
+                    ".pytest_cache",
+                    ".mypy_cache",
+                    "*.pyc",
+                    "*.pyo",
+                    "*.so",
+                    "*.dll",
+                    "*.exe",
+                    "*.pdb",
+                ),
+            )
+        ),
         api_host=str(api.get("host", "127.0.0.1")),
         api_port=int(api.get("port", 8765)),
         api_log_level=str(api.get("log_level", "info")),
