@@ -209,8 +209,10 @@ agentfuse demo --scenario shared --mode online
 ```
 
 > 上面的时间是**本机实测值**，随机器而变；**与机器无关**的是那几项计数：
-> 2 个逻辑调用、1 次物理执行、节省 1 次、共享成功率 50.0%、0 次分离、5 次验证、0 次验证失败。
-> `scripts/audit_requirements.py` 会真跑一次这个场景并核对 README 里的这些数字。
+> 2 个逻辑调用、1 次物理执行、节省 1 次、共享成功率 50.0%、0 次分离、0 次验证失败。
+> **验证次数**取决于 Follower 何时加入（4 或 5 次），因此它不是固定值。
+> `scripts/audit_requirements.py` 会真跑这个场景（online 与 baseline 各跑一次），
+> 并把 README 里的这些数字与实测结果逐项核对——写错了就报错。
 
 然后：
 

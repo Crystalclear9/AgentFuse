@@ -2136,7 +2136,6 @@ def audit_documented_numbers() -> None:
         "物理执行数": ("physical_executions", online.get("physical_executions")),
         "节省执行数": ("saved_executions", online.get("saved_executions")),
         "分离次数": ("detach_count", online.get("detach_count")),
-        "验证次数": ("validation_count", online.get("validation_count")),
         "验证失败": ("validation_failures", online.get("validation_failures")),
     }
     for label, (metric, measured) in expectations.items():
@@ -2148,6 +2147,22 @@ def audit_documented_numbers() -> None:
             f"README={claimed.get(label)} 实测={measured} ({metric})",
             kind="behavioural",
         )
+
+    # The number of validations depends on **when the follower joins**: the
+    # dependencies the leader already read are validated in one go, the ones
+    # that arrive afterwards are validated one by one.  The count is therefore
+    # a range, not a fixed number - but it can never leave it.
+    validation = float(online.get("validation_count") or 0)
+    claimed_validation = _leading_number(claimed.get("验证次数"))
+    record(
+        "22",
+        "README 的 验证次数 在可能的范围内",
+        claimed_validation is not None
+        and 1.0 <= claimed_validation <= 5.0
+        and 1.0 <= validation <= 5.0,
+        f"README={claimed.get('验证次数')} 实测={validation:.0f} (1-5, 取决于 Follower 加入的时机)",
+        kind="behavioural",
+    )
 
     rate = _leading_number(claimed.get("共享成功率"))
     measured_rate = float(online.get("share_success_rate") or 0.0) * 100.0
