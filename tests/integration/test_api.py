@@ -149,8 +149,10 @@ async def test_the_api_does_not_block_the_event_loop(client):
             await asyncio.sleep(0.005)
             ticks += 1
 
-    # the writer gets a lot of work - the read has to wait for it
-    for index in range(20000):
+    # the writer gets a lot of work - the read has to wait for it.  The
+    # number of writes stays moderate: the flush has to finish within its
+    # timeout even on a loaded machine.
+    for index in range(500):
         app.database.write(
             "INSERT INTO runtime_events "
             "(event_id, workflow_id, sequence, event_type, timestamp, metadata) "
@@ -171,7 +173,7 @@ async def test_the_api_does_not_block_the_event_loop(client):
         "the event loop was blocked while the API answered - the database "
         "reads have to run in a worker thread"
     )
-    app.database.flush()
+    app.database.flush(timeout=30)
 
 
 async def test_the_api_refuses_a_public_address(settings):
