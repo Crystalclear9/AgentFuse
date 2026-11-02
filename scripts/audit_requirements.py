@@ -196,11 +196,6 @@ def audit_offline() -> None:
     record("7.4", "内置工具不依赖时间/随机数/环境变量/绝对路径", not offenders, str(offenders))
 
     config = read("config/default.toml")
-    record(
-        "2.2",
-        "Web 管理界面默认仅监听 127.0.0.1",
-        'host = "127.0.0.1"' in config,
-    )
     # the *effective* configuration has to bind to the loopback as well
     try:
         from agentfuse.settings import load_settings
@@ -439,44 +434,93 @@ def audit_events() -> None:
             defined and published,
             "已定义并发布" if defined and published else ("仅定义" if defined else "缺失"),
         )
-    event_model = read("agentfuse/core/events.py")
+    # The event protocol is checked on a **real** event: the fields of the
+    # dataclass, the uniqueness of the id and the stable sequence of a
+    # workflow.
+    from agentfuse.core.events import EventBus, EventType
+
+    bus = EventBus()
+    events = [
+        bus.publish(EventType.WORKFLOW_STARTED, workflow_id="wf-audit")
+        for _ in range(5)
+    ]
+    event_fields = set(events[0].to_dict())
     for name in ("event_id", "workflow_id", "event_type", "timestamp", "agent_id",
                  "invocation_id", "logical_call_id", "physical_execution_id",
                  "parent_event_id", "metadata"):
-        record("5.1", f"RuntimeEvent.{name}", name in event_model)
-    record("5.1", "event_id 全局唯一", "uuid" in read("agentfuse/core/ids.py"))
-    record("5.1", "Workflow 内稳定序号", "sequence" in event_model)
+        record("5.1", f"RuntimeEvent.{name}", name in event_fields, kind="behavioural")
+    record(
+        "5.1",
+        "event_id 全局唯一",
+        len({event.event_id for event in events}) == len(events),
+        kind="behavioural",
+    )
+    record(
+        "5.1",
+        "Workflow 内稳定序号",
+        [event.sequence for event in events] == list(range(len(events))),
+        kind="behavioural",
+    )
 
 
 # ----------------------------------------------------------------------
 # 5.2 / 7.x interfaces
 # ----------------------------------------------------------------------
 def audit_interfaces() -> None:
-    adapter = read("agentfuse/adapters/base.py")
+    # The interfaces are checked on the **real** objects - a method that is
+    # only mentioned in the source does not exist.
+    from agentfuse.adapters.base import AgentAdapter
+    from agentfuse.tools.base import ToolSpec
+    from agentfuse.tools.registry import build_default_registry
+    from agentfuse.workspace.reader import WorkspaceBoundaryError, WorkspaceReader
+    from agentfuse.workspace.snapshots import SnapshotStore
+
     for method in ("bind_agent", "begin_invocation", "submit_tool_call",
                    "deliver_result", "end_invocation", "record_event"):
-        record("5.2", f"适配器方法 {method}", f"def {method}" in adapter)
+        record("5.2", f"适配器方法 {method}",
+               callable(getattr(AgentAdapter, method, None)), kind="behavioural")
 
-    reader = read("agentfuse/workspace/reader.py")
     for method in ("read_text", "read_bytes", "list_dir", "exists", "stat"):
-        record("7.2", f"WorkspaceReader.{method}", f"def {method}" in reader)
-    record("7.2", "受控读取拒绝越界路径", "WorkspaceBoundaryError" in reader)
-    record("7.2", "读取立即上报依赖", "reporter" in reader)
+        record("7.2", f"WorkspaceReader.{method}",
+               callable(getattr(WorkspaceReader, method, None)), kind="behavioural")
+    # the controlled reader has to refuse a path outside of the workspace
+    import tempfile
 
-    base = read("agentfuse/tools/base.py")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp) / "tree"
+        root.mkdir()
+        (root / "inside.py").write_text("VALUE = 1\n", encoding="utf-8")
+        observed: list[Any] = []
+        reader = WorkspaceReader(root, reporter=lambda *args: observed.append(args))
+        boundary_refused = False
+        try:
+            reader.read_text("../outside.py")
+        except WorkspaceBoundaryError:
+            boundary_refused = True
+        except Exception:
+            # some other error - the reader did not refuse the path either
+            boundary_refused = False
+        record("7.2", "受控读取拒绝越界路径", boundary_refused, kind="behavioural")
+        # the dependency is reported **before** the value is returned
+        reader.read_text("inside.py")
+        record("7.2", "读取立即上报依赖", bool(observed), kind="behavioural")
+
+    import dataclasses
+
+    spec_fields = {field.name for field in dataclasses.fields(ToolSpec)}
     for field in ("tool_name", "tool_version", "deterministic", "read_only",
                   "resource_estimate", "input_schema", "output_schema",
                   "implementation_reference"):
-        record("7.1", f"工具注册字段 {field}", field in base)
+        record("7.1", f"工具注册字段 {field}", field in spec_fields, kind="behavioural")
 
-    registry = read("agentfuse/tools/registry.py")
+    registry = build_default_registry()
     for tool in ("source_index", "ast_analyzer", "dependency_analyzer", "content_digest"):
-        record("7.3", f"必备工具 {tool}", tool in registry)
+        record("7.3", f"必备工具 {tool}", registry.get(tool) is not None, kind="behavioural")
 
-    snapshots = read("agentfuse/workspace/snapshots.py")
     for api in ("create_workspace", "create_snapshot", "fork_snapshot",
                 "inspect_snapshot", "compare_snapshots", "delete_snapshot"):
-        record("6.2", f"快照 API {api}", f"def {api}" in snapshots)
+        record("6.2", f"快照 API {api}",
+               callable(getattr(SnapshotStore, api, None)), kind="behavioural")
 
 
 # ----------------------------------------------------------------------
@@ -524,11 +568,13 @@ def audit_core() -> None:
 # 12 / 13 / 14 / 15 surface
 # ----------------------------------------------------------------------
 def audit_surface() -> None:
-    definitions = read("agentfuse/scenarios/definitions.py")
-    for case in ("follower_cancel", "leader_cancel", "timeout", "crash", "shared_failure"):
-        record("12.6", f"失败场景 {case}", case in definitions)
+    # the catalogue of the runtime - not the source of the definitions
+    from agentfuse.scenarios import list_scenarios
+
+    known_scenarios = set(list_scenarios())
     for scenario in ("shared", "different-workspace", "divergent", "multi-agent"):
-        record("12", f"演示场景 {scenario}", scenario in definitions)
+        record("12", f"演示场景 {scenario}", scenario in known_scenarios, kind="behavioural")
+
 
     cli = read("agentfuse/cli.py")
     html = read("agentfuse/web/index.html")
@@ -953,6 +999,21 @@ def _audit_behaviour() -> None:
                     else ""
                 ),
             )
+
+            # §12.6 the cancellation scenario really runs - every case has to
+            # be reported by the scenario itself
+            from agentfuse.scenarios.definitions import scenario_cancel_failure
+
+            cancel_result = await scenario_cancel_failure(
+                app, RuntimeMode.ONLINE, {"timeout_seconds": 0.5}
+            )
+            for case in ("follower_cancel", "leader_cancel", "timeout", "crash", "shared_failure"):
+                record(
+                    "12.6",
+                    f"失败场景 {case}",
+                    case in cancel_result.notes,
+                    kind="behavioural",
+                )
 
             # the base snapshot is used by the failure calls and by the
             # integrity check
@@ -1553,6 +1614,12 @@ def audit_benchmark() -> None:
 
     runner = read("agentfuse/benchmarks/runner.py")
     metrics = read("agentfuse/monitoring/metrics.py")
+    # one real comparison - the metrics and the speedup come from it
+    comparison, _tools, _limits = _comparison_run()
+    measured_metrics: set[str] = set()
+    for entries in (comparison.get("runs") or {}).values():
+        for entry in entries:
+            measured_metrics.update((entry.get("metrics") or {}).keys())
     document = read("docs/BENCHMARK.md")
 
     cli = read("agentfuse/cli.py")
@@ -1564,7 +1631,7 @@ def audit_benchmark() -> None:
     # comparison have to use the same tool, the same request and the same
     # limits.  The data of a comparison run is the proof (the checks above
     # compare the seed, the request sequence and the snapshot content).
-    fair = _fairness_of_the_modes()
+    fair = _fairness_of_the_modes(comparison, _tools, _limits)
     record(
         "13.2",
         "对比模式使用相同的工具与限制",
@@ -1588,10 +1655,18 @@ def audit_benchmark() -> None:
         "first_conflict_at",
         "follower_independent_at",
     ):
-        record("13.3", f"指标 {metric}", f'"{metric}"' in metrics)
+        record("13.3", f"指标 {metric}", metric in measured_metrics, kind="behavioural")
 
-    record("13.4", "Speedup 定义", "speedup" in runner)
-    record("13.4", "负收益也必须显示", "speedup" in runner and "baseline" in runner)
+    # the speedup of a real comparison - and it has to be reported even when
+    # the sharing did not pay off
+    speedups = (comparison.get("speedup") or {}) if comparison else {}
+    record("13.4", "Speedup 定义", bool(speedups), kind="behavioural")
+    record(
+        "13.4",
+        "负收益也必须显示",
+        bool(speedups) and all(isinstance(value, (int, float)) for value in speedups.values()),
+        kind="behavioural",
+    )
     record("13.5", "对比页面展示指标", "bench-result" in read("agentfuse/web/app.js"))
     for section in ("场景", "方法", "工作负载", "指标定义", "公平性原则", "实测结果"):
         record("13", f"BENCHMARK 文档 {section}", section in document)
@@ -1603,9 +1678,37 @@ def audit_benchmark() -> None:
 def audit_incomplete_graph() -> None:
     """Check §11.3 - an unobserved relation must not create an edge."""
 
-    graph = read("agentfuse/core/execution_graph.py")
-    record("11.3", "未知节点使用 UNKNOWN 状态", '"UNKNOWN"' in graph)
-    record("11.3", "未知节点被标记为占位", "placeholder" in graph)
+    # a real graph: an edge that points to a node nobody has seen becomes an
+    # explicit placeholder
+    from agentfuse.core.events import EventBus, EventType
+    from agentfuse.core.execution_graph import ExecutionGraph
+
+    bus = EventBus()
+    bus.publish(
+        EventType.TOOL_CALL_REQUESTED,
+        workflow_id="wf-graph",
+        logical_call_id="call-graph",
+    )
+    graph = ExecutionGraph.from_events(bus.history("wf-graph"), workflow_id="wf-graph")
+    graph.add_edge("call-graph", "call-unknown", "invocation")
+    nodes = list(graph.nodes.values())
+    unknown = [
+        node
+        for node in nodes
+        if node.node_id == "call-unknown"
+    ]
+    record(
+        "11.3",
+        "未知节点使用 UNKNOWN 状态",
+        bool(unknown) and unknown[0].status == "UNKNOWN",
+        kind="behavioural",
+    )
+    record(
+        "11.3",
+        "未知节点被标记为占位",
+        bool(unknown) and bool(unknown[0].attributes.get("placeholder")),
+        kind="behavioural",
+    )
     record(
         "11.3",
         "乱序事件不产生错误的边",
@@ -1619,9 +1722,30 @@ def audit_incomplete_graph() -> None:
 def audit_share_group_contract() -> None:
     """Check §4.8 - the share group and its participants."""
 
-    group = read("agentfuse/sharing/share_group.py")
-    record("4.8", "共享组保存逻辑调用列表", "participant_calls" in group)
-    record("4.8", "非法状态转换被拒绝", "IllegalTransition" in group)
+    # the share group: the real object - an illegal transition has to be
+    # rejected, and the group has to know its calls
+    from agentfuse.sharing.share_group import IllegalTransition, ShareGroup, ShareGroupStatus
+
+    group = ShareGroup(
+        share_group_id="sg-audit",
+        workflow_id="wf-audit",
+        candidate_key="key",
+        leader_execution_id=None,
+        leader_logical_call_id="call-audit",
+        creation_time=1.0,
+        closed_time=None,
+        status=ShareGroupStatus.CREATED,
+        mode="online",
+        tool_name="ast_analyzer",
+        tool_version="1.0.0",
+    )
+    record("4.8", "共享组保存逻辑调用列表", group.participant_calls == [], kind="behavioural")
+    rejected = False
+    try:
+        group.transition(ShareGroupStatus.COMPLETED)
+    except IllegalTransition:
+        rejected = True
+    record("4.8", "非法状态转换被拒绝", rejected, kind="behavioural")
     record(
         "4.8",
         "参与者状态机被测试覆盖",
@@ -1751,13 +1875,8 @@ TEST_CATEGORIES = {
 }
 
 
-def _fairness_of_the_modes() -> dict[str, bool]:
-    """Compare the modes of a comparison run with each other.
-
-    The modes have to use the same tool and the same limits - otherwise the
-    comparison measures the difference of the **setup** and not the difference
-    of the sharing.
-    """
+def _comparison_run() -> tuple[dict[str, Any], dict[str, set[tuple[str, str, str]]], dict[str, set[float]]]:
+    """Run one comparison and return its report."""
 
     import asyncio
     import shutil
@@ -1768,8 +1887,6 @@ def _fairness_of_the_modes() -> dict[str, bool]:
     from agentfuse.core.state import RuntimeMode
     from agentfuse.settings import load_settings
 
-    # the database file of the worker threads may still be open - the
-    # temporary directory is cleaned by the operating system
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         home = Path(tmp) / "fairness"
         shutil.rmtree(home, ignore_errors=True)
@@ -1788,16 +1905,14 @@ def _fairness_of_the_modes() -> dict[str, bool]:
         try:
             report = asyncio.run(run())
         except Exception:
-            return {}
+            return {}, {}, {}
         finally:
             asyncio.run(runtime.close())
 
-        runs = report.get("runs") or {}
-        if len(runs) < 2:
-            return {}
+        # the executions of the modes - the tool, the request and the limits
         tools: dict[str, set[tuple[str, str, str]]] = {}
         limits: dict[str, set[float]] = {}
-        for mode, entries in runs.items():
+        for mode, entries in (report.get("runs") or {}).items():
             used: set[tuple[str, str, str]] = set()
             timeouts: set[float] = set()
             for entry in entries:
@@ -1808,7 +1923,26 @@ def _fairness_of_the_modes() -> dict[str, bool]:
                     timeouts.add(float(row["timeout_seconds"] or 0))
             tools[mode] = used
             limits[mode] = timeouts
-        return _compare_modes(tools, limits)
+        return report, tools, limits
+
+
+def _fairness_of_the_modes(
+    report: dict[str, Any] | None = None,
+    tools: dict[str, set[tuple[str, str, str]]] | None = None,
+    limits: dict[str, set[float]] | None = None,
+) -> dict[str, bool]:
+    """Compare the modes of a comparison run with each other.
+
+    The modes have to use the same tool and the same limits - otherwise the
+    comparison measures the difference of the **setup** and not the difference
+    of the sharing.
+    """
+
+    if report is None:
+        report, tools, limits = _comparison_run()
+    if not report or not tools:
+        return {}
+    return _compare_modes(tools, limits)
 
 
 def _compare_modes(

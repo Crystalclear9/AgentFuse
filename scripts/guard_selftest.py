@@ -929,6 +929,36 @@ MUTATIONS: list[dict[str, Any]] = [
         ],
     },
     {
+        "name": "事件不再有稳定的序号",
+        "clause": "5.1",
+        "file": "agentfuse/core/events.py",
+        "old": """            sequence = next(self._sequences[workflow_id or "-"])""",
+        "new": """            sequence = 0""",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
+    {
+        "name": "受控读取不再拒绝越界路径",
+        "clause": "7.2",
+        "file": "agentfuse/workspace/reader.py",
+        "old": """        if part == "..":
+            raise WorkspaceBoundaryError(f"path escapes the workspace root: {path!r}")""",
+        "new": """        if part == "..":
+            continue""",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
+    {
         "name": "被拒候选者仍算作组员",
         "clause": "8.2",
         "file": "agentfuse/runtime/coordinator.py",
