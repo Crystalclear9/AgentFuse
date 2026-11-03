@@ -41,6 +41,35 @@ except Exception:  # pragma: no cover
     psutil = None  # type: ignore[assignment]
 
 
+def detect_gpu_slots() -> int:
+    """The number of accelerators the machine offers.
+
+    ``nvidia-smi`` is used when it is installed.  A machine without an
+    accelerator returns 0 - a tool that declares that it needs one then runs
+    anyway, because the declaration of a tool is a hint and not a capability
+    check.
+    """
+
+    import shutil
+    import subprocess
+
+    binary = shutil.which("nvidia-smi")
+    if not binary:
+        return 0
+    try:
+        result = subprocess.run(
+            [binary, "--query-gpu=index", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception:  # pragma: no cover - defensive
+        return 0
+    if result.returncode != 0:
+        return 0
+    return len([line for line in result.stdout.splitlines() if line.strip()])
+
+
 @dataclass
 class _Slot:
     execution_id: str
@@ -49,6 +78,10 @@ class _Slot:
     requested_at: float = field(default_factory=time.time)
     blocked_reason: str | None = None
     estimated_cpu_seconds: float = 0.0
+    #: the execution needs an accelerator
+    requires_gpu: bool = False
+    #: the priority of the execution
+    priority: int = 0
 
     def to_request(self) -> PendingRequest:
         return PendingRequest(
@@ -56,6 +89,8 @@ class _Slot:
             requested_at=self.requested_at,
             estimated_memory_mb=self.estimated_memory_mb,
             estimated_cpu_seconds=self.estimated_cpu_seconds,
+            requires_gpu=self.requires_gpu,
+            priority=self.priority,
         )
 
 
@@ -76,6 +111,7 @@ class LocalResourceController:
         max_rss_soft_limit_mb: int = 0,
         repository: Any = None,
         strategy: SchedulingStrategy | str | None = None,
+        gpu_slots: int | None = None,
     ) -> None:
         self.max_workers = max(1, int(max_workers))
         self.max_memory_budget_mb = int(max_memory_budget_mb)
@@ -86,6 +122,9 @@ class LocalResourceController:
         #: budget is then used as the soft limit as well)
         self.max_rss_soft_limit_mb = int(max_rss_soft_limit_mb)
         self.repository = repository
+        #: the number of accelerators the machine offers; ``None`` means
+        #: "detect it"
+        self.gpu_slots = int(gpu_slots) if gpu_slots is not None else detect_gpu_slots()
 
         self._running: dict[str, _Slot] = {}
         self._pending: list[_Slot] = []
@@ -128,6 +167,12 @@ class LocalResourceController:
     # admission control
     # ------------------------------------------------------------------
     @property
+    def gpu_slots_used(self) -> int:
+        """The number of accelerators that are busy."""
+
+        return sum(1 for slot in self._running.values() if slot.requires_gpu)
+
+    @property
     def reserved_estimate_mb(self) -> float:
         return sum(slot.estimated_memory_mb for slot in self._running.values())
 
@@ -156,6 +201,8 @@ class LocalResourceController:
         execution_id: str,
         estimated_memory_mb: float,
         estimated_cpu_seconds: float = 0.0,
+        requires_gpu: bool = False,
+        priority: int = 0,
     ) -> str:
         """Wait until the execution may start.  Returns the admission reason."""
 
@@ -165,6 +212,8 @@ class LocalResourceController:
             execution_id=execution_id,
             estimated_memory_mb=float(estimated_memory_mb),
             estimated_cpu_seconds=float(estimated_cpu_seconds),
+            requires_gpu=requires_gpu,
+            priority=int(priority),
             future=future,
         )
         with self._lock:
@@ -193,6 +242,8 @@ class LocalResourceController:
                     observed_rss_mb=self.observed_rss_mb,
                     budget_mb=self.max_memory_budget_mb,
                     rss_limit_mb=self.effective_rss_limit_mb,
+                    gpu_slots_total=self.gpu_slots,
+                    gpu_slots_used=self.gpu_slots_used,
                 )
                 if not decision.allowed:
                     # The reason is kept so that the UI can explain *why* an

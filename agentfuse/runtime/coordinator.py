@@ -40,6 +40,7 @@ from ..core.state import (
 )
 from ..sharing.candidate import compute_candidate_key
 from ..sharing.dependency import DependencyLedger, DependencyRecord
+from ..sharing.persistent_cache import PersistentResultCache
 from ..sharing.result_cache import ResultCache
 from ..sharing.result_delivery import ResultStore
 from ..sharing.share_group import Participant, ShareGroup
@@ -191,6 +192,10 @@ class RuntimeCoordinator:
         # physical execution).  The application reads the value from the
         # configuration.
         result_cache_entries: int = 0,
+        # The **durable** cache is off by default as well: it survives a
+        # restart, so a stale entry could outlive the workspace it was made
+        # for.  The dependency re-validation is what makes it safe.
+        persistent_cache_entries: int = 0,
         worker_pool_size: int = 0,
         resource_sample_interval_ms: int = 50,
     ) -> None:
@@ -205,6 +210,11 @@ class RuntimeCoordinator:
 
         self.validator = DependencyValidator(snapshots)
         self.result_cache = ResultCache(max_entries=result_cache_entries)
+        database_path = getattr(getattr(repository, "db", None), "path", None)
+        self.persistent_cache = PersistentResultCache(
+            database_path=database_path or "",
+            max_entries=persistent_cache_entries,
+        )
         self.worker_pool_size = max(0, int(worker_pool_size))
         #: how often the resource monitor samples the RSS of the workers
         self.resource_sample_interval_ms = max(1, int(resource_sample_interval_ms))
@@ -605,6 +615,8 @@ class RuntimeCoordinator:
         async with self._lock:
             entry = self.result_cache.get(call.candidate_key, snapshot_hash)
             if entry is None:
+                entry = self._persistent_entry(call, snapshot_hash)
+            if entry is None:
                 return False
             # The cached result is only served when every dependency of the
             # original execution still matches the caller's own snapshot.
@@ -622,6 +634,39 @@ class RuntimeCoordinator:
                 cached=True,
             )
             return delivered
+
+    def _persistent_entry(self, call: LogicalCall, snapshot_hash: str) -> Any:
+        """The durable entry for the call - ``None`` when there is none.
+
+        The entry is only used when **all** the dependencies of the original
+        execution still match the snapshot of the caller.  That is what makes
+        a cache that outlives the runtime safe: it never trusts the workspace
+        the entry was created in, it re-validates it.
+        """
+
+        if not self.persistent_cache.enabled:
+            return None
+        durable = self.persistent_cache.get(call.candidate_key, snapshot_hash)
+        if durable is None:
+            return None
+        entry = durable.to_cache_entry()
+        if not entry.dependencies:
+            # an entry without a ledger cannot be validated - it is useless
+            self.persistent_cache.invalidate(call.candidate_key)
+            return None
+        status, _reason, _matched = self.validator.validate_prefix(
+            call.snapshot_id, entry.dependencies
+        )
+        if status is not ValidationStatus.MATCH:
+            self.persistent_cache.invalidate(call.candidate_key)
+            return None
+        payload = self.result_store.load(entry.result_hash) if self.result_store else None
+        if payload is None:
+            # the result file is gone - the entry cannot be served
+            self.persistent_cache.invalidate(call.candidate_key)
+            return None
+        entry.payload = payload
+        return entry
 
     async def _enter_share_flow(self, call: LogicalCall) -> None:
         """Try to attach the call to a running share group, otherwise lead a new one."""
@@ -919,10 +964,16 @@ class RuntimeCoordinator:
     async def _run_execution(self, execution: PhysicalExecution) -> None:
         spec = self.registry.get(execution.tool_name, execution.tool_version)
         try:
+            if self.scheduler.strategy.name == "preemptive":
+                # a waiting execution of a higher priority may take the slot
+                # of a running one of a lower priority
+                await self._preempt_for(spec.priority)
             reason = await self.scheduler.acquire(
                 execution.execution_id,
                 spec.estimated_memory_mb,
                 spec.estimated_cpu_seconds,
+                requires_gpu=spec.requires_gpu,
+                priority=spec.priority,
             )
             execution.admission_reason = reason
             execution.queued_time = round(max(0.0, time.time() - execution.created_at), 6)
@@ -1557,6 +1608,38 @@ class RuntimeCoordinator:
             kind=ERROR_TIMEOUT,
         )
 
+    async def _preempt_for(self, priority: int) -> None:
+        """Preempt a running execution of a **lower** priority.
+
+        The preempted execution is terminated like a timeout - the logical
+        call is retried once (requirement 10.1), so the result of the call is
+        still correct.  Only the **order** of the executions changes, never
+        their results.
+        """
+
+        if priority <= 0:
+            return
+        victim: PhysicalExecution | None = None
+        victim_priority = priority
+        for execution in list(self._executions.values()):
+            if execution.status is not ExecutionStatus.RUNNING:
+                continue
+            try:
+                spec = self.registry.get(execution.tool_name, execution.tool_version)
+            except Exception:  # pragma: no cover - defensive
+                continue
+            if spec.priority >= victim_priority:
+                continue
+            victim = execution
+            victim_priority = spec.priority
+        if victim is None:
+            return
+        await self._terminate_execution(
+            victim,
+            f"preempted by an execution of priority {priority}",
+            kind=ERROR_TIMEOUT,
+        )
+
     async def _terminate_execution(
         self, execution: PhysicalExecution, reason: str, kind: str = ERROR_CANCELLED
     ) -> None:
@@ -1768,13 +1851,24 @@ class RuntimeCoordinator:
         snapshot_hash = self._snapshot_content_hash(execution.snapshot_id)
         if snapshot_hash is None:
             return
+        dependencies = execution.ledger.records()
         self.result_cache.put(
             candidate_key=execution.candidate_key,
             snapshot_hash=snapshot_hash,
             payload=outcome.payload,
             result_hash=outcome.result_hash or "",
             execution_id=execution.execution_id,
-            dependencies=execution.ledger.records(),
+            dependencies=dependencies,
+            created_at=time.time(),
+        )
+        # the durable cache remembers the **reference** to the result - the
+        # payload itself stays in the result store
+        self.persistent_cache.put(
+            candidate_key=execution.candidate_key,
+            snapshot_hash=snapshot_hash,
+            result_hash=outcome.result_hash or "",
+            execution_id=execution.execution_id,
+            dependencies=dependencies,
             created_at=time.time(),
         )
 

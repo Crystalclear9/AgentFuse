@@ -31,13 +31,13 @@ python scripts/acceptance_check.py
 ### 3.1 Windows 11
 
 ```text
-263 passed, 1 skipped
+273 passed, 2 skipped
 ```
 
 ### 3.2 WSL2 / Ubuntu-22.04
 
 ```text
-263 passed, 1 skipped
+273 passed, 2 skipped
 ```
 
 ### 3.3 Worker pool / worker limit matrix
@@ -48,9 +48,9 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | pool \ workers | 1 | 2 |
 |---|---|---|
-| 0 | 263 passed | 263 passed |
-| 1 | 263 passed | 263 passed |
-| 2 | 263 passed | 263 passed |
+| 0 | 273 passed | 273 passed |
+| 1 | 273 passed | 273 passed |
+| 2 | 273 passed | 273 passed |
 
 **两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
 权限才能创建符号链接，因此被跳过；在 Linux 上它**真实执行并通过**。
@@ -66,7 +66,7 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | 目录 | 数量 | 结果 |
 |---|---|---|
-| `tests/unit` | 135 passed, 1 skipped（Windows）/ 123 passed（Linux） | 全部通过 |
+| `tests/unit` | 141 passed, 1 skipped（Windows）/ 123 passed（Linux） | 全部通过 |
 | `tests/integration` | 120 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 | `tests/frontend` | 4 passed | 全部通过（需要 node） |
@@ -130,16 +130,16 @@ python scripts/run_ci_like.py --matrix
 
 | 环境 | 结果 |
 |---|---|
-| venv（有 launcher 存根） | 263 passed, 1 skipped |
-| 基础解释器（= CI 环境，无存根） | 263 passed, 1 skipped（6 种池/并发组合全通过） |
-| WSL2 / Ubuntu-22.04 | 263 passed, 1 skipped（前端测试需要 node） |
+| venv（有 launcher 存根） | 273 passed, 2 skipped |
+| 基础解释器（= CI 环境，无存根） | 273 passed, 2 skipped（6 种池/并发组合全通过） |
+| WSL2 / Ubuntu-22.04 | 273 passed, 2 skipped（前端测试需要 node） |
 | **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **17 / 17 job 全部成功** |
 
 ### 4.1.1 需求复核后的验证（阶段 23）
 
 | 检查 | Windows | WSL2 / Ubuntu-22.04 |
 |---|---|---|
-| `pytest tests` | **263 passed, 1 skipped** | **263 passed, 1 skipped** |
+| `pytest tests` | **273 passed, 2 skipped** | **273 passed, 2 skipped** |
 | `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
 | `scripts/acceptance_check.py` | **44 / 44 通过** | **44 / 44 通过** |
 | `scripts/audit_requirements.py`（311 项 / 49 个需求小节；**174 条真实运行了运行时** / 137 条只读取源码） | **311 / 311 通过** | **311 / 311 通过** |

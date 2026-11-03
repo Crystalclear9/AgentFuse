@@ -90,6 +90,7 @@ class AgentFuseApp:
             mode=mode,
             default_timeout_seconds=self.settings.default_timeout_seconds,
             result_cache_entries=self.settings.result_cache_entries,
+            persistent_cache_entries=self.settings.persistent_cache_entries,
             worker_pool_size=self.settings.worker_pool_size,
             resource_sample_interval_ms=self.settings.resource_sample_interval_ms,
         )

@@ -66,7 +66,7 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 | 数据存储 | SQLite（WAL，独立写入线程） |
 | 本地 API | FastAPI + Uvicorn |
 | 前端 | 原生 HTML / CSS / JavaScript（无框架、无构建链、无 CDN）；测试用 Node 执行真实脚本 |
-| 自动化测试 | pytest + pytest-asyncio + httpx（263 个用例，含前端脚本的执行测试） |
+| 自动化测试 | pytest + pytest-asyncio + httpx（273 个用例，含前端脚本的执行测试） |
 | 配置 | TOML（`config/default.toml`） |
 | 命令行 | argparse |
 
@@ -103,8 +103,8 @@ uv pip install --python .agentfuse/wsl/venv/bin/python -e ".[dev]"
 .agentfuse/wsl/venv/bin/python scripts/acceptance_check.py
 ```
 
-实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 263 passed /
-WSL2 263 passed，两平台验收自检（44/44））。
+实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 273 passed /
+WSL2 273 passed，两平台验收自检（44/44））。
 
 > 跨平台实测发现并修复了一个 Linux 专属缺陷：父进程未 `wait()` 回收 worker
 > 导致僵尸进程堆积。详见 TEST_REPORT §4。
@@ -283,7 +283,8 @@ python scripts/check_regression.py
 |---|---|---|
 | `runtime.worker_pool_size` | 2 | 预热的 worker 进程数；设为 0 则每次执行新建进程 |
 | `runtime.result_cache_entries` | 0 | 会话内已完成结果复用；只有工具、参数、快照**内容**完全一致且依赖复验通过才命中 |
-| `runtime.scheduling_strategy` | `fifo` | 准入策略；`sjf` = 最短作业优先（吞吐更高、公平性更低） |
+| `runtime.persistent_cache_entries` | 0 | **跨会话**的结果复用（进 SQLite，跨进程重启仍有效）；命中前同样要用调用方的快照复验全部依赖 |
+| `runtime.scheduling_strategy` | `fifo` | 准入策略；`sjf` = 最短作业优先（吞吐更高、公平性更低）；`preemptive` = 高优先级优先并可抢占低优先级的执行 |
 | `runtime.max_rss_soft_limit_mb` | 0 | 实测 RSS 软限制；超出后阻止新准入并告警 |
 
 ## 12. 许可

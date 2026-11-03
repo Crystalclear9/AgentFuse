@@ -161,16 +161,13 @@ async function main() {
     await page.send("Page.navigate", { url: base });
     await waitForLoad(page);
 
-    // the page loads the data asynchronously - wait for the cards of the
-    // dashboard before looking at them
-    const cardsShown = await page.evaluate(
-      `(() => {
-        const deadline = Date.now() + 15000;
-        while (Date.now() < deadline) {
-          if (document.querySelectorAll("#overview-cards .card").length > 0) return true;
-        }
-        return false;
-      })()`,
+    // The page loads the data asynchronously - wait for the cards of the
+    // dashboard before looking at them.  The wait has to **yield** to the
+    // page: a loop inside the page would block its own event loop and the
+    // data could never arrive.
+    const cardsShown = await waitFor(
+      page,
+      `document.querySelectorAll("#overview-cards .card").length > 0`,
     );
     check("the dashboard loads the data of the backend", cardsShown === true);
 

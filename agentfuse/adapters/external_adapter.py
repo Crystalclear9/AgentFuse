@@ -59,8 +59,13 @@ class ExternalAdapter(AgentAdapter):
     through :meth:`serve`, which reads the protocol from a stream.
     """
 
-    def __init__(self, workflow: Any) -> None:
+    def __init__(self, workflow: Any, auto_bind: bool = True) -> None:
         super().__init__(workflow)
+        #: The adapter may bind the agents **by itself**: a framework that
+        #: does not know the internal ids only sends the identity it happens
+        #: to use.  The identity of such an agent stays ``UNDETERMINED`` -
+        #: the runtime must never merge it with another one.
+        self.auto_bind = bool(auto_bind)
         #: the external framework may not know the internal ids - they are
         #: mapped here.  The key is the identity the framework uses.
         self._agents_by_external: dict[str, AgentHandle] = {}
@@ -207,7 +212,7 @@ class ExternalAdapter(AgentAdapter):
             return {"type": "bound", "agent_id": handle.agent_id}
 
         if kind == "invoke":
-            agent_id = self._resolve_agent(message.get("agent_id"))
+            agent_id = await self._resolve_agent(message.get("agent_id"))
             invocation = await self.begin_invocation(
                 agent_id,
                 parent_invocation_id=message.get("parent_invocation_id"),
@@ -240,12 +245,17 @@ class ExternalAdapter(AgentAdapter):
 
         raise ProtocolError(f"unknown message type: {kind!r}")
 
-    def _resolve_agent(self, agent_id: str | None) -> str:
+    async def _resolve_agent(self, agent_id: str | None) -> str:
         """The internal agent id for an external one.
 
         The framework may use the external identity or the internal id - both
         have to work, because a framework that only learns the internal id
         later must not be rejected.
+
+        With ``auto_bind`` an identity that is not known yet is bound here.
+        The identity of such an agent is **not confirmed** - the runtime keeps
+        it in the ``UNDETERMINED`` state and never merges it with another
+        agent (requirement 5.2).
         """
 
         if not agent_id:
@@ -255,7 +265,15 @@ class ExternalAdapter(AgentAdapter):
             return handle.agent_id
         if agent_id in self.workflow.agents:
             return agent_id
-        raise ProtocolError(f"unknown agent: {agent_id}")
+        if not self.auto_bind:
+            raise ProtocolError(f"unknown agent: {agent_id}")
+        bound = await self.bind_agent(
+            external_identity=agent_id,
+            agent_description="bound automatically by the external adapter",
+            registration_source="external-framework",
+            identity_confirmed=False,
+        )
+        return bound.agent_id
 
     def _last_logical_call_id(self, invocation_id: str) -> str:
         """The id of the call that the runtime has just bound.

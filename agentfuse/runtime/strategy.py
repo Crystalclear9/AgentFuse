@@ -33,6 +33,10 @@ class PendingRequest:
     requested_at: float = field(default_factory=time.time)
     estimated_memory_mb: float = 0.0
     estimated_cpu_seconds: float = 0.0
+    #: the execution needs a free accelerator (a GPU slot)
+    requires_gpu: bool = False
+    #: the priority of the execution - a higher one may preempt a lower one
+    priority: int = 0
 
     @property
     def waiting_seconds(self) -> float:
@@ -44,6 +48,8 @@ class PendingRequest:
             "waiting_seconds": round(self.waiting_seconds, 3),
             "estimated_memory_mb": self.estimated_memory_mb,
             "estimated_cpu_seconds": self.estimated_cpu_seconds,
+            "requires_gpu": self.requires_gpu,
+            "priority": self.priority,
         }
 
 
@@ -75,12 +81,38 @@ class SchedulingStrategy:
         observed_rss_mb: float,
         budget_mb: int,
         rss_limit_mb: int,
+        gpu_slots_total: int = 0,
+        gpu_slots_used: int = 0,
     ) -> AdmissionDecision:
-        """Return the decision for the current scheduler state."""
+        """Return the decision for the current scheduler state.
+
+        ``gpu_slots_total`` is the number of accelerators the machine offers
+        (0 when there is none).  A request that needs an accelerator waits
+        until one of them is free.
+        """
 
         raise NotImplementedError
 
     # -- shared helpers -------------------------------------------------
+    @staticmethod
+    def _gpu_block(
+        *,
+        requires_gpu: bool,
+        gpu_slots_total: int,
+        gpu_slots_used: int,
+    ) -> str | None:
+        """The reason why the request may not start - ``None`` when it may."""
+
+        if not requires_gpu:
+            return None
+        if gpu_slots_total <= 0:
+            # the machine has no accelerator - the tool runs anyway (the
+            # declaration of the tool is a hint, not a capability check)
+            return None
+        if gpu_slots_used >= gpu_slots_total:
+            return f"no free accelerator ({gpu_slots_used}/{gpu_slots_total} in use)"
+        return None
+
     @staticmethod
     def _resource_block(
         *,
@@ -129,10 +161,19 @@ class FifoStrategy(SchedulingStrategy):
         observed_rss_mb: float,
         budget_mb: int,
         rss_limit_mb: int,
+        gpu_slots_total: int = 0,
+        gpu_slots_used: int = 0,
     ) -> AdmissionDecision:
         if not pending:
             return AdmissionDecision(False, "no pending execution")
         head = pending[0]
+        gpu_blocked = self._gpu_block(
+            requires_gpu=head.requires_gpu,
+            gpu_slots_total=gpu_slots_total,
+            gpu_slots_used=gpu_slots_used,
+        )
+        if gpu_blocked:
+            return AdmissionDecision(False, gpu_blocked)
         blocked, note = self._resource_block(
             running=running,
             max_workers=max_workers,
@@ -162,6 +203,8 @@ class ShortestJobFirstStrategy(SchedulingStrategy):
         observed_rss_mb: float,
         budget_mb: int,
         rss_limit_mb: int,
+        gpu_slots_total: int = 0,
+        gpu_slots_used: int = 0,
     ) -> AdmissionDecision:
         if not pending:
             return AdmissionDecision(False, "no pending execution")
@@ -175,6 +218,16 @@ class ShortestJobFirstStrategy(SchedulingStrategy):
         reason = "no pending execution"
         for index in order:
             request = pending[index]
+            gpu_blocked = self._gpu_block(
+                requires_gpu=request.requires_gpu,
+                gpu_slots_total=gpu_slots_total,
+                gpu_slots_used=gpu_slots_used,
+            )
+            if gpu_blocked:
+                # the request waits for an accelerator - the next candidate
+                # may not need one
+                reason = gpu_blocked
+                continue
             blocked, note = self._resource_block(
                 running=running,
                 max_workers=max_workers,
@@ -193,9 +246,69 @@ class ShortestJobFirstStrategy(SchedulingStrategy):
         return AdmissionDecision(False, reason)
 
 
+class PreemptiveStrategy(SchedulingStrategy):
+    """Admit the most important execution first.
+
+    The order is the priority of the execution; executions of the same
+    priority keep the order in which they arrived (FIFO).  A running
+    execution of a **lower** priority may be preempted for a waiting one -
+    the coordinator does the preemption, the strategy only decides who is
+    admitted next.
+    """
+
+    name = "preemptive"
+
+    def select(
+        self,
+        *,
+        pending: list[PendingRequest],
+        running: int,
+        max_workers: int,
+        reserved_mb: float,
+        observed_rss_mb: float,
+        budget_mb: int,
+        rss_limit_mb: int,
+        gpu_slots_total: int = 0,
+        gpu_slots_used: int = 0,
+    ) -> AdmissionDecision:
+        if not pending:
+            return AdmissionDecision(False, "no pending execution")
+        order = sorted(
+            range(len(pending)),
+            key=lambda index: (-pending[index].priority, pending[index].requested_at),
+        )
+        reason = "no pending execution"
+        for index in order:
+            request = pending[index]
+            gpu_blocked = self._gpu_block(
+                requires_gpu=request.requires_gpu,
+                gpu_slots_total=gpu_slots_total,
+                gpu_slots_used=gpu_slots_used,
+            )
+            if gpu_blocked:
+                reason = gpu_blocked
+                continue
+            blocked, note = self._resource_block(
+                running=running,
+                max_workers=max_workers,
+                reserved_mb=reserved_mb,
+                observed_rss_mb=observed_rss_mb,
+                budget_mb=budget_mb,
+                rss_limit_mb=rss_limit_mb,
+                estimate_mb=request.estimated_memory_mb,
+            )
+            if blocked:
+                reason = blocked
+                continue
+            detail = note or f"admitted (preemptive, priority={request.priority})"
+            return AdmissionDecision(True, detail, index)
+        return AdmissionDecision(False, reason)
+
+
 STRATEGIES: dict[str, type[SchedulingStrategy]] = {
     "fifo": FifoStrategy,
     "sjf": ShortestJobFirstStrategy,
+    "preemptive": PreemptiveStrategy,
 }
 
 

@@ -95,6 +95,10 @@ class ToolSpec:
     #: such a tool is never allowed into the share coordinator because its
     #: dependency ledger would be incomplete.
     dependency_tracking: bool = True
+    #: the tool needs an accelerator (a GPU slot of the scheduler)
+    requires_gpu: bool = False
+    #: the priority of the tool - a higher one may preempt a lower one
+    priority: int = 0
     #: True when the tool draws random numbers.  Such a tool is never shared:
     #: the result would depend on an input that is not part of the sharing
     #: conditions (requirement 7.4).

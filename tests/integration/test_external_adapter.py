@@ -13,6 +13,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -175,17 +176,24 @@ def test_the_external_framework_is_recorded_in_the_database(tmp_path: Path):
 
 
 def test_the_external_framework_cannot_invent_relations(tmp_path: Path):
-    """An unknown agent or invocation is refused.
+    """An unknown invocation is refused and an unknown agent is not merged.
 
-    The adapter never guesses: an unknown identity is an error, not a new
-    agent.
+    The adapter **binds** an agent it has not seen before - the framework
+    does not have to know the internal ids.  The identity of such an agent
+    stays unconfirmed though, and it is never merged with another one
+    (requirement 5.2).
     """
 
     framework = ExternalFramework(tmp_path / "home")
     try:
         answer = framework.send({"type": "invoke", "agent_id": "never-bound"})
-        assert answer["type"] == "error", answer
-        assert "unknown agent" in answer["message"], answer
+        assert answer["type"] == "invoked", answer
+        first_agent = answer["invocation_id"]
+
+        # a second unknown identity is a **different** agent
+        answer = framework.send({"type": "invoke", "agent_id": "never-bound-either"})
+        assert answer["type"] == "invoked", answer
+        assert answer["invocation_id"] != first_agent
 
         framework.send({"type": "bind", "external_identity": "known"})
         answer = framework.send(
@@ -198,3 +206,36 @@ def test_the_external_framework_cannot_invent_relations(tmp_path: Path):
         assert answer["type"] == "error", answer
     finally:
         framework.close()
+
+
+def test_an_automatically_bound_agent_is_undetermined(tmp_path: Path):
+    """An agent that the adapter bound itself keeps an unconfirmed identity.
+
+    The runtime must not merge it with another agent - the external framework
+    only sent a label, it did not confirm anything.
+    """
+
+    import sqlite3
+
+    framework = ExternalFramework(tmp_path / "home")
+    try:
+        framework.send({"type": "invoke", "agent_id": "unknown-one"})
+        framework.send({"type": "invoke", "agent_id": "unknown-two"})
+    finally:
+        framework.close()
+
+    database = tmp_path / "home" / "db" / "agentfuse.sqlite3"
+    deadline = time.time() + 30
+    rows: list[tuple] = []
+    while time.time() < deadline:
+        with sqlite3.connect(f"file:{database}?mode=ro", uri=True) as connection:
+            rows = connection.execute(
+                "SELECT agent_id, external_identity, identity_status FROM agents"
+            ).fetchall()
+        if len(rows) >= 2:
+            break
+        time.sleep(0.05)
+
+    assert len(rows) == 2, rows
+    assert len({row[0] for row in rows}) == 2, "the two agents must stay separate"
+    assert all(row[2] == "UNDETERMINED" for row in rows), rows

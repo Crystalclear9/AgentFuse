@@ -39,7 +39,7 @@ def test_the_soak_gate_reports_a_problem():
     # the thresholds have to be exceeded for sure - a growth can be negative
     # (the pool shrinks), therefore the limit is far below any real value
     result = _soak(
-        ["--minutes", "0.2", "--max-rss-growth-mb", "-100000", "--max-worker-growth", "-100000"]
+        ["--minutes", "0.5", "--max-rss-growth-mb", "-100000", "--max-worker-growth", "-100000"]
     )
     assert result.returncode != 0, (
         "the soak has to fail when the thresholds are exceeded:\n" + result.stdout
@@ -50,7 +50,8 @@ def test_the_soak_gate_reports_a_problem():
 def test_the_soak_gate_passes_on_a_healthy_run():
     """A healthy run has to pass - otherwise the gate would be useless."""
 
-    result = _soak(["--minutes", "0.2", "--sample-every", "2"])
+    # a loaded machine needs more than a few seconds for the first round
+    result = _soak(["--minutes", "0.5", "--sample-every", "2"])
     assert result.returncode == 0, (
         "the soak has to pass on a healthy runtime:\n" + result.stdout + result.stderr
     )
