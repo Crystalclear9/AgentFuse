@@ -118,7 +118,23 @@ def test_the_dashboard_works_in_a_real_browser(tmp_path: Path):
         await scenario_shared(runtime, RuntimeMode.ONLINE, {})
 
     asyncio.run(run_scenario())
-    time.sleep(1.0)
+
+    # The page reads the executions **once** (when the dependency tab is
+    # opened).  The runtime writes asynchronously, so the test waits until
+    # the record is really there - otherwise the page would show an empty
+    # list and would never refresh it.
+    deadline = time.time() + 60
+    executions: list = []
+    while time.time() < deadline:
+        workflows = runtime.repository.list_workflows(limit=10)
+        executions = [
+            row for workflow in workflows for row in runtime.repository.list_executions(workflow["workflow_id"])
+        ]
+        if executions:
+            break
+        time.sleep(0.1)
+    else:
+        raise AssertionError("the execution was not written to the database")
 
     debugging_port = _free_port()
     profile = tmp_path / "browser-profile"

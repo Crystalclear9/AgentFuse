@@ -217,6 +217,10 @@ async function main() {
     }
 
     // the workflow detail has to load the real workflow
+    await waitFor(
+      page,
+      `(document.querySelector("#workflow-select")?.options.length ?? 0) > 0`,
+    );
     const workflow = await page.evaluate(
       `(() => {
         const select = document.querySelector("#workflow-select");
@@ -227,6 +231,9 @@ async function main() {
       })()`,
     );
     check("the workflow list is filled", !workflow.error, JSON.stringify(workflow));
+    // the graph and the timeline are loaded together with the workflow
+    await waitFor(page, `document.querySelector("#graph-container svg") !== null`);
+    await waitFor(page, `document.querySelector("#timeline-container svg") !== null`);
     await waitFor(page, `document.querySelectorAll("#event-table tbody tr").length > 0`);
     const detail = await page.evaluate(
       `(() => ({
@@ -241,6 +248,12 @@ async function main() {
     check("the events are listed", detail.events > 0, `rows=${detail.events}`);
 
     // the dependency inspector
+    // the list of the executions is filled by the page when the dependency
+    // tab is opened - the test has to **wait** for it
+    const executionsLoaded = await waitFor(
+      page,
+      `(document.querySelector("#execution-select")?.options.length ?? 0) > 0`,
+    );
     const dependencies = await page.evaluate(
       `(() => {
         const select = document.querySelector("#execution-select");
@@ -250,7 +263,13 @@ async function main() {
         return { options: select.options.length };
       })()`,
     );
-    check("the execution list is filled", !dependencies.error, JSON.stringify(dependencies));
+    check("the execution list is filled", executionsLoaded && !dependencies.error, JSON.stringify(dependencies));
+    if (!executionsLoaded) {
+      const probe = await page.evaluate(
+        `fetch("/api/executions").then((r) => r.text()).catch((e) => String(e))`,
+      );
+      console.log(`  the API answered: ${String(probe).slice(0, 200)}`);
+    }
     await waitFor(page, `document.querySelectorAll("#dependency-table tbody tr").length > 0`);
     const inspector = await page.evaluate(
       `(() => ({
