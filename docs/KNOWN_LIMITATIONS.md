@@ -232,7 +232,8 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 * **快照不包含进程内存**（不保存进程内存、寄存器或正在运行的线程状态）。
 * **不实现** GPU KV Cache 管理、**不实现** GPU 调度、**不实现**分布式执行、
   **不实现**多节点调度。
-* 只在 **Windows 11** 与 **WSL2 / Ubuntu-22.04** 上实测通过；**macOS 未验证**。
+* 本机实测通过的平台是 **Windows 11** 与 **WSL2 / Ubuntu-22.04**。**macOS 由 CI 矩阵验证**（每次推送跑 4 个 job），
+  但本仓库没有 macOS 机器，**无法在本地复现**：“CI 上绿”不等于“本机验证”。
 * **同一个 home 目录不能同时被两个 AgentFuse 实例使用**（例如一边跑 Web 服务、
   一边在 WSL2 里跑 CLI）：SQLite 的 WAL 锁在跨操作系统的挂载盘上无法共享，
   第二个实例会收到 `disk I/O error`。此时 Runtime 会给出明确提示，请停止另一个

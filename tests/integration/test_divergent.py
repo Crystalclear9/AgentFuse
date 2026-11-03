@@ -548,3 +548,87 @@ async def test_the_separation_is_reliable(app):
             "computing"
         )
         assert metrics["online_detach_before_finish"] is True
+
+
+async def test_the_follower_validates_the_dependencies_that_come_later(app, snapshot):
+    """Section 17.3 - the follower validates the dependencies of the leader.
+
+    The follower joins the group after the first dependency.  Every dependency
+    that the leader reads **afterwards** has to be validated against the
+    snapshot of the follower - that is the incremental validation of the
+    requirement.  The validated prefix therefore grows while the leader works.
+    """
+
+    workflow = app.create_workflow("test-incremental-validation")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    arguments = {"files": list(DEMO_FILES), "rounds": 12000}
+    leader_task = asyncio.create_task(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        )
+    )
+
+    # the follower joins after the **first** dependency of the leader
+    reads = 0
+
+    def observer(event):
+        nonlocal reads
+        if event.event_type == EventType.TOOL_READ_OBSERVED:
+            reads += 1
+
+    app.event_bus.subscribe(observer)
+    assert await wait_until(lambda: reads >= 1), "the leader has to read a dependency"
+
+    follower = await asyncio.wait_for(
+        app.coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            tool_name="content_digest",
+            arguments=arguments,
+            snapshot_id=snapshot.snapshot_id,
+        ),
+        timeout=60,
+    )
+    leader = await asyncio.wait_for(leader_task, timeout=60)
+
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert len(executions) == 1, "the follower joined the running group"
+
+    participants = app.repository.list_participants(workflow.workflow_id)
+    follower_rows = [row for row in participants if not row["is_leader"]]
+    assert follower_rows, "the follower must be a participant of the group"
+    follower_row = follower_rows[0]
+
+    # the leader read more than one dependency - the follower validated the
+    # ones that came **after** the join, not only the ones before it
+    assert reads >= 2, f"the leader has to read several dependencies, got {reads}"
+    assert follower_row["validated_prefix_length"] >= 2, (
+        "the follower has to validate the dependencies that arrive after the "
+        f"join, the validated prefix is {follower_row['validated_prefix_length']}"
+    )
+    assert follower_row["validation_status"] == str(ValidationStatus.MATCH)
+    assert follower.result_hash == leader.result_hash, "both calls get the same result"
+
+    # the validations of the later dependencies are recorded one by one - the
+    # sequence of the **last** one has to be greater than the sequence of the
+    # first one: the follower validated a dependency that arrived after the
+    # join, not only the ones that were already in the ledger.
+    validations = app.repository.list_validations(executions[0]["share_group_id"])
+    follower_validations = [
+        row
+        for row in validations
+        if row["logical_call_id"] == follower_row["logical_call_id"]
+    ]
+    assert len(follower_validations) >= 2, (
+        "every dependency that arrives after the join has to be validated: "
+        f"{len(follower_validations)} records"
+    )
+    sequences = sorted(int(row["dependency_sequence"] or 0) for row in follower_validations)
+    assert sequences[-1] > sequences[0], (
+        "the follower has to validate the dependencies that arrive after the "
+        f"join, the sequences are {sequences}"
+    )

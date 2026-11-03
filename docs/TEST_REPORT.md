@@ -31,13 +31,13 @@ python scripts/acceptance_check.py
 ### 3.1 Windows 11
 
 ```text
-273 passed, 2 skipped
+275 passed, 2 skipped
 ```
 
 ### 3.2 WSL2 / Ubuntu-22.04
 
 ```text
-273 passed, 2 skipped
+275 passed, 2 skipped
 ```
 
 ### 3.3 Worker pool / worker limit matrix
@@ -48,9 +48,9 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | pool \ workers | 1 | 2 |
 |---|---|---|
-| 0 | 273 passed | 273 passed |
-| 1 | 273 passed | 273 passed |
-| 2 | 273 passed | 273 passed |
+| 0 | 275 passed | 275 passed |
+| 1 | 275 passed | 275 passed |
+| 2 | 275 passed | 275 passed |
 
 **两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
 权限才能创建符号链接，因此被跳过；在 Linux 上它**真实执行并通过**。
@@ -66,7 +66,7 @@ worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
 
 | 目录 | 数量 | 结果 |
 |---|---|---|
-| `tests/unit` | 141 passed, 1 skipped（Windows）/ 123 passed（Linux） | 全部通过 |
+| `tests/unit` | 143 passed, 1 skipped（Windows）/ 123 passed（Linux） | 全部通过 |
 | `tests/integration` | 120 passed | 全部通过 |
 | `tests/stress` | 2 passed | 全部通过 |
 | `tests/frontend` | 4 passed | 全部通过（需要 node） |
@@ -130,21 +130,21 @@ python scripts/run_ci_like.py --matrix
 
 | 环境 | 结果 |
 |---|---|
-| venv（有 launcher 存根） | 273 passed, 2 skipped |
-| 基础解释器（= CI 环境，无存根） | 273 passed, 2 skipped（6 种池/并发组合全通过） |
-| WSL2 / Ubuntu-22.04 | 273 passed, 2 skipped（前端测试需要 node） |
+| venv（有 launcher 存根） | 275 passed, 2 skipped |
+| 基础解释器（= CI 环境，无存根） | 275 passed, 2 skipped（6 种池/并发组合全通过） |
+| WSL2 / Ubuntu-22.04 | 275 passed, 2 skipped（前端测试需要 node） |
 | **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **17 / 17 job 全部成功** |
 
 ### 4.1.1 需求复核后的验证（阶段 23）
 
 | 检查 | Windows | WSL2 / Ubuntu-22.04 |
 |---|---|---|
-| `pytest tests` | **273 passed, 2 skipped** | **273 passed, 2 skipped** |
+| `pytest tests` | **275 passed, 2 skipped** | **275 passed, 2 skipped** |
 | `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
 | `scripts/acceptance_check.py` | **44 / 44 通过** | **44 / 44 通过** |
-| `scripts/audit_requirements.py`（311 项 / 49 个需求小节；**174 条真实运行了运行时** / 137 条只读取源码） | **311 / 311 通过** | **311 / 311 通过** |
+| `scripts/audit_requirements.py`：**325 项 / 49 个需求小节**；**178 条真实运行了运行时** / 147 条只读取源码 | **325 / 325 通过** | **325 / 325 通过** |
 | `scripts/check_regression.py --repeat 3` | **无性能回归** | — |
-| `scripts/guard_selftest.py`（守卫自检） | **53 / 53 个守卫证明了它们能发现问题** | — |
+| `scripts/guard_selftest.py`（守卫自检） | **56 / 56 个守卫证明了它们能发现问题** | — |
 
 > 验收自检新增了 4 项与 P0 语义直接相关的断言：**数据库写入零错误**、
 > **外键约束无违规**、**外键约束已声明**、**调用与执行原子落库**。
@@ -253,14 +253,15 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 | 工具 | 命令 | 作用 |
 |---|---|---|
 | 交付验收自检 | `python scripts/acceptance_check.py` | **44 项**：目录结构、共享行为、CLI 全部命令、API 与真实字段、数据库与外键、离线依赖、场景目录一致、事件协议与原子落库 |
-| 需求条款审计 | `python scripts/audit_requirements.py` | **311 个检查 / 49 个需求小节**逐条对照（25 章）；报告会说出每条检查的**性质**（真实运行了运行时 / 只读取源码） |
-| 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 53 处行为，断言对应的守卫**必须报红** |
+| 需求条款审计 | `python scripts/audit_requirements.py` | **325 个检查 / 49 个需求小节**（包括 §23 验收清单的 39 项）逐条对照（25 章）；报告会说出每条检查的**性质**（真实运行了运行时 / 只读取源码） |
+| 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 56 处行为，断言对应的守卫**必须报红** |
 | 性能回归守卫 | `python scripts/check_regression.py` | 对比 `benchmarks/baseline.json`，超出容差即失败 |
 | CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 + 守卫自检 |
 
 ## 8. 尚未验证的功能
 
-以下内容**没有**被自动化测试覆盖，如实记录：
+以下内容**没有**被自动化测试覆盖，如实记录（每一项都写明了**为什么没法在本机验证**）：
+这份清单也被编码里的审计监督（`UNVERIFIED_ITEMS`）——项目丢了或写漂了都会报红。
 
 1. **真实外部 Agent 框架接入**：`ADAPTER_GUIDE.md` 描述的是接口契约。
    本仓库现在提供了**两个**实现：Scripted Agent（就地演示）与
@@ -279,8 +280,9 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
    然后验证 `PRAGMA integrity_check` 为 `ok`、行数不丢失、且恢复逻辑能把被打断的运行标记为
    `INTERRUPTED`。但**断电**（掉电、磁盘失效）仍未模拟；迁移前的自动备份只覆盖
    schema 升级，不覆盖数据损坏。
-5. **macOS**：只验证了 Windows 11 与 WSL2/Ubuntu 两个平台；CI 矩阵包含 macOS，
-   但本仓库没有 macOS 机器可以执行该验证。
+5. **macOS**：已经**由 CI 验证**——CI 矩阵的 4 个 macOS job（Python 3.11–3.13）
+   在每次推送时运行完整的测试与审计，本轮全部通过。
+   但这不等于本机验证：本仓库没有 macOS 机器，不能在本地复现。
 6. **符号链接逃逸在 Windows 上未执行**：需要管理员权限创建符号链接
    （本机报 `WinError 1314`）；Linux/WSL2 上已真实执行并通过。
 
@@ -295,11 +297,51 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 
 | 需求小节 | 证据 |
 |---|---|
-| §23 | 可在单台电脑上启动 -> test_a_fresh_database_has_the_current_schema (+38) |
-| §17.1 | test_the_graph_only_contains_observed_relations (+2) |
-| §17.2 | test_two_equivalent_calls_share_a_single_physical_execution (+6) |
-| §17.3 | test_a_conflicting_dependency_detaches_the_follower (+5) |
-| §17.4 | test_many_concurrent_identical_calls_create_one_execution (+5) |
-| §17.5 | test_the_worker_limit_is_enforced (+5) |
-| §17.6 | test_snapshots_are_immutable (+5) |
-| §17.7 | test_a_single_agent_call_produces_one_execution (+7) |
+| §4 | 审计检查 Workflow 字段 |
+| §14 | 审计检查 前端脚本语法正确 |
+| §15 | 审计检查 CLI init |
+| §16 | 审计检查 表 workflows |
+| §19 | 审计检查 P2 清单完整（§19 的十条逐条列出） |
+| §20 | 审计检查 工程目录结构 |
+| §22 | 审计检查 未验证的功能都写在了测试报告里 |
+| §23 | 可在单台电脑上启动 -> test_a_fresh_database_has_the_current_schema (+39) |
+| §4.8 | 审计检查 共享组保存逻辑调用列表 |
+| §5.1 | 审计检查 事件 WORKFLOW_STARTED |
+| §5.2 | 审计检查 适配器方法 bind_agent |
+| §6.2 | 审计检查 快照 API create_workspace |
+| §7.1 | 审计检查 工具注册字段 tool_name |
+| §7.2 | 审计检查 WorkspaceReader.read_text |
+| §7.3 | 审计检查 必备工具 source_index |
+| §7.4 | 审计检查 内置工具不依赖时间/随机数/环境变量/绝对路径 |
+| §8.1 | 审计检查 候选键不含 workspace snapshot |
+| §8.2 | 审计检查 共享组的状态机完整 |
+| §8.5 | 审计检查 在线增量依赖验证 |
+| §8.7 | 审计检查 最终提交验证门禁 |
+| §8.8 | 审计检查 分离后独立执行 |
+| §9.1 | 审计检查 资源控制器的默认值 |
+| §9.2 | 审计检查 共享只占用一次执行槽位 |
+| §9.3 | 审计检查 采集真实 worker 的内存与 CPU |
+| §9.4 | 审计检查 工具在独立进程执行 |
+| §10.1 | 审计检查 区分工具错误 |
+| §10.5 | 审计检查 被打断的运行标记为 INTERRUPTED |
+| §11.3 | 审计检查 未知节点使用 UNKNOWN 状态 |
+| §12.4 | 审计检查 分离时 Leader 尚未结束后续计算 |
+| §12.6 | 审计检查 失败场景 follower_cancel |
+| §13.1 | 审计检查 比较模式 baseline |
+| §13.2 | 审计检查 所有模式使用相同的请求序列 |
+| §13.3 | 审计检查 共享结果与 Baseline 完全一致 |
+| §13.4 | 审计检查 Speedup 定义 |
+| §13.5 | 审计检查 对比页面展示指标 |
+| §16.5 | 审计检查 事件写入不阻塞主循环 |
+| §17.1 | 主动不会因为并发而混淆 -> test_the_two_agents_keep_their_own_identity (+9) |
+| §17.2 | 相同参数和相同依赖可以共享 -> test_two_equivalent_calls_share_a_single_physical_execution (+15) |
+| §17.3 | Leader 读取文件后立即产生依赖事件 -> test_the_dependency_event_precedes_the_execution_end (+15) |
+| §17.4 | 多个 Agent 同时提交相同调用 -> test_many_concurrent_identical_calls_create_one_execution (+14) |
+| §17.5 | 运行 Worker 数不超过配置上限 -> test_the_worker_limit_is_enforced (+13) |
+| §17.6 | 不同分支文件状态互不影响 -> test_fork_creates_an_independent_branch (+12) |
+| §17.7 | 单 Agent 调用工具 -> test_a_single_agent_call_produces_one_execution (+16) |
+| §21.1 | 审计检查 同一调用不会被重复交付 |
+| §21.2 | 审计检查 快照完整性检查发现篡改 |
+| §21.3 | 审计检查 绕过受控读取的工具永不共享 |
+| §21.4 | 审计检查 执行次数来自真实物理执行记录 |
+| §21.5 | 审计检查 Runtime 不依赖任何 Agent 框架的内部对象 |

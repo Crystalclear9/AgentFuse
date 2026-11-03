@@ -145,6 +145,57 @@ _NEW_MUTATIONS: list[dict[str, Any]] = [
             ],
         ],
     },
+    {
+        "name": "追溯表不再覆盖每个小节",
+        "clause": "22",
+        "file": "docs/TEST_REPORT.md",
+        # a row of the traceability table disappears - the audit has to notice
+        "old": """| §9.1 | 审计检查 资源控制器的默认值 |
+""",
+        "new": """|""",
+        "expect_audit": "22",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
+    {
+        "name": "声明覆盖的小节不再有检查",
+        "clause": "19",
+        "file": "scripts/audit_requirements.py",
+        # a subsection is declared that no check covers
+        "old": """    "21.4", "21.5", "22",
+)""",
+        "new": """    "21.4", "21.5", "22", "99.99",
+)""",
+        "expect_audit": "19",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
+    {
+        "name": "测试子条目的映射不再完整",
+        "clause": "17.3",
+        "file": "scripts/audit_requirements.py",
+        # one of the 52 sub-items loses its test - the audit has to notice
+        "old": '"test_the_follower_validates_the_dependencies_that_come_later")',
+        "new": '"test_a_test_that_does_not_exist_at_all")',
+        "expect_audit": "17.3",
+        "guards": [
+            [
+                sys.executable,
+                "scripts/audit_requirements.py",
+                "--json",
+            ],
+        ],
+    },
 ]
 
 

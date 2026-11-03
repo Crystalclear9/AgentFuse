@@ -432,3 +432,55 @@ async def test_a_finished_share_group_is_closed(app, snapshot):
     )
     groups = app.repository.list_share_groups(workflow.workflow_id)
     assert len(groups) == 2, "the closed group must not be reused"
+
+
+async def test_a_shared_execution_does_not_merge_two_invocations(app, snapshot):
+    """Section 17.1 - the sharing does not merge the invocations.
+
+    Two agents ask for the same computation: one physical execution serves
+    both of them, but the two **invocations** stay two.  Every relation of the
+    execution graph has to point at the invocation that really made the call.
+    """
+
+    workflow = app.create_workflow("test-shared-invocations")
+    workflow.default_snapshot_id = snapshot.snapshot_id
+    workflow.start()
+
+    adapter = ScriptedAdapter(workflow)
+    arguments = {"files": list(DEMO_FILES)}
+    agent_a = ScriptedAgent("invocation-agent-a", [ToolStep("ast_analyzer", arguments)])
+    agent_b = ScriptedAgent("invocation-agent-b", [ToolStep("ast_analyzer", arguments)])
+    await asyncio.gather(
+        agent_a.run(workflow, adapter),
+        agent_b.run(workflow, adapter),
+    )
+    workflow.finish()
+
+    # one physical execution ...
+    executions = app.repository.list_executions(workflow.workflow_id)
+    assert len(executions) == 1, executions
+
+    # ... but two invocations, two logical calls and two participants
+    invocations = app.repository.list_invocations(workflow.workflow_id)
+    assert len(invocations) == 2, invocations
+    assert len({row["invocation_id"] for row in invocations}) == 2
+    calls = app.repository.list_logical_calls(workflow.workflow_id)
+    assert len(calls) == 2, calls
+    assert len({row["invocation_id"] for row in calls}) == 2, (
+        "the two calls have to stay in their own invocation"
+    )
+    assert len({row["agent_id"] for row in calls}) == 2, (
+        "the two calls belong to two different agents"
+    )
+
+    # the participants of the group keep their invocation
+    participants = app.repository.list_participants(workflow.workflow_id)
+    assert len(participants) == 2, participants
+    assert len({row["invocation_id"] for row in participants}) == 2, participants
+
+    # and the graph shows the two invocations next to the one execution
+    graph = workflow.graph.to_dict()
+    kinds = [node["kind"] for node in graph["nodes"]]
+    assert kinds.count("invocation") == 2, kinds
+    assert kinds.count("physical_execution") == 1, kinds
+    assert kinds.count("logical_call") == 2, kinds

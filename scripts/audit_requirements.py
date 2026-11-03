@@ -1451,6 +1451,120 @@ def _audit_behaviour() -> None:
 #: The P2 clauses of requirement 19 and the state that has to be documented
 #: for them.  The check is self maintaining: the documented table is the
 #: contract, the code has to match it.
+#: The sub-items of the test categories of requirement section 17 - **all of
+#: them**, in the wording of the requirement.  Every sub-item points at the
+#: test function that proves it.
+#:
+#: The mapping is the **single source of truth**: the audit checks that every
+#: test function exists (by the AST of the test files, not by a text match)
+#: and the traceability table of the test report is generated from it.
+SPEC_TEST_SUBITEMS: dict[str, tuple[tuple[str, str], ...]] = {
+    "17.1": (
+        ("主动不会因为并发而混淆", "test_the_two_agents_keep_their_own_identity"),
+        ("同一 Agent 的不同 Invocation 能区分", "test_two_invocations_of_the_same_agent_stay_distinct"),
+        ("工具请求与响应正确关联", "test_the_delivery_event_is_published_exactly_once"),
+        ("未观察到的因果边不会自动生成", "test_the_graph_only_contains_observed_relations"),
+        ("共享执行不会合并两个 AgentInvocation", "test_a_shared_execution_does_not_merge_two_invocations"),
+        ("乱序到达的事件能被正确处理或明确标识", "test_out_of_order_events_do_not_create_wrong_edges"),
+    ),
+    "17.2": (
+        ("相同参数和相同依赖可以共享", "test_two_equivalent_calls_share_a_single_physical_execution"),
+        ("相同参数但不同实际依赖不能共享", "test_a_conflicting_dependency_detaches_the_follower"),
+        ("不相关文件发生变化仍可能共享", "test_an_unrelated_file_change_does_not_prevent_sharing"),
+        ("不同工具版本不能共享", "test_different_tool_versions_are_not_shared"),
+        ("不同环境签名不能共享", "test_environment_signature_changes_the_key"),
+        ("未注册的工具不能被自动共享", "test_a_non_shareable_tool_is_never_shared"),
+        ("未声明的非确定性工具不能被共享", "test_a_tool_that_uses_randomness_is_not_shareable"),
+        ("共享结果与 Baseline 完全一致", "test_the_shared_results_are_identical_to_the_baseline"),
+    ),
+    "17.3": (
+        ("Leader 读取文件后立即产生依赖事件", "test_the_dependency_event_precedes_the_execution_end"),
+        ("Follower 能验证已有依赖", "test_a_late_joiner_validates_the_existing_ledger"),
+        ("Follower 能验证后来出现的依赖", "test_the_follower_validates_the_dependencies_that_come_later"),
+        ("中途加入的参与者不会遗漏早期依赖", "test_a_late_joiner_validates_the_early_dependencies"),
+        ("发现冲突立即分离", "test_a_conflicting_dependency_detaches_the_follower"),
+        ("分离以后执行自己的工作区", "test_the_detached_follower_uses_its_own_snapshot"),
+        ("Leader 结束前无法通过最终验证的 Follower 不能收到结果", "test_a_follower_that_fails_the_final_validation_gets_no_result"),
+        ("目录列表变化会正确影响验证", "test_a_changed_directory_listing_is_detected"),
+        ("文件不存在状态变化会被检测", "test_a_changed_file_existence_is_detected"),
+    ),
+    "17.4": (
+        ("多个 Agent 同时提交相同调用", "test_many_concurrent_identical_calls_create_one_execution"),
+        ("多个 Agent 同时加入共享组", "test_many_concurrent_identical_calls_create_one_execution"),
+        ("Follower 加入时 Leader 正在结束", "test_a_follower_that_joins_while_the_leader_ends_gets_no_shared_result"),
+        ("Follower 取消时结果正在返回", "test_a_follower_that_cancels_during_the_delivery_gets_one_result"),
+        ("Leader 取消后其他参与者继续等待", "test_a_cancelled_leader_keeps_the_follower_alive"),
+        ("所有参与者取消后可以终止执行", "test_cancelling_every_participant_terminates_the_execution"),
+        ("不会创建重复 PhysicalExecution", "test_every_call_owns_at_most_one_running_execution"),
+        ("同一个 LogicalToolCall 不会收到两次结果", "test_no_logical_call_is_delivered_twice"),
+    ),
+    "17.5": (
+        ("运行 Worker 数不超过配置上限", "test_the_worker_limit_is_enforced"),
+        ("超时任务可以终止", "test_a_hanging_worker_is_terminated_by_the_timeout"),
+        ("Worker 异常退出可以回收", "test_a_crashing_worker_is_detected"),
+        ("共享调用不重复占用 Worker 配额", "test_a_shared_call_does_not_consume_a_second_worker_slot"),
+        ("内存预算不足时进入等待", "test_the_memory_budget_blocks_new_executions"),
+        ("资源释放后等待任务可以继续", "test_the_memory_budget_blocks_new_executions"),
+        ("长时间运行后不会残留大量无效进程", "test_no_worker_processes_are_leaked"),
+    ),
+    "17.6": (
+        ("不同分支文件状态互不影响", "test_fork_creates_an_independent_branch"),
+        ("快照创建后状态保持稳定", "test_snapshots_are_immutable"),
+        ("相同内容得到一致指纹", "test_identical_content_produces_identical_manifests"),
+        ("不同内容得到不同指纹", "test_different_content_produces_different_manifests"),
+        ("非法路径不能访问快照根目录之外", "test_paths_escaping_the_workspace_are_rejected"),
+        ("文件删除和目录变化被正确记录", "test_compare_snapshots_reports_removed_and_changed_files"),
+    ),
+    "17.7": (
+        ("单 Agent 调用工具", "test_a_single_agent_call_produces_one_execution"),
+        ("双 Agent 完全共享", "test_two_equivalent_calls_share_a_single_physical_execution"),
+        ("不同快照但依赖等价", "test_the_different_workspace_scenario_shares"),
+        ("动态依赖不一致并提前分离", "test_the_detection_happens_while_the_leader_is_still_running"),
+        ("三 Agent 并行工作流", "test_the_multi_agent_scenario_builds_the_expected_graph"),
+        ("工具异常失败", "test_the_participants_of_a_failed_group_are_failed"),
+        ("中途取消", "test_a_cancelled_follower_does_not_stop_the_leader"),
+        ("Baseline 与 Online Sharing 对比", "test_the_comparison_reports_a_real_reduction"),
+    ),
+}
+
+#: The subsections of the requirement that carry a behaviour.  The
+#: traceability table has to mention **every** one of them - a requirement
+#: without a pointer is a claim that nobody can check.
+REQUIRED_TRACEABILITY_SECTIONS = (
+    "4", "4.8", "5.1", "5.2", "6.2", "7.1", "7.2", "7.3", "7.4",
+    "8.1", "8.2", "8.5", "8.7", "8.8",
+    "9.1", "9.2", "9.3", "9.4",
+    "10.1", "10.5",
+    "11.3",
+    "12.4", "12.6",
+    "13.1", "13.2", "13.3", "13.4", "13.5",
+    "14", "15", "16", "16.5",
+    "17.1", "17.2", "17.3", "17.4", "17.5", "17.6", "17.7",
+    "19", "20", "21.1", "21.2", "21.3", "21.4", "21.5",
+    "22", "23",
+)
+
+#: The things that are **not** verified - they have to be written down in the
+#: test report with a reason, so that they cannot be forgotten silently.
+UNVERIFIED_ITEMS = (
+    (
+        "磁盘故障 / 断电时的数据一致性",
+        "需要虚拟机器的掉电（直接断电的虚拟）；强杀进程已验证",
+    ),
+    (
+        "符号链接逃逸在 Windows 上未执行",
+        "需要管理员权限创建符号链接（本机 WinError 1314）；Linux/WSL2 已真实执行",
+    ),
+    (
+        "长时间运行的资源稳定性",
+        "CI 的 soak 跑 10 分钟，长于十分钟的观测未做",
+    ),
+    (
+        "真实外部 Agent 框架接入",
+        "需要一个真实的外部进程，本仓库只有自研的第二个适配器",
+    ),
+)
+
 #: The P2 clauses of requirement section 19 - **verbatim, all ten of them**.
 #:
 #: This list is the single source of truth.  The document states the state of
@@ -2257,6 +2371,46 @@ def audit_layout_tests_docs() -> None:
             f"缺失的用例: {absent}" if absent else f"{len(markers)} 个关键用例",
         )
 
+    # The traceability table has to cover **every** subsection of the
+    # requirement that carries a behaviour.
+    report = read("docs/TEST_REPORT.md")
+    missing_sections = [
+        section
+        for section in REQUIRED_TRACEABILITY_SECTIONS
+        if f"| §{section} |" not in report
+    ]
+    record(
+        "22",
+        "追溯表覆盖需求的每个小节",
+        not missing_sections,
+        f"缺少: {missing_sections}" if missing_sections else f"{len(REQUIRED_TRACEABILITY_SECTIONS)} 个小节均有指针",
+    )
+
+    # The things that are not verified have to be written down - with a
+    # reason.  A silent gap is the thing this audit exists to prevent.
+    section8 = report.split("## 8.")[1].split("\n## ")[0] if "## 8." in report else ""
+    absent_items = [
+        name for name, _reason in UNVERIFIED_ITEMS if name not in section8
+    ]
+    record(
+        "22",
+        "未验证的功能都写在了测试报告里",
+        not absent_items,
+        f"缺少: {absent_items}" if absent_items else f"{len(UNVERIFIED_ITEMS)} 项均已列出",
+    )
+
+    # The sub-items of the test categories: every one of them has to point at
+    # a test function that **exists** (the AST of the test files, not a text
+    # match).
+    for category, items in SPEC_TEST_SUBITEMS.items():
+        absent = [name for _item, name in items if name not in test_names]
+        record(
+            category,
+            "测试子条目均有对应的测试",
+            not absent,
+            f"缺少的测试: {absent}" if absent else f"{len(items)} 个子条目均有对应的测试",
+        )
+
     for doc, needles in DOC_SECTIONS.items():
         text = read(doc)
         absent = [needle for needle in needles if needle.lower() not in text.lower()]
@@ -2446,11 +2600,24 @@ def write_traceability_table() -> None:
     rows: dict[str, list[str]] = {}
     for item, _kind, proof in ACCEPTANCE_ITEMS:
         rows.setdefault("23", []).append(f"{item} -> {proof}")
+    for category, items in SPEC_TEST_SUBITEMS.items():
+        for item, proof in items:
+            rows.setdefault(category, []).append(f"{item} -> {proof}")
     for category, markers in TEST_CATEGORIES.items():
         for marker in markers:
-            rows.setdefault(category, []).append(marker)
+            rows.setdefault(category, []).append(f"（类别覆盖）{marker}")
     for clause in COVERED_SECTIONS:
         rows.setdefault(clause, [])
+    # every section of the requirement points at the audit checks of that
+    # section - they are the machine readable proof of the subsection
+    for section in REQUIRED_TRACEABILITY_SECTIONS:
+        clauses = [
+            str(entry["clause"])
+            for entry in RESULTS
+            if str(entry.get("section")) == section and entry.get("ok")
+        ]
+        if clauses:
+            rows.setdefault(section, []).append(f"审计检查 {clauses[0]}")
 
     lines = [
         "## 10. \u89c4\u8303\u9010\u6761\u8ffd\u6eaf\u8868",
@@ -2482,6 +2649,132 @@ def write_traceability_table() -> None:
     print(f"  the traceability table is written into {report.relative_to(ROOT)}")
 
 
+def audit_declared_coverage() -> None:
+    """Check §8.2, §9.1 and §10.5 - and that the declared coverage is real.
+
+    The audit declares which subsections of the requirement it covers.  A
+    declaration without a check is a **false claim** - the same kind of thing
+    that the P2 table of the limitations used to do.  Therefore the
+    declaration is checked against the report.
+    """
+
+    # §8.2 the state machine of the share group
+    from agentfuse.sharing.share_group import IllegalTransition, ShareGroup, ShareGroupStatus
+
+    group = ShareGroup(
+        share_group_id="sg-machine",
+        workflow_id="wf-machine",
+        candidate_key="key",
+        leader_execution_id=None,
+        leader_logical_call_id="call-machine",
+        creation_time=1.0,
+        closed_time=None,
+        status=ShareGroupStatus.CREATED,
+        mode="online",
+        tool_name="ast_analyzer",
+        tool_version="1.0.0",
+    )
+    states = {status.value for status in ShareGroupStatus}
+    record(
+        "8.2",
+        "共享组的状态机完整",
+        states == {"CREATED", "EXECUTING", "VALIDATING", "COMPLETED", "FAILED", "CLOSED"},
+        f"{sorted(states)}",
+        kind="behavioural",
+    )
+    rejected = False
+    try:
+        group.transition(ShareGroupStatus.COMPLETED)
+    except IllegalTransition:
+        rejected = True
+    record(
+        "8.2",
+        "非法的状态转换被拒绝",
+        rejected,
+        kind="behavioural",
+    )
+
+    # §9.1 the configuration of the resource controller
+    from agentfuse.settings import load_settings
+
+    settings = load_settings(home=str(ROOT / ".agentfuse" / "audit-config"))
+    record(
+        "9.1",
+        "资源控制器的默认值",
+        settings.max_workers == 2
+        and settings.default_timeout_seconds == 60
+        and settings.max_memory_budget_mb > 0
+        and settings.scheduling_strategy in ("fifo", "sjf", "preemptive"),
+        f"workers={settings.max_workers} timeout={settings.default_timeout_seconds} "
+        f"budget={settings.max_memory_budget_mb} strategy={settings.scheduling_strategy}",
+        kind="behavioural",
+    )
+
+    # §10.5 an interrupted run has to be recognisable as such
+    import sqlite3
+    import tempfile
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        from agentfuse.storage.database import Database
+        from agentfuse.storage.repository import Repository
+
+        database = Database(Path(tmp) / "interrupted.sqlite3")
+        try:
+            database.initialize()
+            database.start()
+            repository = Repository(database)
+            # a run that was killed: no end time and the status of a running one
+            repository.save_workflow(_workflow_record_without_end())
+            recovered = repository.recover_interrupted_workflows()
+            with sqlite3.connect(str(database.path)) as connection:
+                row = connection.execute(
+                    "SELECT status FROM workflows WHERE workflow_id = ?",
+                    ("wf-interrupted",),
+                ).fetchone()
+            record(
+                "10.5",
+                "被打断的运行标记为 INTERRUPTED",
+                bool(row) and str(row[0]) == "INTERRUPTED",
+                f"status={row[0] if row else None} recovered={recovered}",
+                kind="behavioural",
+            )
+        finally:
+            database.close()
+
+    # every declared subsection really has a check
+    covered = {str(entry.get("section")) for entry in RESULTS}
+    declared_without_check = [
+        section for section in COVERED_SECTIONS if section not in covered
+    ]
+    record(
+        "19",
+        "声明覆盖的小节都有检查",
+        not declared_without_check,
+        f"没有检查的小节: {declared_without_check}"
+        if declared_without_check
+        else f"{len(COVERED_SECTIONS)} 个小节均有检查",
+    )
+
+
+def _workflow_record_without_end() -> Any:
+    """A workflow row of a run that was killed while it was running."""
+
+    from agentfuse.storage.models import WorkflowRecord
+
+    return WorkflowRecord(
+        workflow_id="wf-interrupted",
+        scenario="audit",
+        start_time=1.0,
+        end_time=None,
+        status="RUNNING",
+        configuration={},
+        runtime_mode="online",
+        random_seed=None,
+        label=None,
+        error=None,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true")
@@ -2509,6 +2802,7 @@ def main() -> int:
     audit_layout_tests_docs()
     audit_documented_numbers()
     audit_acceptance_checklist()
+    audit_declared_coverage()
 
     if args.trace:
         write_traceability_table()
