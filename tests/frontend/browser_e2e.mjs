@@ -53,8 +53,21 @@ class Cdp {
       this.socket.addEventListener("open", () => resolveReady());
       this.socket.addEventListener("error", (event) => rejectReady(new Error(`websocket: ${event.message ?? "error"}`)));
     });
+    this.console = [];
     this.socket.addEventListener("message", (event) => {
       const message = JSON.parse(event.data);
+      if (message.method === "Runtime.consoleAPICalled") {
+        const text = (message.params.args ?? [])
+          .map((arg) => arg.value ?? arg.description ?? "")
+          .join(" ");
+        this.console.push(`${message.params.type}: ${text}`);
+        return;
+      }
+      if (message.method === "Runtime.exceptionThrown") {
+        const details = message.params.exceptionDetails ?? {};
+        this.console.push(`exception: ${details.text ?? ""} ${details.exception?.description ?? ""}`);
+        return;
+      }
       if (message.id && this.pending.has(message.id)) {
         const { resolve: done, reject } = this.pending.get(message.id);
         this.pending.delete(message.id);
@@ -267,14 +280,17 @@ async function main() {
     check("the benchmark page can choose a scenario", benchmark.scenario === true);
     check("the benchmark page can choose the worker count", benchmark.workers === true);
 
-    // no error was logged by the page
-    const consoleErrors = await page.evaluate(
-      `(() => {
-        const entries = window.__agentfuseErrors ?? [];
-        return entries.length;
-      })()`,
+    // no error was logged by the page - the console of the **browser** is
+    // the source, not a variable of the page (that one is never set and the
+    // check would always pass)
+    const errors = (page.console ?? []).filter(
+      (line) => line.startsWith("error") || line.startsWith("exception"),
     );
-    check("the page did not raise a JavaScript error", consoleErrors === 0, `errors=${consoleErrors}`);
+    check(
+      "the page did not raise a JavaScript error",
+      errors.length === 0,
+      errors.slice(0, 3).join(" | "),
+    );
 
     if (screenshot) {
       // the screenshot shows the workflow detail - the execution graph and the
@@ -297,6 +313,10 @@ async function main() {
 
   if (failures.length) {
     console.log(`\n${failures.length} 个浏览器检查未通过`);
+    console.log("  the console of the browser:");
+    for (const line of (page.console ?? []).slice(-15)) {
+      console.log(`    ${line}`);
+    }
     process.exit(1);
   }
   console.log("\n浏览器端到端检查全部通过");
