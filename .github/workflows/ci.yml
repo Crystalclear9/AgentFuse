@@ -208,6 +208,7 @@ jobs:
       - name: The dashboard in a real browser
         run: python -m pytest tests/integration/test_browser_e2e.py -q
         env:
+          AGENTFUSE_BROWSER_TEST: "1"
           AGENTFUSE_BROWSER_SCREENSHOT: .agentfuse/screenshots/dashboard.png
 
       - name: Upload the screenshot
