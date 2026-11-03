@@ -116,6 +116,18 @@ async function newPage() {
   throw new Error(`the browser did not answer: ${lastError}`);
 }
 
+/** Wait until an expression in the page becomes true. */
+async function waitFor(page, expression, timeout = 15000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await page.evaluate(expression)) {
+      return true;
+    }
+    await new Promise((done) => setTimeout(done, 150));
+  }
+  return false;
+}
+
 async function waitForLoad(page) {
   const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {
@@ -136,6 +148,19 @@ async function main() {
     await page.send("Page.navigate", { url: base });
     await waitForLoad(page);
 
+    // the page loads the data asynchronously - wait for the cards of the
+    // dashboard before looking at them
+    const cardsShown = await page.evaluate(
+      `(() => {
+        const deadline = Date.now() + 15000;
+        while (Date.now() < deadline) {
+          if (document.querySelectorAll("#overview-cards .card").length > 0) return true;
+        }
+        return false;
+      })()`,
+    );
+    check("the dashboard loads the data of the backend", cardsShown === true);
+
     // the dashboard has to show the real numbers of the backend
     const overview = await page.evaluate(
       `(() => ({
@@ -146,8 +171,24 @@ async function main() {
     check("the dashboard is rendered", (overview.body ?? "").includes("AgentFuse"));
     check(
       "the dashboard shows the call counts",
-      (overview.body ?? "").match(/\d+/) !== null,
-      overview.body?.slice(0, 120),
+      (overview.cards ?? 0) > 0,
+      `cards=${overview.cards}`,
+    );
+    // the card of the logical calls has to carry a real number
+    const callCount = await page.evaluate(
+      `(() => {
+        const card = [...document.querySelectorAll("#overview-cards .card")].find(
+          (node) => (node.querySelector(".label")?.textContent ?? "").includes("\u903b\u8f91"),
+        );
+        if (!card) return null;
+        const value = (card.querySelector(".value")?.textContent ?? "").trim();
+        return { value, number: Number(value) };
+      })()`,
+    );
+    check(
+      "the dashboard shows the number of the logical calls",
+      callCount !== null && Number.isFinite(callCount.number) && callCount.number >= 1,
+      JSON.stringify(callCount),
     );
 
     // the tabs have to work - a click has to activate the panel
@@ -176,7 +217,7 @@ async function main() {
       })()`,
     );
     check("the workflow list is filled", !workflow.error, JSON.stringify(workflow));
-    await new Promise((done) => setTimeout(done, 1200));
+    await waitFor(page, `document.querySelectorAll("#event-table tbody tr").length > 0`);
     const detail = await page.evaluate(
       `(() => ({
         graph: document.querySelector("#graph-container svg") !== null,
@@ -200,7 +241,7 @@ async function main() {
       })()`,
     );
     check("the execution list is filled", !dependencies.error, JSON.stringify(dependencies));
-    await new Promise((done) => setTimeout(done, 1200));
+    await waitFor(page, `document.querySelectorAll("#dependency-table tbody tr").length > 0`);
     const inspector = await page.evaluate(
       `(() => ({
         rows: document.querySelectorAll("#dependency-table tbody tr").length,
@@ -245,7 +286,7 @@ async function main() {
           window.scrollTo(0, 0);
         })()`,
       );
-      await new Promise((done) => setTimeout(done, 500));
+      await waitFor(page, `document.querySelector("#graph-container svg") !== null`);
       const shot = await page.send("Page.captureScreenshot", { format: "png" });
       writeFileSync(resolve(screenshot), Buffer.from(shot.data, "base64"));
       console.log(`  the screenshot is written to ${screenshot}`);
