@@ -1,0 +1,39 @@
+F                                                                        [100%]
+================================== FAILURES ===================================
+__ test_cancellation_acknowledges_persisted_state_before_the_runner_resumes ___
+
+app = <agentfuse.app.AgentFuseApp object at 0x000002428E864B10>
+snapshot = SnapshotInfo(snapshot_id='snap-c2d07d8341af', workspace_id='ws-fa31e1ab35a9', parent_snapshot_id=None, path=WindowsPat...: 532}}, source_reference='C:\\Users\\70454\\Desktop\\AgentFuse\\agentfuse\\resources\\sample_repository', metadata={})
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002428E867A50>
+
+    async def test_cancellation_acknowledges_persisted_state_before_the_runner_resumes(app, snapshot, monkeypatch):
+        coordinator = app.coordinator
+        original = coordinator._finalize_execution
+        runner_waiting, resume_runner = asyncio.Event(), asyncio.Event()
+        async def delayed_runner(execution, outcome):
+            if asyncio.current_task() in coordinator._tasks:
+                runner_waiting.set()
+                await resume_runner.wait()
+            await original(execution, outcome)
+        monkeypatch.setattr(coordinator, "_finalize_execution", delayed_runner)
+        workflow = app.create_workflow("cancel-ack", default_snapshot_id=snapshot.snapshot_id)
+        workflow.start()
+        call = asyncio.create_task(coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id, tool_name="fault_injector",
+            arguments={"mode": "sleep", "seconds": 30}, snapshot_id=snapshot.snapshot_id))
+        event = await wait_for_event(app.event_bus, EventType.TOOL_EXECUTION_STARTED,
+                                     workflow_id=workflow.workflow_id)
+        cancel = asyncio.create_task(coordinator.cancel_logical_call(event.logical_call_id))
+        try:
+            await asyncio.wait_for(runner_waiting.wait(), 10)
+            await asyncio.wait_for(asyncio.shield(cancel), 10)
+>           assert app.repository.list_executions(workflow.workflow_id)[0]["execution_status"] == "CANCELLED"
+E           AssertionError: assert 'RUNNING' == 'CANCELLED'
+E             
+E             - CANCELLED
+E             + RUNNING
+
+tests\integration\test_review_regressions.py:122: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/integration/test_review_regressions.py::test_cancellation_acknowledges_persisted_state_before_the_runner_resumes
+1 failed in 0.70s

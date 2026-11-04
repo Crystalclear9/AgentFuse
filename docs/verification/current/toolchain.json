@@ -51,5 +51,19 @@
     "Windows / WSL2 Linux",
     "Docker Linux Engine for optional sandbox only"
   ],
-  "no_global_path_changes": true
+  "no_global_path_changes": true,
+  "additional_python": [
+    {
+      "version": "3.12.16",
+      "python": ".tools/envs/py312/Scripts/python.exe",
+      "base_python": ".tools/python/cpython-3.12-windows-x86_64-none/python.exe",
+      "sha256": "246221b571e7a692a8b26818b628cac4c163e836de9897812eaebc2a8e1efa90"
+    },
+    {
+      "version": "3.13.18",
+      "python": ".tools/envs/py313/Scripts/python.exe",
+      "base_python": ".tools/python/cpython-3.13-windows-x86_64-none/python.exe",
+      "sha256": "d0a3fdb2f523217cc05cbfa015a249f53f670fe38c72522fa893377c5d2f17d5"
+    }
+  ]
 }

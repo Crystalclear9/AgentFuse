@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="4" time="1.513" timestamp="2026-11-04T19:11:37.626295+08:00" hostname="Crystalclear9"><testcase classname="tests.frontend.test_frontend" name="test_the_recorded_payloads_are_the_real_ones" time="0.002" /><testcase classname="tests.frontend.test_frontend" name="test_the_recorded_payloads_have_the_shape_of_the_current_api" time="1.061"><failure message="PermissionError: [WinError 32] 另一个程序正在使用此文件，进程无法访问。: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\win32-tw6_cors\\db\\agentfuse.sqlite3'">path = 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\win32-tw6_cors\\db'
+onerror = &lt;function TemporaryDirectory._rmtree.&lt;locals&gt;.onerror at 0x000001CF552CD1C0&gt;
+
+    def _rmtree_unsafe(path, onerror):
+        try:
+            with os.scandir(path) as scandir_it:
+                entries = list(scandir_it)
+        except OSError:
+            onerror(os.scandir, path, sys.exc_info())
+            entries = []
+        for entry in entries:
+            fullname = entry.path
+            if _rmtree_isdir(entry):
+                try:
+                    if entry.is_symlink():
+                        # This can only happen if someone replaces
+                        # a directory with a symlink after the call to
+                        # os.scandir or entry.is_dir above.
+                        raise OSError("Cannot call rmtree on a symbolic link")
+                except OSError:
+                    onerror(os.path.islink, fullname, sys.exc_info())
+                    continue
+                _rmtree_unsafe(fullname, onerror)
+            else:
+                try:
+&gt;                   os.unlink(fullname)
+E                   PermissionError: [WinError 32] 另一个程序正在使用此文件，进程无法访问。: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\win32-tw6_cors\\db\\agentfuse.sqlite3'
+
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\shutil.py:632: PermissionError
+
+During handling of the above exception, another exception occurred:
+
+    def test_the_recorded_payloads_have_the_shape_of_the_current_api():
+        """The recording must not drift away from the API.
+    
+        The front end test renders the **recorded** responses.  If the API
+        changes, the recording has to be refreshed - otherwise the test proves
+        something that does not exist any more.  Only the **shape** is compared:
+        the values change with every run.
+        """
+    
+        import asyncio
+        import importlib.util
+    
+        spec = importlib.util.spec_from_file_location(
+            "capture_frontend_payloads",
+            ROOT / "scripts" / "capture_frontend_payloads.py",
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+    
+&gt;       live = asyncio.run(module.capture())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\frontend\test_frontend.py:132: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\asyncio\runners.py:190: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+scripts\capture_frontend_payloads.py:33: in capture
+    with tempfile.TemporaryDirectory(prefix=f"{sys.platform}-", dir=parent) as home:
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\tempfile.py:943: in __exit__
+    self.cleanup()
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\tempfile.py:947: in cleanup
+    self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\tempfile.py:929: in _rmtree
+    _shutil.rmtree(name, onerror=onerror)
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\shutil.py:787: in rmtree
+    return _rmtree_unsafe(path, onerror)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\shutil.py:629: in _rmtree_unsafe
+    _rmtree_unsafe(fullname, onerror)
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\shutil.py:634: in _rmtree_unsafe
+    onerror(os.unlink, fullname, sys.exc_info())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+func = &lt;built-in function unlink&gt;
+path = 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\win32-tw6_cors\\db\\agentfuse.sqlite3'
+exc_info = (&lt;class 'PermissionError'&gt;, PermissionError(13, '另一个程序正在使用此文件，进程无法访问。'), &lt;traceback object at 0x000001CF55C40B40&gt;)
+
+    def onerror(func, path, exc_info):
+        if issubclass(exc_info[0], PermissionError):
+            if repeated and path == name:
+                if ignore_errors:
+                    return
+                raise
+    
+            try:
+                if path != name:
+                    _resetperms(_os.path.dirname(path))
+                _resetperms(path)
+    
+                try:
+&gt;                   _os.unlink(path)
+E                   PermissionError: [WinError 32] 另一个程序正在使用此文件，进程无法访问。: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\frontend-capture\\win32-tw6_cors\\db\\agentfuse.sqlite3'
+
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\tempfile.py:893: PermissionError</failure></testcase><testcase classname="tests.frontend.test_frontend" name="test_the_dashboard_renders_the_real_data" time="0.157" /><testcase classname="tests.frontend.test_frontend" name="test_the_front_end_does_not_load_anything_from_the_network" time="0.002" /></testsuite></testsuites>

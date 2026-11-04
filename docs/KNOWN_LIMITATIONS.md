@@ -263,6 +263,6 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 当时每场景独立解释器、独立数据库、5 次重复的性能守卫报告取消场景时延超过旧基线：
 Baseline 6.2810s（旧参考 3.2882s）、Online 4.7045s（3.0665s）、Deferred 4.7661s（3.0458s）。
 本轮定位并修复取消与最终回收重复终止同一进程、Windows venv 启动器多出一层进程，以及空闲预热 Worker 持续扫描进程树的问题。
-原基线、原 30% 容差、5 次重复的全部场景已通过；取消场景中位数为 Baseline 3.997953s、Online 3.514093s、Deferred 3.803968s。
+原基线、原 30% 容差、5 次重复的全部场景已通过；取消场景中位数为 Baseline 3.861796s、Online 3.499842s、Deferred 3.582819s。
 没有修改基线或扩大容差。性能结果受机器负载影响，不能把本机通过解释成任意机器上的固定时延保证。
 失败历史与最终测量保留在 docs/verification，当前结果见 current/performance.txt；生产 LLM / GPU KV 依用户选择保留缺口。

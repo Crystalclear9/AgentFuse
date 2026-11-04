@@ -96,3 +96,37 @@ async def test_api_documentation_has_no_cdn_dependency(settings):
             assert (await client.get("/redoc")).status_code == 404
     finally:
         await api.state.runtime.close()
+
+
+async def test_cancellation_acknowledges_persisted_state_before_the_runner_resumes(app, snapshot, monkeypatch):
+    coordinator = app.coordinator
+    original = coordinator._finalize_execution
+    runner_waiting, resume_runner = asyncio.Event(), asyncio.Event()
+    async def delayed_runner(execution, outcome):
+        if asyncio.current_task() in coordinator._tasks:
+            runner_waiting.set()
+            await resume_runner.wait()
+        await original(execution, outcome)
+    monkeypatch.setattr(coordinator, "_finalize_execution", delayed_runner)
+    workflow = app.create_workflow("cancel-ack", default_snapshot_id=snapshot.snapshot_id)
+    workflow.start()
+    call = asyncio.create_task(coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id, tool_name="fault_injector",
+        arguments={"mode": "sleep", "seconds": 30}, snapshot_id=snapshot.snapshot_id))
+    event = await wait_for_event(app.event_bus, EventType.TOOL_EXECUTION_STARTED,
+                                 workflow_id=workflow.workflow_id)
+    cancel = asyncio.create_task(coordinator.cancel_logical_call(event.logical_call_id))
+    try:
+        await asyncio.wait_for(runner_waiting.wait(), 10)
+        await asyncio.wait_for(asyncio.shield(cancel), 10)
+        assert app.repository.list_executions(workflow.workflow_id)[0]["execution_status"] == "CANCELLED"
+        assert app.scheduler.snapshot()["running"] == 0
+    finally:
+        resume_runner.set()
+        await cancel
+        with contextlib.suppress(asyncio.CancelledError):
+            await call
+    await asyncio.wait_for(asyncio.gather(*list(coordinator._tasks)), 10)
+    finished = [e for e in app.repository.list_events(workflow.workflow_id)
+                if e["event_type"] == EventType.TOOL_EXECUTION_FINISHED.value]
+    assert len(finished) == 1

@@ -1,3 +1,4 @@
+param([switch]$AllPythonVersions)
 $ErrorActionPreference = 'Stop'
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 Set-Location -LiteralPath $projectRoot
@@ -19,6 +20,22 @@ if (-not (Test-Path -LiteralPath '.venv-local/Scripts/python.exe')) {
 if ($LASTEXITCODE) { throw 'Locked dependencies installation failed' }
 & $uv pip install --python .venv-local/Scripts/python.exe --no-deps --no-build-isolation -e .
 if ($LASTEXITCODE) { throw 'Project installation failed' }
+if ($AllPythonVersions) {
+    & $uv python install 3.12.16 3.13.18
+    if ($LASTEXITCODE) { throw 'Compatibility Python installation failed' }
+    foreach ($entry in @(@('3.12.16', 'py312'), @('3.13.18', 'py313'))) {
+        $environmentPath = Join-Path $projectRoot ".tools/envs/$($entry[1])"
+        $environmentPython = Join-Path $environmentPath 'Scripts/python.exe'
+        if (-not (Test-Path -LiteralPath $environmentPython)) {
+            & $uv venv --python $entry[0] $environmentPath
+            if ($LASTEXITCODE) { throw 'Compatibility environment creation failed' }
+        }
+        & $uv pip sync --python $environmentPython requirements-dev.lock
+        if ($LASTEXITCODE) { throw 'Compatibility dependencies installation failed' }
+        & $uv pip install --python $environmentPython --no-deps --no-build-isolation -e .
+        if ($LASTEXITCODE) { throw 'Compatibility project installation failed' }
+    }
+}
 & .venv-local/Scripts/python.exe -m playwright install chromium
 if ($LASTEXITCODE) { throw 'Local browser installation failed' }
 if (-not (Test-Path -LiteralPath '.tools/git/cmd/git.exe')) {

@@ -1,0 +1,91 @@
+........................................................................ [ 23%]
+..........................s............................................. [ 46%]
+...........................FF........................................... [ 69%]
+....................s................................................... [ 92%]
+........................                                                 [100%]
+================================== FAILURES ===================================
+_________________ test_the_fairness_comparison_of_a_real_run __________________
+
+    def test_the_fairness_comparison_of_a_real_run():
+        """A real comparison of the same scenario uses the same setup."""
+    
+        audit = _load_audit()
+>       result = audit._fairness_of_the_modes()
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\unit\test_audit_fairness.py:63: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\audit_requirements.py:2307: in _fairness_of_the_modes
+    report, tools, limits = _comparison_run()
+                            ^^^^^^^^^^^^^^^^^
+scripts\audit_requirements.py:2284: in _comparison_run
+    for row in runtime.repository.list_executions(entry["workflow_id"]):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+agentfuse\storage\repository.py:323: in list_executions
+    rows = self.db.query(
+agentfuse\storage\database.py:763: in query
+    conn = self._read_conn()
+           ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <agentfuse.storage.database.Database object at 0x000002598B7DE3D0>
+
+    def _read_conn(self) -> sqlite3.Connection:
+        with self._read_lock:
+            if self._closed:
+>               raise sqlite3.ProgrammingError("the AgentFuse database is closed")
+E               sqlite3.ProgrammingError: the AgentFuse database is closed
+
+agentfuse\storage\database.py:668: ProgrammingError
+________________ test_the_report_names_the_kind_of_every_check ________________
+
+    def test_the_report_names_the_kind_of_every_check():
+        """Every check has to say whether it runs the runtime or reads the source."""
+    
+>       report = _report()
+                 ^^^^^^^^^
+
+tests\unit\test_audit_report.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def _report() -> dict:
+        """Run the audit and return its machine readable report."""
+    
+        process = subprocess.run(
+            [sys.executable, str(AUDIT), "--json"],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=600,
+        )
+>       assert process.returncode == 0, process.stdout[-2000:] + process.stderr[-2000:]
+E       AssertionError: Traceback (most recent call last):
+E           File "C:\Users\70454\Desktop\AgentFuse\scripts\audit_requirements.py", line 2992, in <module>
+E           File "C:\Users\70454\Desktop\AgentFuse\scripts\audit_requirements.py", line 2939, in main
+E             
+E           File "C:\Users\70454\Desktop\AgentFuse\scripts\audit_requirements.py", line 1982, in audit_benchmark
+E             comparison, _tools, _limits = _comparison_run()
+E                                           ^^^^^^^^^^^^^^^^^
+E           File "C:\Users\70454\Desktop\AgentFuse\scripts\audit_requirements.py", line 2284, in _comparison_run
+E             except Exception:
+E                               
+E           File "C:\Users\70454\Desktop\AgentFuse\agentfuse\storage\repository.py", line 323, in list_executions
+E             rows = self.db.query(
+E                    ^^^^^^^^^^^^^^
+E           File "C:\Users\70454\Desktop\AgentFuse\agentfuse\storage\database.py", line 763, in query
+E             conn = self._read_conn()
+E                    ^^^^^^^^^^^^^^^^^
+E           File "C:\Users\70454\Desktop\AgentFuse\agentfuse\storage\database.py", line 668, in _read_conn
+E             raise sqlite3.ProgrammingError("the AgentFuse database is closed")
+E         sqlite3.ProgrammingError: the AgentFuse database is closed
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\70454\\Desktop\\AgentFuse\\.venv-local\\Scripts\\python.exe', 'C:\\Users\\70454\\De...e3.ProgrammingError("the AgentFuse database is closed")\nsqlite3.ProgrammingError: the AgentFuse database is closed\n').returncode
+
+tests\unit\test_audit_report.py:32: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/unit/test_audit_fairness.py::test_the_fairness_comparison_of_a_real_run
+FAILED tests/unit/test_audit_report.py::test_the_report_names_the_kind_of_every_check
+2 failed, 308 passed, 2 skipped in 496.56s (0:08:16)

@@ -5,14 +5,17 @@
 
 | 检查 | 本轮实际结果 |
 |---|---|
-| Windows 完整测试，项目内 Python/Node/Chromium | 308 passed / 2 skipped |
-| WSL2 完整测试，项目内独立 Python/Node | 308 passed / 2 skipped |
+| Windows 完整测试，项目内 Python/Node/Chromium | 310 passed / 2 skipped |
+| WSL2 完整测试，项目内独立 Python/Node | 310 passed / 2 skipped |
+| Windows Python 3.12 / 3.13 完整测试 | 310 / 310 passed，分别 2 / 2 skipped |
+| 取消确认与延迟后台回收定向复检 | 6 passed；旧行为确定性失败证据另存 |
+| 数据库跨线程关闭、并发录制与本轮回归 | 29 passed |
 | Docker、TLS 与扩展独立验证 | 16 passed / 0 skipped |
 | 资源释放与迟到 RSS 定向复检 | 17 passed |
 | 外部框架与 CLI 定向复检 | 8 passed |
 | Windows / WSL 最终快照配置与本轮回归复检 | 19 / 26 passed |
 | Windows / WSL 审计、证据分类与追溯表最终复检 | 21 / 21 passed |
-| 十分钟持续运行 | 851 轮，0 错误，残留 Worker 增长 0 |
+| 十分钟持续运行 | 367 轮，0 错误，残留 Worker 增长 0 |
 | 独立安装的 wheel 真执行 | Baseline 2 次 / Online 1 次物理执行，离线 API 文档已打包 |
 | 预热池 0/1/2 × 并发 1/2 关键用例 | 六组全部通过（明细见 current/summary.json） |
 | 需求审计 | 325/325，110 行为 / 215 结构 |
@@ -26,15 +29,19 @@ WSL2 跳过：the browser test only runs where a browser is requested；set AGEN
 Windows 的符号链接边界由 WSL2 实际执行，Docker 与 Windows 浏览器分别独立实测；跳过不计作通过。
 Python 与全部 Python 依赖、Git、uv、Node、Chromium 已安装在项目的 `.tools` / `.venv-local` / `.venv-wsl`。
 Docker Engine、WSL2 和操作系统属于系统前提，未伪称可通过复制普通文件实现项目内安装。
-源码与测试快照（文本换行归一为 LF）：`9f0474fbe61d758127aed3adbd20b9fe72fd03faeb7b8d3dd955cf8f7c74b1aa`。环境与原始证据见 [本轮汇总](verification/current/summary.json)。
+源码与测试快照（文本换行归一为 LF）：`bb3628b6e7951769a1d8b70a0c5aeec6210bdb2628482628a4e4ab2ab766ddc6`。环境与原始证据见 [本轮汇总](verification/current/summary.json)。
 完整映射见 [PLAN_REVIEW.md](PLAN_REVIEW.md)。测试通过不代表所有 P2 都完成，保留的范围见 KNOWN_LIMITATIONS.md。
 
 本轮解决取消/最终回收重复终止同一个进程、超时任务自取消、Windows 解释器启动器开销、API 文档 CDN 依赖和远程 RSS 未接入问题。
 另外修复外部框架强杀导致 SQLite 未刷盘，以及已释放执行收到迟到 RSS 后重新占用预算的竞态；定向复检单独列出。
 空闲预热 Worker 不再扫描进程树；本地进程树 RSS 改为父子内存求和，真实父子进程验证通过。
 首轮变异自检 57/58，发现报告中的无效测试引用未被审计；已补齐引用核验并重新完成全部 58 项。自检使用独立源码副本，逐文件验证还原和主源码未改动。
+远端 Python 3.12/3.13 矩阵另发现取消确认早于终态落库；已让终止路径等待最终回收，并在协调锁下保证恰好一次，三个 Python 版本重新完整验证。
+前端录制每次使用独立临时 home，数据库关闭会回收 API 线程池中的所有读连接；两个并发录制及真实存活线程关闭用例已验证。
 前一轮失败记录留存于 verification 根目录，当前原始结果位于 verification/current；不覆盖失败历史、不修改性能基线或放宽容差。
 <!-- current-verification:end -->
+
+
 
 
 

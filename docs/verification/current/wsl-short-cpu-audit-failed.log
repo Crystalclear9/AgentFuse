@@ -1,0 +1,239 @@
+........................s............................................... [ 23%]
+..........................s............................................. [ 46%]
+............................F...F....................................... [ 69%]
+........................................................................ [ 92%]
+........................                                                 [100%]
+=================================== FAILURES ===================================
+________________ test_the_report_names_the_kind_of_every_check _________________
+
+    def test_the_report_names_the_kind_of_every_check():
+        """Every check has to say whether it runs the runtime or reads the source."""
+    
+>       report = _report()
+                 ^^^^^^^^^
+
+tests/unit/test_audit_report.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _report() -> dict:
+        """Run the audit and return its machine readable report."""
+    
+        process = subprocess.run(
+            [sys.executable, str(AUDIT), "--json"],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=600,
+        )
+>       assert process.returncode == 0, process.stdout[-2000:] + process.stderr[-2000:]
+E       AssertionError:       "ok": true,
+E               "detail": "测试 test_the_dashboard_renders_the_real_data",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 可查看依赖验证记录",
+E               "ok": true,
+E               "detail": "测试 test_the_dashboard_renders_the_real_data",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 可查看物理执行情况",
+E               "ok": true,
+E               "detail": "测试 test_the_execution_endpoints",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 可运行 Benchmark",
+E               "ok": true,
+E               "detail": "测试 test_the_benchmark_endpoint_runs_a_comparison",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 可对比 Baseline 与 Online Sharing",
+E               "ok": true,
+E               "detail": "测试 test_the_comparison_reports_a_real_reduction",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 有自动化测试",
+E               "ok": true,
+E               "detail": "审计 §17 的 17 项检查通过",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 有完整运行文档",
+E               "ok": true,
+E               "detail": "审计 §22 的 24 项检查通过",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "8.2",
+E               "clause": "共享组的状态机完整",
+E               "ok": true,
+E               "detail": "['CLOSED', 'COMPLETED', 'CREATED', 'EXECUTING', 'FAILED', 'VALIDATING']",
+E               "kind": "behavioural"
+E             },
+E             {
+E               "section": "8.2",
+E               "clause": "非法的状态转换被拒绝",
+E               "ok": true,
+E               "detail": "",
+E               "kind": "behavioural"
+E             },
+E             {
+E               "section": "9.1",
+E               "clause": "资源控制器的默认值",
+E               "ok": true,
+E               "detail": "workers=2 timeout=60 budget=1024 strategy=fifo",
+E               "kind": "behavioural"
+E             },
+E             {
+E               "section": "10.5",
+E               "clause": "被打断的运行标记为 INTERRUPTED",
+E               "ok": true,
+E               "detail": "status=INTERRUPTED recovered=['wf-interrupted']",
+E               "kind": "behavioural"
+E             },
+E             {
+E               "section": "19",
+E               "clause": "声明覆盖的小节都有检查",
+E               "ok": true,
+E               "detail": "49 个小节均有检查",
+E               "kind": "structural"
+E             }
+E           ]
+E         }
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/mnt/c/Users/70454/Desktop/AgentFuse/.venv-wsl/bin/python', '/mnt/c/Users/70454/Desktop/AgentF...覆盖的小节都有检查",\n      "ok": true,\n      "detail": "49 个小节均有检查",\n      "kind": "structural"\n    }\n  ]\n}\n', stderr='').returncode
+
+tests/unit/test_audit_report.py:32: AssertionError
+_______________ test_the_ci_workflow_is_checked_for_its_content ________________
+
+    def test_the_ci_workflow_is_checked_for_its_content():
+        """A CI file that exists but does not run the tests is no proof.
+    
+        The requirement names the CI workflow as an implemented P2 clause - the
+        audit therefore has to look at what the file does, not only whether it is
+        there.
+        """
+    
+>       report = _report()
+                 ^^^^^^^^^
+
+tests/unit/test_audit_report.py:104: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _report() -> dict:
+        """Run the audit and return its machine readable report."""
+    
+        process = subprocess.run(
+            [sys.executable, str(AUDIT), "--json"],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=600,
+        )
+>       assert process.returncode == 0, process.stdout[-2000:] + process.stderr[-2000:]
+E       AssertionError:       "ok": true,
+E               "detail": "测试 test_the_dashboard_renders_the_real_data",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 可查看依赖验证记录",
+E               "ok": true,
+E               "detail": "测试 test_the_dashboard_renders_the_real_data",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 可查看物理执行情况",
+E               "ok": true,
+E               "detail": "测试 test_the_execution_endpoints",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 可运行 Benchmark",
+E               "ok": true,
+E               "detail": "测试 test_the_benchmark_endpoint_runs_a_comparison",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 可对比 Baseline 与 Online Sharing",
+E               "ok": true,
+E               "detail": "测试 test_the_comparison_reports_a_real_reduction",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 有自动化测试",
+E               "ok": true,
+E               "detail": "审计 §17 的 17 项检查通过",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "23",
+E               "clause": "验收清单 有完整运行文档",
+E               "ok": true,
+E               "detail": "审计 §22 的 24 项检查通过",
+E               "kind": "structural"
+E             },
+E             {
+E               "section": "8.2",
+E               "clause": "共享组的状态机完整",
+E               "ok": true,
+E               "detail": "['CLOSED', 'COMPLETED', 'CREATED', 'EXECUTING', 'FAILED', 'VALIDATING']",
+E               "kind": "behavioural"
+E             },
+E             {
+E               "section": "8.2",
+E               "clause": "非法的状态转换被拒绝",
+E               "ok": true,
+E               "detail": "",
+E               "kind": "behavioural"
+E             },
+E             {
+E               "section": "9.1",
+E               "clause": "资源控制器的默认值",
+E               "ok": true,
+E               "detail": "workers=2 timeout=60 budget=1024 strategy=fifo",
+E               "kind": "behavioural"
+E             },
+E             {
+E               "section": "10.5",
+E               "clause": "被打断的运行标记为 INTERRUPTED",
+E               "ok": true,
+E               "detail": "status=INTERRUPTED recovered=['wf-interrupted']",
+E               "kind": "behavioural"
+E             },
+E             {
+E               "section": "19",
+E               "clause": "声明覆盖的小节都有检查",
+E               "ok": true,
+E               "detail": "49 个小节均有检查",
+E               "kind": "structural"
+E             }
+E           ]
+E         }
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['/mnt/c/Users/70454/Desktop/AgentFuse/.venv-wsl/bin/python', '/mnt/c/Users/70454/Desktop/AgentF...覆盖的小节都有检查",\n      "ok": true,\n      "detail": "49 个小节均有检查",\n      "kind": "structural"\n    }\n  ]\n}\n', stderr='').returncode
+
+tests/unit/test_audit_report.py:32: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_audit_report.py::test_the_report_names_the_kind_of_every_check
+FAILED tests/unit/test_audit_report.py::test_the_ci_workflow_is_checked_for_its_content
+2 failed, 308 passed, 2 skipped in 1176.64s (0:19:36)

@@ -129,7 +129,12 @@ def test_the_recorded_payloads_have_the_shape_of_the_current_api():
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
 
-    live = asyncio.run(module.capture())
+    async def concurrent_captures():
+        return await asyncio.gather(module.capture(), module.capture())
+    live, parallel = asyncio.run(concurrent_captures())
+    assert live["_ids"]["workflow"] != parallel["_ids"]["workflow"]
+    assert live["overview"]["logical_tool_calls"] == 2
+    assert parallel["overview"]["logical_tool_calls"] == 2
     recorded = json.loads(PAYLOADS.read_text(encoding="utf-8"))
 
     assert set(recorded) == set(live), (

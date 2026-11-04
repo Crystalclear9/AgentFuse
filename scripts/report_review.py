@@ -43,6 +43,10 @@ def main():
     reports = args.reports.resolve()
     windows, cases = suite(reports / "windows-suite.xml")
     wsl, linux_cases = suite(reports / "wsl-suite.xml")
+    py312, py312_cases = suite(reports / "py312-suite.xml")
+    py313, py313_cases = suite(reports / "py313-suite.xml")
+    cancellation_ack, _ = suite(reports / "cancellation-ack.xml")
+    close_capture, _ = suite(reports / "close-capture-final.xml")
     docker, _ = suite(reports / "docker-extensions.xml")
     resources, _ = suite(reports / "resource-final-recheck.xml")
     external, _ = suite(reports / "windows-external-recheck.xml")
@@ -59,6 +63,8 @@ def main():
     wheel_smoke = json.loads((reports / "wheel-smoke.txt").read_text(encoding="utf-8"))
     if (wheel_smoke["shared_baseline_executions"], wheel_smoke["shared_online_executions"]) != (2, 1) or not wheel_smoke["offline_api_docs"]:
         raise ValueError("installed wheel has not passed its real execution smoke check")
+    if not wheel_smoke.get("api_thread_handles_released"):
+        raise ValueError("installed wheel did not release API database handles")
     collection = subprocess.run([sys.executable, "-m", "pytest", "tests", "--collect-only", "-q"],
                                 cwd=ROOT, text=True, capture_output=True, check=True)
     expected = {line.strip().replace("\\", "/") for line in collection.stdout.splitlines()
@@ -69,6 +75,10 @@ def main():
     linux_actual = {case.get("classname").replace(".", "/") + ".py::" + case.get("name") for case in linux_cases}
     if linux_actual != expected:
         raise ValueError("WSL JUnit does not cover the current complete test collection")
+    for label, version_cases in (("3.12", py312_cases), ("3.13", py313_cases)):
+        version_actual = {case.get("classname").replace(".", "/") + ".py::" + case.get("name") for case in version_cases}
+        if version_actual != expected:
+            raise ValueError(f"Python {label} JUnit does not cover the current complete collection")
     matrix = {}
     for pool in range(3):
         for workers in (1, 2):
@@ -102,6 +112,8 @@ def main():
         mapping.append(dict(section=section, title=title, tests=list(tests)))
     toolchain = json.loads((reports / "toolchain.json").read_text(encoding="utf-8"))
     summary = dict(date="2026-11-04", windows=windows, wsl=wsl, docker=docker, matrix=matrix,
+                   python312=py312, python313=py313, cancellation_ack=cancellation_ack,
+                   close_capture=close_capture,
                    resource_recheck=resources, external_framework_recheck=external,
                    review_regressions=review_regressions,
                    wsl_final_recheck=wsl_recheck,
@@ -123,6 +135,8 @@ def main():
                 and source.suffix in (".xml", ".json", ".txt", ".log")):
             shutil.copyfile(source, output / source.name)
     shutil.copytree(reports / "matrix", output / "matrix", dirs_exist_ok=True)
+    if (reports / "ci-logs").exists():
+        shutil.copytree(reports / "ci-logs", output / "ci-logs", dirs_exist_ok=True)
     (output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     (output / "requirements.json").write_text(json.dumps(mapping, ensure_ascii=False, indent=2), encoding="utf-8")
     review = "# 原计划逐项复核\n\n原文见 REQUIREMENTS.zh-CN.md。以下映射要求对应测试确实通过，不能仅凭函数名存在。\n\n"
@@ -138,6 +152,9 @@ def main():
 |---|---|
 | Windows 完整测试，项目内 Python/Node/Chromium | {windows['passed']} passed / {windows['skipped']} skipped |
 | WSL2 完整测试，项目内独立 Python/Node | {wsl['passed']} passed / {wsl['skipped']} skipped |
+| Windows Python 3.12 / 3.13 完整测试 | {py312['passed']} / {py313['passed']} passed，分别 {py312['skipped']} / {py313['skipped']} skipped |
+| 取消确认与延迟后台回收定向复检 | {cancellation_ack['passed']} passed；旧行为确定性失败证据另存 |
+| 数据库跨线程关闭、并发录制与本轮回归 | {close_capture['passed']} passed |
 | Docker、TLS 与扩展独立验证 | {docker['passed']} passed / {docker['skipped']} skipped |
 | 资源释放与迟到 RSS 定向复检 | {resources['passed']} passed |
 | 外部框架与 CLI 定向复检 | {external['passed']} passed |
@@ -164,6 +181,8 @@ Docker Engine、WSL2 和操作系统属于系统前提，未伪称可通过复�
 另外修复外部框架强杀导致 SQLite 未刷盘，以及已释放执行收到迟到 RSS 后重新占用预算的竞态；定向复检单独列出。
 空闲预热 Worker 不再扫描进程树；本地进程树 RSS 改为父子内存求和，真实父子进程验证通过。
 首轮变异自检 57/58，发现报告中的无效测试引用未被审计；已补齐引用核验并重新完成全部 58 项。自检使用独立源码副本，逐文件验证还原和主源码未改动。
+远端 Python 3.12/3.13 矩阵另发现取消确认早于终态落库；已让终止路径等待最终回收，并在协调锁下保证恰好一次，三个 Python 版本重新完整验证。
+前端录制每次使用独立临时 home，数据库关闭会回收 API 线程池中的所有读连接；两个并发录制及真实存活线程关闭用例已验证。
 前一轮失败记录留存于 verification 根目录，当前原始结果位于 verification/current；不覆盖失败历史、不修改性能基线或放宽容差。
 <!-- current-verification:end -->
 '''

@@ -1,22 +1,22 @@
-interpreter: C:\Users\70454\Desktop\AgentFuse\.tools\python\cpython-3.11-windows-x86_64-none\python.exe
+interpreter: C:\Users\70454\Desktop\AgentFuse\.tools\python\cpython-3.12-windows-x86_64-none\python.exe
 may_have_launcher: False
   --- pool=0 workers=1 ---
 ............................................................             [100%]
-60 passed in 111.55s (0:01:51)
+60 passed in 135.21s (0:02:15)
   --- pool=0 workers=2 ---
 ............................................................             [100%]
-60 passed in 96.39s (0:01:36)
+60 passed in 136.39s (0:02:16)
   --- pool=1 workers=1 ---
 ............................................................             [100%]
-60 passed in 109.52s (0:01:49)
+60 passed in 197.73s (0:03:17)
   --- pool=1 workers=2 ---
 ............................................................             [100%]
-60 passed in 69.77s (0:01:09)
+60 passed in 98.35s (0:01:38)
   --- pool=2 workers=1 ---
 ............................................................             [100%]
-60 passed in 85.36s (0:01:25)
+60 passed in 138.56s (0:02:18)
   --- pool=2 workers=2 ---
 ............................................................             [100%]
-60 passed in 66.56s (0:01:06)
+60 passed in 138.82s (0:02:18)
 
 FAILURES: 0

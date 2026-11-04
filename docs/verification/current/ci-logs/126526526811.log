@@ -1,0 +1,964 @@
+﻿2026-11-04T10:42:22.7664550Z Current runner version: '2.338.2'
+2026-11-04T10:42:22.7690210Z ##[group]Runner Image Provisioner
+2026-11-04T10:42:22.7691515Z Hosted Compute Agent
+2026-11-04T10:42:22.7692144Z Version: 20261021.618
+2026-11-04T10:42:22.7692710Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-11-04T10:42:22.7693389Z Build Date: 2026-10-21T00:45:21Z
+2026-11-04T10:42:22.7694070Z Worker ID: {be031d58-518f-4b5c-a586-4ec2d9881370}
+2026-11-04T10:42:22.7694719Z Region: eastus3
+2026-11-04T10:42:22.7695238Z Cloud: Azure
+2026-11-04T10:42:22.7695736Z ##[endgroup]
+2026-11-04T10:42:22.7697250Z ##[group]Operating System
+2026-11-04T10:42:22.7698166Z Ubuntu
+2026-11-04T10:42:22.7698766Z 26.04.1
+2026-11-04T10:42:22.7699748Z LTS
+2026-11-04T10:42:22.7700226Z ##[endgroup]
+2026-11-04T10:42:22.7700796Z ##[group]Runner Image
+2026-11-04T10:42:22.7701389Z Image: ubuntu-26.04
+2026-11-04T10:42:22.7701903Z Version: 20261025.179.1
+2026-11-04T10:42:22.7703124Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261025.179/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-04T10:42:22.7704727Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261025.179
+2026-11-04T10:42:22.7705634Z ##[endgroup]
+2026-11-04T10:42:22.7706747Z ##[group]GITHUB_TOKEN Permissions
+2026-11-04T10:42:22.7709524Z Contents: read
+2026-11-04T10:42:22.7710073Z Metadata: read
+2026-11-04T10:42:22.7710640Z Packages: read
+2026-11-04T10:42:22.7711154Z ##[endgroup]
+2026-11-04T10:42:22.7713349Z Secret source: Actions
+2026-11-04T10:42:22.7714271Z Cache mode: write
+2026-11-04T10:42:22.7715190Z Prepare workflow directory
+2026-11-04T10:42:22.8125540Z Prepare all required actions
+2026-11-04T10:42:22.8178724Z Getting action download info
+2026-11-04T10:42:23.0132792Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-04T10:42:23.1306838Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-11-04T10:42:23.1763296Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-11-04T10:42:23.2260069Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-04T10:42:23.3986172Z Complete job name: ubuntu-latest / python 3.12
+2026-11-04T10:42:23.4870393Z ##[group]Run actions/checkout@v4
+2026-11-04T10:42:23.4871222Z with:
+2026-11-04T10:42:23.4871644Z   repository: Crystalclear9/AgentFuse
+2026-11-04T10:42:23.4875584Z   token: ***
+2026-11-04T10:42:23.4875985Z   ssh-strict: true
+2026-11-04T10:42:23.4876386Z   ssh-user: git
+2026-11-04T10:42:23.4876813Z   persist-credentials: true
+2026-11-04T10:42:23.4877252Z   clean: true
+2026-11-04T10:42:23.4877653Z   sparse-checkout-cone-mode: true
+2026-11-04T10:42:23.4878510Z   fetch-depth: 1
+2026-11-04T10:42:23.4878922Z   fetch-tags: false
+2026-11-04T10:42:23.4879330Z   show-progress: true
+2026-11-04T10:42:23.4879745Z   lfs: false
+2026-11-04T10:42:23.4880118Z   submodules: false
+2026-11-04T10:42:23.4880524Z   set-safe-directory: true
+2026-11-04T10:42:23.4881013Z   allow-unsafe-pr-checkout: false
+2026-11-04T10:42:23.4881800Z env:
+2026-11-04T10:42:23.4882198Z   PYTHONIOENCODING: utf-8
+2026-11-04T10:42:23.4882622Z   PYTHONUTF8: 1
+2026-11-04T10:42:23.4883016Z ##[endgroup]
+2026-11-04T10:42:23.7375759Z Syncing repository: Crystalclear9/AgentFuse
+2026-11-04T10:42:23.7379251Z ##[group]Getting Git version info
+2026-11-04T10:42:23.7380141Z Working directory is '/home/runner/work/AgentFuse/AgentFuse'
+2026-11-04T10:42:23.7381593Z [command]/usr/bin/git version
+2026-11-04T10:42:23.7412310Z git version 2.56.0
+2026-11-04T10:42:23.7443028Z ##[endgroup]
+2026-11-04T10:42:23.7456911Z Temporarily overriding HOME='/home/runner/work/_temp/8eefe978-a09a-48f4-8d55-eaeb4efe362b' before making global git config changes
+2026-11-04T10:42:23.7460549Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-04T10:42:23.7463572Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/AgentFuse/AgentFuse
+2026-11-04T10:42:23.7530387Z Deleting the contents of '/home/runner/work/AgentFuse/AgentFuse'
+2026-11-04T10:42:23.7536425Z ##[group]Initializing the repository
+2026-11-04T10:42:23.7541875Z [command]/usr/bin/git init /home/runner/work/AgentFuse/AgentFuse
+2026-11-04T10:42:23.7652518Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-04T10:42:23.7654189Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-04T10:42:23.7655216Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-04T10:42:23.7656319Z hint: call:
+2026-11-04T10:42:23.7656779Z hint:
+2026-11-04T10:42:23.7657364Z hint: 	git config --global init.defaultBranch <name>
+2026-11-04T10:42:23.7658486Z hint:
+2026-11-04T10:42:23.7659133Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-04T10:42:23.7660636Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-04T10:42:23.7662099Z hint:
+2026-11-04T10:42:23.7663086Z hint: 	git branch -m <name>
+2026-11-04T10:42:23.7663973Z hint:
+2026-11-04T10:42:23.7665072Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-04T10:42:23.7666263Z Initialized empty Git repository in /home/runner/work/AgentFuse/AgentFuse/.git/
+2026-11-04T10:42:23.7683260Z [command]/usr/bin/git remote add origin https://github.com/Crystalclear9/AgentFuse
+2026-11-04T10:42:23.7740923Z ##[endgroup]
+2026-11-04T10:42:23.7743202Z ##[group]Disabling automatic garbage collection
+2026-11-04T10:42:23.7745395Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-04T10:42:23.7789195Z ##[endgroup]
+2026-11-04T10:42:23.7790914Z ##[group]Setting up auth
+2026-11-04T10:42:23.7797458Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T10:42:23.7850831Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-04T10:42:23.8427839Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T10:42:23.8482485Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-04T10:42:23.8743697Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T10:42:23.8779784Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-04T10:42:23.9032765Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-04T10:42:23.9073526Z ##[endgroup]
+2026-11-04T10:42:23.9075406Z ##[group]Fetching the repository
+2026-11-04T10:42:23.9089106Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +457248e3999ec048ffa919f05ca4f4f0b1ece9c1:refs/remotes/origin/main
+2026-11-04T10:42:24.2819974Z From https://github.com/Crystalclear9/AgentFuse
+2026-11-04T10:42:24.2823156Z  * [new ref]         457248e3999ec048ffa919f05ca4f4f0b1ece9c1 -> origin/main
+2026-11-04T10:42:24.2829985Z ##[endgroup]
+2026-11-04T10:42:24.2832374Z ##[group]Determining the checkout info
+2026-11-04T10:42:24.2835452Z ##[endgroup]
+2026-11-04T10:42:24.2837350Z [command]/usr/bin/git sparse-checkout disable
+2026-11-04T10:42:24.2882665Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-04T10:42:24.2915424Z ##[group]Checking out the ref
+2026-11-04T10:42:24.2921068Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-11-04T10:42:24.3131492Z Switched to a new branch 'main'
+2026-11-04T10:42:24.3135308Z branch 'main' set up to track 'origin/main'.
+2026-11-04T10:42:24.3143232Z ##[endgroup]
+2026-11-04T10:42:24.3183411Z [command]/usr/bin/git log -1 --format=%H
+2026-11-04T10:42:24.3209216Z 457248e3999ec048ffa919f05ca4f4f0b1ece9c1
+2026-11-04T10:42:24.3581929Z ##[group]Run actions/setup-python@v5
+2026-11-04T10:42:24.3583166Z with:
+2026-11-04T10:42:24.3583962Z   python-version: 3.12
+2026-11-04T10:42:24.3584896Z   check-latest: false
+2026-11-04T10:42:24.3595611Z   token: ***
+2026-11-04T10:42:24.3596508Z   update-environment: true
+2026-11-04T10:42:24.3597526Z   allow-prereleases: false
+2026-11-04T10:42:24.3598734Z   freethreaded: false
+2026-11-04T10:42:24.3599611Z env:
+2026-11-04T10:42:24.3600392Z   PYTHONIOENCODING: utf-8
+2026-11-04T10:42:24.3601339Z   PYTHONUTF8: 1
+2026-11-04T10:42:24.3602156Z ##[endgroup]
+2026-11-04T10:42:24.4995879Z ##[group]Installed versions
+2026-11-04T10:42:24.5096875Z (node:2389) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-04T10:42:24.5101389Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-04T10:42:24.5118296Z Successfully set up CPython (3.12.15)
+2026-11-04T10:42:24.5121263Z ##[endgroup]
+2026-11-04T10:42:24.5364881Z ##[group]Run actions/setup-node@v4
+2026-11-04T10:42:24.5366562Z with:
+2026-11-04T10:42:24.5367823Z   node-version: 20
+2026-11-04T10:42:24.5369545Z   always-auth: false
+2026-11-04T10:42:24.5371193Z   check-latest: false
+2026-11-04T10:42:24.5389282Z   token: ***
+2026-11-04T10:42:24.5390588Z env:
+2026-11-04T10:42:24.5391822Z   PYTHONIOENCODING: utf-8
+2026-11-04T10:42:24.5393257Z   PYTHONUTF8: 1
+2026-11-04T10:42:24.5394957Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:24.5397520Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-11-04T10:42:24.5399546Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:24.5401060Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:24.5402591Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:24.5404129Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-11-04T10:42:24.5405419Z ##[endgroup]
+2026-11-04T10:42:24.6981368Z Attempting to download 20...
+2026-11-04T10:42:24.7132583Z (node:2397) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-04T10:42:24.7136873Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-04T10:42:25.4051036Z Acquiring 20.20.2 - x64 from https://github.com/actions/node-versions/releases/download/20.20.2-23521894959/node-20.20.2-linux-x64.tar.gz
+2026-11-04T10:42:25.9359018Z Extracting ...
+2026-11-04T10:42:25.9484396Z [command]/usr/bin/tar xz --strip 1 --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/50bb3d07-7da6-4260-a05b-c8c3f4bf9cf3 -f /home/runner/work/_temp/27399918-f71f-41c2-86fc-aa10004fd51e
+2026-11-04T10:42:26.5411823Z Adding to the cache ...
+2026-11-04T10:42:27.7629578Z ##[group]Environment details
+2026-11-04T10:42:27.9945431Z node: v20.20.2
+2026-11-04T10:42:27.9945829Z npm: 10.8.2
+2026-11-04T10:42:27.9946105Z yarn: 1.22.22
+2026-11-04T10:42:27.9946860Z ##[endgroup]
+2026-11-04T10:42:28.0110567Z ##[group]Run python -m pip install --upgrade pip
+2026-11-04T10:42:28.0111058Z [36;1mpython -m pip install --upgrade pip[0m
+2026-11-04T10:42:28.0111391Z [36;1mpython -m pip install -e ".[dev]"[0m
+2026-11-04T10:42:28.0144721Z shell: /usr/bin/bash -e {0}
+2026-11-04T10:42:28.0145052Z env:
+2026-11-04T10:42:28.0145309Z   PYTHONIOENCODING: utf-8
+2026-11-04T10:42:28.0145592Z   PYTHONUTF8: 1
+2026-11-04T10:42:28.0145900Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:28.0146344Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-11-04T10:42:28.0146771Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:28.0147160Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:28.0147555Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:28.0148626Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-11-04T10:42:28.0148974Z ##[endgroup]
+2026-11-04T10:42:29.2180145Z Requirement already satisfied: pip in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (26.2.2)
+2026-11-04T10:42:29.3156963Z Collecting pip
+2026-11-04T10:42:29.3766216Z   Downloading pip-26.3-py3-none-any.whl.metadata (4.6 kB)
+2026-11-04T10:42:29.3967548Z Downloading pip-26.3-py3-none-any.whl (2.0 MB)
+2026-11-04T10:42:29.4761285Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 41.3 MB/s  0:00:00
+2026-11-04T10:42:29.5593528Z Installing collected packages: pip
+2026-11-04T10:42:29.5594636Z   Attempting uninstall: pip
+2026-11-04T10:42:29.5614309Z     Found existing installation: pip 26.2.2
+2026-11-04T10:42:29.6199388Z     Uninstalling pip-26.2.2:
+2026-11-04T10:42:29.6250639Z       Successfully uninstalled pip-26.2.2
+2026-11-04T10:42:30.5062309Z Successfully installed pip-26.3
+2026-11-04T10:42:30.8705574Z Obtaining file:///home/runner/work/AgentFuse/AgentFuse
+2026-11-04T10:42:30.8729378Z   Installing build dependencies: started
+2026-11-04T10:42:31.6329641Z   Installing build dependencies: finished with status 'done'
+2026-11-04T10:42:31.6330720Z   Checking if build backend supports build_editable: started
+2026-11-04T10:42:31.9548338Z   Checking if build backend supports build_editable: finished with status 'done'
+2026-11-04T10:42:31.9556219Z   Getting requirements to build editable: started
+2026-11-04T10:42:32.2873349Z   Getting requirements to build editable: finished with status 'done'
+2026-11-04T10:42:32.2882568Z   /tmp/pip-build-env-yh7rfm4e/overlay/lib/python3.12/site-packages/setuptools/config/_apply_pyprojecttoml.py:82: BuildBackendWarning: `project.license` as a TOML table is deprecated
+2026-11-04T10:42:32.2884207Z   !!
+2026-11-04T10:42:32.2884568Z   
+2026-11-04T10:42:32.2885165Z           ********************************************************************************
+2026-11-04T10:42:32.2886975Z           Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
+2026-11-04T10:42:32.2888617Z   
+2026-11-04T10:42:32.2889352Z           By 2027-Feb-18, you need to update your project and remove deprecated calls
+2026-11-04T10:42:32.2890710Z           or your builds will no longer be supported.
+2026-11-04T10:42:32.2891515Z   Preparing editable metadata (pyproject.toml): started
+2026-11-04T10:42:32.2892362Z   
+2026-11-04T10:42:32.2893411Z           See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+2026-11-04T10:42:32.2894748Z           ********************************************************************************
+2026-11-04T10:42:32.2895534Z   
+2026-11-04T10:42:32.2895993Z   !!
+2026-11-04T10:42:32.2896547Z     corresp(dist, value, root_dir)
+2026-11-04T10:42:32.4837063Z   Preparing editable metadata (pyproject.toml): finished with status 'done'
+2026-11-04T10:42:32.4841932Z   /tmp/pip-build-env-yh7rfm4e/overlay/lib/python3.12/site-packages/setuptools/config/_apply_pyprojecttoml.py:82: BuildBackendWarning: `project.license` as a TOML table is deprecated
+2026-11-04T10:42:32.4842835Z   !!
+2026-11-04T10:42:32.4843061Z   
+2026-11-04T10:42:32.4843419Z           ********************************************************************************
+2026-11-04T10:42:32.4844403Z           Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
+2026-11-04T10:42:32.4845179Z   
+2026-11-04T10:42:32.4845651Z           By 2027-Feb-18, you need to update your project and remove deprecated calls
+2026-11-04T10:42:32.4846182Z           or your builds will no longer be supported.
+2026-11-04T10:42:32.4846534Z   
+2026-11-04T10:42:32.4847067Z           See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+2026-11-04T10:42:32.4847728Z           ********************************************************************************
+2026-11-04T10:42:32.4848367Z   
+2026-11-04T10:42:32.4848594Z   !!
+2026-11-04T10:42:32.4849061Z     corresp(dist, value, root_dir)
+2026-11-04T10:42:32.5997471Z Collecting fastapi>=0.110 (from agentfuse==0.1.0)
+2026-11-04T10:42:32.6572346Z   Downloading fastapi-0.162.0-py3-none-any.whl.metadata (26 kB)
+2026-11-04T10:42:32.6985960Z Collecting uvicorn>=0.27 (from agentfuse==0.1.0)
+2026-11-04T10:42:32.7146633Z   Downloading uvicorn-0.54.0-py3-none-any.whl.metadata (6.6 kB)
+2026-11-04T10:42:32.8111997Z Collecting psutil>=5.9 (from agentfuse==0.1.0)
+2026-11-04T10:42:32.8266200Z   Downloading psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl.metadata (22 kB)
+2026-11-04T10:42:32.8670776Z Collecting pytest>=8 (from agentfuse==0.1.0)
+2026-11-04T10:42:32.8825775Z   Downloading pytest-9.2.0-py3-none-any.whl.metadata (7.9 kB)
+2026-11-04T10:42:32.9136257Z Collecting pytest-asyncio>=0.23 (from agentfuse==0.1.0)
+2026-11-04T10:42:32.9296354Z   Downloading pytest_asyncio-1.4.1.post1-py3-none-any.whl.metadata (4.4 kB)
+2026-11-04T10:42:32.9572306Z Collecting httpx>=0.27 (from agentfuse==0.1.0)
+2026-11-04T10:42:32.9729266Z   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+2026-11-04T10:42:33.0189933Z Collecting playwright>=1.50 (from agentfuse==0.1.0)
+2026-11-04T10:42:33.0347774Z   Downloading playwright-1.64.1-py3-none-manylinux1_x86_64.whl.metadata (3.3 kB)
+2026-11-04T10:42:33.2071862Z Collecting cryptography>=44 (from agentfuse==0.1.0)
+2026-11-04T10:42:33.2227001Z   Downloading cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (4.4 kB)
+2026-11-04T10:42:33.2479889Z Collecting build>=1.2 (from agentfuse==0.1.0)
+2026-11-04T10:42:33.2635475Z   Downloading build-1.6.1-py3-none-any.whl.metadata (5.6 kB)
+2026-11-04T10:42:33.2918330Z Collecting wheel>=0.45 (from agentfuse==0.1.0)
+2026-11-04T10:42:33.3073772Z   Downloading wheel-0.48.0-py3-none-any.whl.metadata (2.3 kB)
+2026-11-04T10:42:33.3806208Z Collecting setuptools>=68 (from agentfuse==0.1.0)
+2026-11-04T10:42:33.3831414Z   Using cached setuptools-84.2.1-py3-none-any.whl.metadata (6.6 kB)
+2026-11-04T10:42:33.3901048Z Requirement already satisfied: pip>=24 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from agentfuse==0.1.0) (26.3)
+2026-11-04T10:42:33.4137804Z Collecting packaging>=24.0 (from build>=1.2->agentfuse==0.1.0)
+2026-11-04T10:42:33.4294434Z   Downloading packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+2026-11-04T10:42:33.4523946Z Collecting pyproject_hooks (from build>=1.2->agentfuse==0.1.0)
+2026-11-04T10:42:33.4678872Z   Downloading pyproject_hooks-1.3.3-py3-none-any.whl.metadata (1.3 kB)
+2026-11-04T10:42:33.5668589Z Collecting cffi>=2.0.0 (from cryptography>=44->agentfuse==0.1.0)
+2026-11-04T10:42:33.5822859Z   Downloading cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.5 kB)
+2026-11-04T10:42:33.6056408Z Collecting pycparser (from cffi>=2.0.0->cryptography>=44->agentfuse==0.1.0)
+2026-11-04T10:42:33.6211973Z   Downloading pycparser-3.12-py3-none-any.whl.metadata (9.7 kB)
+2026-11-04T10:42:33.6548180Z Collecting starlette>=0.46.0 (from fastapi>=0.110->agentfuse==0.1.0)
+2026-11-04T10:42:33.6705239Z   Downloading starlette-1.10.0-py3-none-any.whl.metadata (6.6 kB)
+2026-11-04T10:42:33.7984802Z Collecting pydantic>=2.9.0 (from fastapi>=0.110->agentfuse==0.1.0)
+2026-11-04T10:42:33.8138903Z   Downloading pydantic-2.14.2-py3-none-any.whl.metadata (137 kB)
+2026-11-04T10:42:33.8638795Z Collecting typing-extensions>=4.8.0 (from fastapi>=0.110->agentfuse==0.1.0)
+2026-11-04T10:42:33.8793850Z   Downloading typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+2026-11-04T10:42:33.9022395Z Collecting typing-inspection>=0.4.2 (from fastapi>=0.110->agentfuse==0.1.0)
+2026-11-04T10:42:33.9179083Z   Downloading typing_inspection-0.4.4-py3-none-any.whl.metadata (2.6 kB)
+2026-11-04T10:42:33.9399401Z Collecting annotated-doc>=0.0.2 (from fastapi>=0.110->agentfuse==0.1.0)
+2026-11-04T10:42:33.9557632Z   Downloading annotated_doc-0.0.5-py3-none-any.whl.metadata (6.5 kB)
+2026-11-04T10:42:33.9845145Z Collecting opentelemetry-api>=1.44.0 (from fastapi>=0.110->agentfuse==0.1.0)
+2026-11-04T10:42:34.0000708Z   Downloading opentelemetry_api-1.45.2-py3-none-any.whl.metadata (1.4 kB)
+2026-11-04T10:42:34.0294374Z Collecting anyio (from httpx>=0.27->agentfuse==0.1.0)
+2026-11-04T10:42:34.0451013Z   Downloading anyio-4.16.0-py3-none-any.whl.metadata (4.7 kB)
+2026-11-04T10:42:34.0751505Z Collecting certifi (from httpx>=0.27->agentfuse==0.1.0)
+2026-11-04T10:42:34.0906897Z   Downloading certifi-2026.10.23-py3-none-any.whl.metadata (2.5 kB)
+2026-11-04T10:42:34.1170642Z Collecting httpcore==1.* (from httpx>=0.27->agentfuse==0.1.0)
+2026-11-04T10:42:34.1326937Z   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+2026-11-04T10:42:34.1595967Z Collecting idna (from httpx>=0.27->agentfuse==0.1.0)
+2026-11-04T10:42:34.1751167Z   Downloading idna-3.20-py3-none-any.whl.metadata (7.2 kB)
+2026-11-04T10:42:34.1984644Z Collecting h11>=0.16 (from httpcore==1.*->httpx>=0.27->agentfuse==0.1.0)
+2026-11-04T10:42:34.2138962Z   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+2026-11-04T10:42:34.2431517Z Collecting pyee<15,>=13 (from playwright>=1.50->agentfuse==0.1.0)
+2026-11-04T10:42:34.2586383Z   Downloading pyee-14.0.0-py3-none-any.whl.metadata (1.8 kB)
+2026-11-04T10:42:34.3942171Z Collecting greenlet<4.0.0,>=3.1.1 (from playwright>=1.50->agentfuse==0.1.0)
+2026-11-04T10:42:34.4100016Z   Downloading greenlet-3.5.6-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.8 kB)
+2026-11-04T10:42:34.4338759Z Collecting annotated-types>=0.6.0 (from pydantic>=2.9.0->fastapi>=0.110->agentfuse==0.1.0)
+2026-11-04T10:42:34.4497451Z   Downloading annotated_types-0.8.0-py3-none-any.whl.metadata (15 kB)
+2026-11-04T10:42:35.0613002Z Collecting pydantic-core==2.50.2 (from pydantic>=2.9.0->fastapi>=0.110->agentfuse==0.1.0)
+2026-11-04T10:42:35.0769010Z   Downloading pydantic_core-2.50.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (6.5 kB)
+2026-11-04T10:42:35.1020934Z Collecting iniconfig>=2 (from pytest>=8->agentfuse==0.1.0)
+2026-11-04T10:42:35.1179633Z   Downloading iniconfig-2.3.1-py3-none-any.whl.metadata (2.8 kB)
+2026-11-04T10:42:35.1414240Z Collecting pluggy<2,>=1.6 (from pytest>=8->agentfuse==0.1.0)
+2026-11-04T10:42:35.1571296Z   Downloading pluggy-1.7.0-py3-none-any.whl.metadata (5.0 kB)
+2026-11-04T10:42:35.1853768Z Collecting pygments>=2.15 (from pytest>=8->agentfuse==0.1.0)
+2026-11-04T10:42:35.2010670Z   Downloading pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)
+2026-11-04T10:42:35.2384919Z Collecting click>=7.0 (from uvicorn>=0.27->agentfuse==0.1.0)
+2026-11-04T10:42:35.2545267Z   Downloading click-8.5.0-py3-none-any.whl.metadata (2.6 kB)
+2026-11-04T10:42:35.2766382Z Downloading build-1.6.1-py3-none-any.whl (31 kB)
+2026-11-04T10:42:35.2943432Z Downloading cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl (4.8 MB)
+2026-11-04T10:42:35.3630623Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.8/4.8 MB 90.1 MB/s  0:00:00
+2026-11-04T10:42:35.3785965Z Downloading cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (221 kB)
+2026-11-04T10:42:35.3970042Z Downloading fastapi-0.162.0-py3-none-any.whl (148 kB)
+2026-11-04T10:42:35.4148326Z Downloading annotated_doc-0.0.5-py3-none-any.whl (5.3 kB)
+2026-11-04T10:42:35.4326000Z Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+2026-11-04T10:42:35.4508543Z Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+2026-11-04T10:42:35.4687677Z Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+2026-11-04T10:42:35.4865013Z Downloading opentelemetry_api-1.45.2-py3-none-any.whl (60 kB)
+2026-11-04T10:42:35.5045907Z Downloading packaging-26.3-py3-none-any.whl (129 kB)
+2026-11-04T10:42:35.5229752Z Downloading playwright-1.64.1-py3-none-manylinux1_x86_64.whl (48.5 MB)
+2026-11-04T10:42:35.6318092Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 48.5/48.5 MB 453.6 MB/s  0:00:00
+2026-11-04T10:42:35.6473326Z Downloading greenlet-3.5.6-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (621 kB)
+2026-11-04T10:42:35.6526848Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 621.4/621.4 kB 115.4 MB/s  0:00:00
+2026-11-04T10:42:35.6682595Z Downloading pyee-14.0.0-py3-none-any.whl (15 kB)
+2026-11-04T10:42:35.6863008Z Downloading psutil-7.2.2-cp36-abi3-manylinux2010_x86_64.manylinux_2_12_x86_64.manylinux_2_28_x86_64.whl (155 kB)
+2026-11-04T10:42:35.7043042Z Downloading pydantic-2.14.2-py3-none-any.whl (490 kB)
+2026-11-04T10:42:35.7232088Z Downloading pydantic_core-2.50.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (2.2 MB)
+2026-11-04T10:42:35.7320349Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.2/2.2 MB 309.0 MB/s  0:00:00
+2026-11-04T10:42:35.7476533Z Downloading annotated_types-0.8.0-py3-none-any.whl (13 kB)
+2026-11-04T10:42:35.7652599Z Downloading pytest-9.2.0-py3-none-any.whl (411 kB)
+2026-11-04T10:42:35.7844824Z Downloading pluggy-1.7.0-py3-none-any.whl (27 kB)
+2026-11-04T10:42:35.8021435Z Downloading iniconfig-2.3.1-py3-none-any.whl (7.6 kB)
+2026-11-04T10:42:35.8197098Z Downloading pygments-2.21.0-py3-none-any.whl (1.3 MB)
+2026-11-04T10:42:35.8261925Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 229.2 MB/s  0:00:00
+2026-11-04T10:42:35.8418182Z Downloading pytest_asyncio-1.4.1.post1-py3-none-any.whl (17 kB)
+2026-11-04T10:42:35.8451116Z Using cached setuptools-84.2.1-py3-none-any.whl (876 kB)
+2026-11-04T10:42:35.8611449Z Downloading starlette-1.10.0-py3-none-any.whl (80 kB)
+2026-11-04T10:42:35.8790077Z Downloading anyio-4.16.0-py3-none-any.whl (134 kB)
+2026-11-04T10:42:35.8967691Z Downloading idna-3.20-py3-none-any.whl (69 kB)
+2026-11-04T10:42:35.9144942Z Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+2026-11-04T10:42:35.9324362Z Downloading typing_inspection-0.4.4-py3-none-any.whl (14 kB)
+2026-11-04T10:42:35.9590543Z Downloading uvicorn-0.54.0-py3-none-any.whl (87 kB)
+2026-11-04T10:42:35.9677399Z Downloading click-8.5.0-py3-none-any.whl (125 kB)
+2026-11-04T10:42:35.9853469Z Downloading wheel-0.48.0-py3-none-any.whl (33 kB)
+2026-11-04T10:42:36.0030882Z Downloading certifi-2026.10.23-py3-none-any.whl (135 kB)
+2026-11-04T10:42:36.0209051Z Downloading pycparser-3.12-py3-none-any.whl (62 kB)
+2026-11-04T10:42:36.0385628Z Downloading pyproject_hooks-1.3.3-py3-none-any.whl (10 kB)
+2026-11-04T10:42:36.1803436Z Building wheels for collected packages: agentfuse
+2026-11-04T10:42:36.1809896Z   Building editable for agentfuse (pyproject.toml): started
+2026-11-04T10:42:36.4138561Z   Building editable for agentfuse (pyproject.toml): finished with status 'done'
+2026-11-04T10:42:36.4143190Z   /tmp/pip-build-env-yh7rfm4e/overlay/lib/python3.12/site-packages/setuptools/config/_apply_pyprojecttoml.py:82: BuildBackendWarning: `project.license` as a TOML table is deprecated
+2026-11-04T10:42:36.4144076Z   !!
+2026-11-04T10:42:36.4144308Z   
+2026-11-04T10:42:36.4144667Z           ********************************************************************************
+2026-11-04T10:42:36.4145656Z           Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
+2026-11-04T10:42:36.4146812Z   
+2026-11-04T10:42:36.4148171Z           By 2027-Feb-18, you need to update your project and remove deprecated calls
+2026-11-04T10:42:36.4149155Z           or your builds will no longer be supported.
+2026-11-04T10:42:36.4149588Z   
+2026-11-04T10:42:36.4150125Z           See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+2026-11-04T10:42:36.4150783Z           ********************************************************************************
+2026-11-04T10:42:36.4151170Z   
+2026-11-04T10:42:36.4151392Z   !!
+2026-11-04T10:42:36.4151667Z     corresp(dist, value, root_dir)
+2026-11-04T10:42:36.4152537Z   /tmp/pip-build-env-yh7rfm4e/overlay/lib/python3.12/site-packages/setuptools/command/editable_wheel.py:354: BuildBackendWarning: Editable installation.
+2026-11-04T10:42:36.4153294Z   !!
+2026-11-04T10:42:36.4153511Z   
+2026-11-04T10:42:36.4153843Z           ********************************************************************************
+2026-11-04T10:42:36.4154397Z           Please be careful with folders in your working directory with the same
+2026-11-04T10:42:36.4155146Z           name as your package as they may take precedence during imports.
+2026-11-04T10:42:36.4155678Z           ********************************************************************************
+2026-11-04T10:42:36.4156049Z   
+2026-11-04T10:42:36.4156275Z   !!
+2026-11-04T10:42:36.4156623Z     with strategy, WheelFile(wheel_path, "w") as wheel_obj:
+2026-11-04T10:42:36.4157605Z   Created wheel for agentfuse: filename=agentfuse-0.1.0-0.editable-py3-none-any.whl size=10349 sha256=bd70057d079ba7ed390f7c7acb01dd98cc833ace6e3a747f1313947596223864
+2026-11-04T10:42:36.4159519Z   Stored in directory: /tmp/pip-ephem-wheel-cache-4ru01m_0/wheels/2e/92/f3/561e009f02e125e46dcb7b76f2c1c584461ec32d731fa827a7
+2026-11-04T10:42:36.4175330Z Successfully built agentfuse
+2026-11-04T10:42:36.4798904Z Installing collected packages: typing-extensions, setuptools, pyproject_hooks, pygments, pycparser, psutil, pluggy, packaging, iniconfig, idna, h11, greenlet, click, certifi, annotated-types, annotated-doc, wheel, uvicorn, typing-inspection, pytest, pyee, pydantic-core, opentelemetry-api, httpcore, cffi, build, anyio, starlette, pytest-asyncio, pydantic, playwright, httpx, cryptography, fastapi, agentfuse
+2026-11-04T10:42:40.2141129Z 
+2026-11-04T10:42:40.2171649Z Successfully installed agentfuse-0.1.0 annotated-doc-0.0.5 annotated-types-0.8.0 anyio-4.16.0 build-1.6.1 certifi-2026.10.23 cffi-2.1.1 click-8.5.0 cryptography-50.0.2 fastapi-0.162.0 greenlet-3.5.6 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 idna-3.20 iniconfig-2.3.1 opentelemetry-api-1.45.2 packaging-26.3 playwright-1.64.1 pluggy-1.7.0 psutil-7.2.2 pycparser-3.12 pydantic-2.14.2 pydantic-core-2.50.2 pyee-14.0.0 pygments-2.21.0 pyproject_hooks-1.3.3 pytest-9.2.0 pytest-asyncio-1.4.1.post1 setuptools-84.2.1 starlette-1.10.0 typing-extensions-4.16.0 typing-inspection-0.4.4 uvicorn-0.54.0 wheel-0.48.0
+2026-11-04T10:42:40.4182221Z ##[group]Run python scripts/audit_requirements.py
+2026-11-04T10:42:40.4182697Z [36;1mpython scripts/audit_requirements.py[0m
+2026-11-04T10:42:40.4205665Z shell: /usr/bin/bash -e {0}
+2026-11-04T10:42:40.4205943Z env:
+2026-11-04T10:42:40.4206169Z   PYTHONIOENCODING: utf-8
+2026-11-04T10:42:40.4206411Z   PYTHONUTF8: 1
+2026-11-04T10:42:40.4206689Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:40.4207132Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-11-04T10:42:40.4207554Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:40.4208126Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:40.4208618Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:40.4209001Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-11-04T10:42:40.4209328Z ##[endgroup]
+2026-11-04T10:42:53.0446911Z 
+2026-11-04T10:42:53.0447823Z === §2.2 ===
+2026-11-04T10:42:53.0448856Z   [PASS] 不调用任何外部模型 API  ([])
+2026-11-04T10:42:53.0449508Z   [PASS] 安装依赖中没有模型厂商的包  ([])
+2026-11-04T10:42:53.0449996Z   [PASS] 前端不加载 CDN 资源  ([])
+2026-11-04T10:42:53.0450296Z 
+2026-11-04T10:42:53.0450474Z === §14 ===
+2026-11-04T10:42:53.0450842Z   [PASS] 前端脚本语法正确
+2026-11-04T10:42:53.0451049Z 
+2026-11-04T10:42:53.0451213Z === §7.4 ===
+2026-11-04T10:42:53.0451630Z   [PASS] 内置工具不依赖时间/随机数/环境变量/绝对路径  ([])
+2026-11-04T10:42:53.0451817Z 
+2026-11-04T10:42:53.0451927Z === §2.2 ===
+2026-11-04T10:42:53.0452209Z   [PASS] 生效的监听地址是 127.0.0.1  (127.0.0.1)
+2026-11-04T10:42:53.0452381Z 
+2026-11-04T10:42:53.0452486Z === §16 ===
+2026-11-04T10:42:53.0452716Z   [PASS] 表 workflows
+2026-11-04T10:42:53.0452956Z   [PASS] 表 agents
+2026-11-04T10:42:53.0453213Z   [PASS] 表 agent_invocations
+2026-11-04T10:42:53.0453488Z   [PASS] 表 logical_tool_calls
+2026-11-04T10:42:53.0453790Z   [PASS] 表 physical_executions
+2026-11-04T10:42:53.0454073Z   [PASS] 表 share_groups
+2026-11-04T10:42:53.0454341Z   [PASS] 表 share_participants
+2026-11-04T10:42:53.0454663Z   [PASS] 表 workspace_snapshots
+2026-11-04T10:42:53.0454962Z   [PASS] 表 dependency_records
+2026-11-04T10:42:53.0455504Z   [PASS] 表 validation_records
+2026-11-04T10:42:53.0455781Z   [PASS] 表 runtime_events
+2026-11-04T10:42:53.0456054Z   [PASS] 表 resource_samples
+2026-11-04T10:42:53.0456326Z   [PASS] 表 benchmark_runs
+2026-11-04T10:42:53.0456597Z   [PASS] 表 tool_results
+2026-11-04T10:42:53.0456861Z   [PASS] 表 schema_meta
+2026-11-04T10:42:53.0456995Z 
+2026-11-04T10:42:53.0457101Z === §4 ===
+2026-11-04T10:42:53.0457334Z   [PASS] Workflow 字段
+2026-11-04T10:42:53.0457579Z   [PASS] Agent 字段
+2026-11-04T10:42:53.0457832Z   [PASS] AgentInvocation 字段
+2026-11-04T10:42:53.0458340Z   [PASS] LogicalToolCall 字段
+2026-11-04T10:42:53.0458637Z   [PASS] PhysicalExecution 字段
+2026-11-04T10:42:53.0458928Z   [PASS] WorkspaceSnapshot 字段
+2026-11-04T10:42:53.0459249Z   [PASS] DependencyRecord 字段
+2026-11-04T10:42:53.0459534Z   [PASS] ShareGroup 字段
+2026-11-04T10:42:53.0459794Z   [PASS] ValidationRecord 字段
+2026-11-04T10:42:53.0459972Z 
+2026-11-04T10:42:53.0460083Z === §16 ===
+2026-11-04T10:42:53.0460319Z   [PASS] 表 agents 的列  (8 列)
+2026-11-04T10:42:53.0460650Z   [PASS] 表 logical_tool_calls 的列  (19 列)
+2026-11-04T10:42:53.0460999Z   [PASS] 表 physical_executions 的列  (25 列)
+2026-11-04T10:42:53.0461341Z   [PASS] 表 share_participants 的列  (17 列)
+2026-11-04T10:42:53.0461675Z   [PASS] 表 tool_results 的列  (8 列)
+2026-11-04T10:42:53.0462005Z   [PASS] 表 resource_samples 的列  (7 列)
+2026-11-04T10:42:53.0462332Z   [PASS] 表 runtime_events 的列  (11 列)
+2026-11-04T10:42:53.0462674Z   [PASS] 保存数据库 Schema 版本  (db=9 code=9)
+2026-11-04T10:42:53.0462977Z   [PASS] 提供必要迁移  (v1 -> v9)
+2026-11-04T10:42:53.0463136Z 
+2026-11-04T10:42:53.0463237Z === §5.1 ===
+2026-11-04T10:42:53.0463519Z   [PASS] 事件 WORKFLOW_STARTED  (已定义并发布)
+2026-11-04T10:42:53.0463853Z   [PASS] 事件 WORKFLOW_FINISHED  (已定义并发布)
+2026-11-04T10:42:53.0464172Z   [PASS] 事件 AGENT_BOUND  (已定义并发布)
+2026-11-04T10:42:53.0464485Z   [PASS] 事件 AGENT_INVOKED  (已定义并发布)
+2026-11-04T10:42:53.0465031Z   [PASS] 事件 AGENT_RETURNED  (已定义并发布)
+2026-11-04T10:42:53.0465371Z   [PASS] 事件 TOOL_CALL_REQUESTED  (已定义并发布)
+2026-11-04T10:42:53.0465732Z   [PASS] 事件 TOOL_CALL_WAITING  (已定义并发布)
+2026-11-04T10:42:53.0466079Z   [PASS] 事件 TOOL_EXECUTION_STARTED  (已定义并发布)
+2026-11-04T10:42:53.0466430Z   [PASS] 事件 TOOL_READ_OBSERVED  (已定义并发布)
+2026-11-04T10:42:53.0466770Z   [PASS] 事件 SHARE_CANDIDATE_FOUND  (已定义并发布)
+2026-11-04T10:42:53.0467134Z   [PASS] 事件 SHARE_VALIDATION_PASSED  (已定义并发布)
+2026-11-04T10:42:53.0467494Z   [PASS] 事件 SHARE_VALIDATION_FAILED  (已定义并发布)
+2026-11-04T10:42:53.0467874Z   [PASS] 事件 SHARE_PARTICIPANT_DETACHED  (已定义并发布)
+2026-11-04T10:42:53.0468450Z   [PASS] 事件 TOOL_EXECUTION_FINISHED  (已定义并发布)
+2026-11-04T10:42:53.0468809Z   [PASS] 事件 TOOL_RESULT_DELIVERED  (已定义并发布)
+2026-11-04T10:42:53.0469148Z   [PASS] 事件 TOOL_CALL_FAILED  (已定义并发布)
+2026-11-04T10:42:53.0469484Z   [PASS] 事件 TOOL_CALL_CANCELLED  (已定义并发布)
+2026-11-04T10:42:53.0469801Z   [PASS] RuntimeEvent.event_id
+2026-11-04T10:42:53.0470127Z   [PASS] RuntimeEvent.workflow_id
+2026-11-04T10:42:53.0470545Z   [PASS] RuntimeEvent.event_type
+2026-11-04T10:42:53.0470826Z   [PASS] RuntimeEvent.timestamp
+2026-11-04T10:42:53.0471226Z   [PASS] RuntimeEvent.agent_id
+2026-11-04T10:42:53.0471517Z   [PASS] RuntimeEvent.invocation_id
+2026-11-04T10:42:53.0471830Z   [PASS] RuntimeEvent.logical_call_id
+2026-11-04T10:42:53.0472147Z   [PASS] RuntimeEvent.physical_execution_id
+2026-11-04T10:42:53.0472466Z   [PASS] RuntimeEvent.parent_event_id
+2026-11-04T10:42:53.0472764Z   [PASS] RuntimeEvent.metadata
+2026-11-04T10:42:53.0473068Z   [PASS] event_id 全局唯一
+2026-11-04T10:42:53.0473333Z   [PASS] Workflow 内稳定序号
+2026-11-04T10:42:53.0473471Z 
+2026-11-04T10:42:53.0473580Z === §5.2 ===
+2026-11-04T10:42:53.0473822Z   [PASS] 适配器方法 bind_agent
+2026-11-04T10:42:53.0474110Z   [PASS] 适配器方法 begin_invocation
+2026-11-04T10:42:53.0474406Z   [PASS] 适配器方法 submit_tool_call
+2026-11-04T10:42:53.0474720Z   [PASS] 适配器方法 deliver_result
+2026-11-04T10:42:53.0474996Z   [PASS] 适配器方法 end_invocation
+2026-11-04T10:42:53.0475281Z   [PASS] 适配器方法 record_event
+2026-11-04T10:42:53.0475434Z 
+2026-11-04T10:42:53.0475529Z === §7.2 ===
+2026-11-04T10:42:53.0475770Z   [PASS] WorkspaceReader.read_text
+2026-11-04T10:42:53.0476073Z   [PASS] WorkspaceReader.read_bytes
+2026-11-04T10:42:53.0476363Z   [PASS] WorkspaceReader.list_dir
+2026-11-04T10:42:53.0476644Z   [PASS] WorkspaceReader.exists
+2026-11-04T10:42:53.0476904Z   [PASS] WorkspaceReader.stat
+2026-11-04T10:42:53.0477190Z   [PASS] 受控读取拒绝越界路径
+2026-11-04T10:42:53.0477426Z   [PASS] 读取立即上报依赖
+2026-11-04T10:42:53.0477719Z   [PASS] 绕过检测覆盖文件、目录与 stat  (6 个事件)
+2026-11-04T10:42:53.0477882Z 
+2026-11-04T10:42:53.0478178Z === §7.1 ===
+2026-11-04T10:42:53.0478425Z   [PASS] 工具注册字段 tool_name
+2026-11-04T10:42:53.0478696Z   [PASS] 工具注册字段 tool_version
+2026-11-04T10:42:53.0478977Z   [PASS] 工具注册字段 deterministic
+2026-11-04T10:42:53.0479249Z   [PASS] 工具注册字段 read_only
+2026-11-04T10:42:53.0479553Z   [PASS] 工具注册字段 resource_estimate
+2026-11-04T10:42:53.0479843Z   [PASS] 工具注册字段 input_schema
+2026-11-04T10:42:53.0480134Z   [PASS] 工具注册字段 output_schema
+2026-11-04T10:42:53.0480449Z   [PASS] 工具注册字段 implementation_reference
+2026-11-04T10:42:53.0480652Z 
+2026-11-04T10:42:53.0480754Z === §7.3 ===
+2026-11-04T10:42:53.0481000Z   [PASS] 必备工具 source_index
+2026-11-04T10:42:53.0481271Z   [PASS] 必备工具 ast_analyzer
+2026-11-04T10:42:53.0481566Z   [PASS] 必备工具 dependency_analyzer
+2026-11-04T10:42:53.0481860Z   [PASS] 必备工具 content_digest
+2026-11-04T10:42:53.0482014Z 
+2026-11-04T10:42:53.0482111Z === §6.2 ===
+2026-11-04T10:42:53.0482373Z   [PASS] 快照 API create_workspace
+2026-11-04T10:42:53.0482684Z   [PASS] 快照 API create_snapshot
+2026-11-04T10:42:53.0482961Z   [PASS] 快照 API fork_snapshot
+2026-11-04T10:42:53.0483254Z   [PASS] 快照 API inspect_snapshot
+2026-11-04T10:42:53.0483566Z   [PASS] 快照 API compare_snapshots
+2026-11-04T10:42:53.0483863Z   [PASS] 快照 API delete_snapshot
+2026-11-04T10:42:53.0484024Z 
+2026-11-04T10:42:53.0484132Z === §21.3 ===
+2026-11-04T10:42:53.0484430Z   [PASS] 绕过受控读取的工具永不共享  (依赖追踪的边界由用例证明)
+2026-11-04T10:42:53.0484599Z 
+2026-11-04T10:42:53.0484902Z === §21.5 ===
+2026-11-04T10:42:53.0485213Z   [PASS] Runtime 不依赖任何 Agent 框架的内部对象  ([])
+2026-11-04T10:42:53.0485422Z 
+2026-11-04T10:42:53.0485523Z === §12 ===
+2026-11-04T10:42:53.0485755Z   [PASS] 演示场景 shared
+2026-11-04T10:42:53.0486052Z   [PASS] 演示场景 different-workspace
+2026-11-04T10:42:53.0486326Z   [PASS] 演示场景 divergent
+2026-11-04T10:42:53.0486584Z   [PASS] 演示场景 multi-agent
+2026-11-04T10:42:53.0486734Z 
+2026-11-04T10:42:53.0486830Z === §15 ===
+2026-11-04T10:42:53.0487022Z   [PASS] CLI init
+2026-11-04T10:42:53.0487228Z   [PASS] CLI serve
+2026-11-04T10:42:53.0487441Z   [PASS] CLI demo
+2026-11-04T10:42:53.0487649Z   [PASS] CLI compare
+2026-11-04T10:42:53.0487863Z   [PASS] CLI trace
+2026-11-04T10:42:53.0488272Z   [PASS] CLI inspect
+2026-11-04T10:42:53.0488487Z   [PASS] CLI tools
+2026-11-04T10:42:53.0488622Z 
+2026-11-04T10:42:53.0488739Z === §14 ===
+2026-11-04T10:42:53.0488985Z   [PASS] API 端点齐备  (17 个端点)
+2026-11-04T10:42:53.0489133Z 
+2026-11-04T10:42:53.0489238Z === §12 ===
+2026-11-04T10:42:53.0489524Z   [PASS] 演示场景 shared 真实执行  (executions=1)
+2026-11-04T10:42:53.0489873Z   [PASS] 演示场景 divergent 真实执行  (executions=2)
+2026-11-04T10:42:53.0490333Z   [PASS] 演示场景 shared 由自动化测试执行  (已覆盖)
+2026-11-04T10:42:53.0490675Z   [PASS] 演示场景 shared-heavy 由自动化测试执行  (已覆盖)
+2026-11-04T10:42:53.0491048Z   [PASS] 演示场景 different-workspace 由自动化测试执行  (已覆盖)
+2026-11-04T10:42:53.0491417Z   [PASS] 演示场景 divergent 由自动化测试执行  (已覆盖)
+2026-11-04T10:42:53.0491755Z   [PASS] 演示场景 multi-agent 由自动化测试执行  (已覆盖)
+2026-11-04T10:42:53.0492103Z   [PASS] 演示场景 cancel-failure 由自动化测试执行  (已覆盖)
+2026-11-04T10:42:53.0492293Z 
+2026-11-04T10:42:53.0492399Z === §17.2 ===
+2026-11-04T10:42:53.0492704Z   [PASS] 等价调用只产生一次物理执行  (calls=2 executions=1)
+2026-11-04T10:42:53.0493030Z   [PASS] 共享者与 Leader 得到同一个结果
+2026-11-04T10:42:53.0493188Z 
+2026-11-04T10:42:53.0493287Z === §9.4 ===
+2026-11-04T10:42:53.0493556Z   [PASS] 工具在独立进程执行  (pids=[2543])
+2026-11-04T10:42:53.0493727Z 
+2026-11-04T10:42:53.0493832Z === §21.4 ===
+2026-11-04T10:42:53.0494135Z   [PASS] 执行次数来自真实物理执行记录  (metric=1 rows=1)
+2026-11-04T10:42:53.0494308Z 
+2026-11-04T10:42:53.0494415Z === §13.2 ===
+2026-11-04T10:42:53.0494712Z   [PASS] 所有模式使用相同的请求序列  (baseline=1 online=1)
+2026-11-04T10:42:53.0495149Z   [PASS] 所有模式使用相同的随机种子  (baseline=20240917 online=20240917)
+2026-11-04T10:42:53.0496135Z   [PASS] 所有模式使用相同的工作区快照内容  (baseline={'b79f0ad427308e800bca743b8ddbcdcef153d5d101dee75aef5ff634a35d8d09'} online={'b79f0ad427308e800bca743b8ddbcdcef153d5d101dee75aef5ff634a35d8d09'})
+2026-11-04T10:42:53.0496912Z   [PASS] Baseline 不共享  (executions=2)
+2026-11-04T10:42:53.0497344Z   [PASS] 共享模式不使用更多计算资源  (executions=1 vs 2, cpu=0.013001 vs 0.007382)
+2026-11-04T10:42:53.0497581Z 
+2026-11-04T10:42:53.0497690Z === §13.3 ===
+2026-11-04T10:42:53.0498093Z   [PASS] 共享结果与 Baseline 完全一致
+2026-11-04T10:42:53.0498314Z 
+2026-11-04T10:42:53.0498437Z === §8.5 ===
+2026-11-04T10:42:53.0498713Z   [PASS] 在线增量依赖验证  (failures=1)
+2026-11-04T10:42:53.0498880Z 
+2026-11-04T10:42:53.0498981Z === §8.8 ===
+2026-11-04T10:42:53.0499399Z   [PASS] 分离后独立执行  (detached=1 executions=2)
+2026-11-04T10:42:53.0499588Z 
+2026-11-04T10:42:53.0499704Z === §17.3 ===
+2026-11-04T10:42:53.0499928Z   [PASS] 冲突依赖导致分离
+2026-11-04T10:42:53.0500071Z 
+2026-11-04T10:42:53.0500168Z === §8.7 ===
+2026-11-04T10:42:53.0500451Z   [PASS] 最终提交验证门禁  (未完成验证的参与者没有收到共享结果)
+2026-11-04T10:42:53.0500631Z 
+2026-11-04T10:42:53.0500736Z === §21.4 ===
+2026-11-04T10:42:53.0500972Z   [PASS] 分离后每个调用都有真实执行
+2026-11-04T10:42:53.0501103Z 
+2026-11-04T10:42:53.0501211Z === §12.4 ===
+2026-11-04T10:42:53.0501605Z   [PASS] 分离时 Leader 尚未结束后续计算  (lead_ms=3257.43)
+2026-11-04T10:42:53.0501801Z 
+2026-11-04T10:42:53.0501896Z === §12.6 ===
+2026-11-04T10:42:53.0502143Z   [PASS] 失败场景 follower_cancel
+2026-11-04T10:42:53.0502420Z   [PASS] 失败场景 leader_cancel
+2026-11-04T10:42:53.0502681Z   [PASS] 失败场景 timeout
+2026-11-04T10:42:53.0502921Z   [PASS] 失败场景 crash
+2026-11-04T10:42:53.0503164Z   [PASS] 失败场景 shared_failure
+2026-11-04T10:42:53.0503323Z 
+2026-11-04T10:42:53.0503424Z === §9.2 ===
+2026-11-04T10:42:53.0503739Z   [PASS] 共享只占用一次执行槽位  (executions=1 running=[1])
+2026-11-04T10:42:53.0503932Z 
+2026-11-04T10:42:53.0504034Z === §21.1 ===
+2026-11-04T10:42:53.0504590Z   [PASS] 同一调用不会被重复交付  (delivered={'call-1b5e33c62ce1': 1, 'call-63684bb5d855': 1})
+2026-11-04T10:42:53.0505036Z   [PASS] 并发调用只产生一次物理执行  (executions=1)
+2026-11-04T10:42:53.0505242Z 
+2026-11-04T10:42:53.0505341Z === §9.3 ===
+2026-11-04T10:42:53.0505681Z   [PASS] 采集真实 worker 的内存与 CPU  (peak_rss=24424448 samples=2)
+2026-11-04T10:42:53.0505917Z 
+2026-11-04T10:42:53.0506032Z === §21.2 ===
+2026-11-04T10:42:53.0506271Z   [PASS] 快照完整性检查发现篡改
+2026-11-04T10:42:53.0506397Z 
+2026-11-04T10:42:53.0506501Z === §10.1 ===
+2026-11-04T10:42:53.0506741Z   [PASS] 区分工具错误  (tool_error)
+2026-11-04T10:42:53.0507043Z   [PASS] 区分进程崩溃  (worker_crash)
+2026-11-04T10:42:53.0507326Z   [PASS] 区分超时  (timeout)
+2026-11-04T10:42:53.0507465Z 
+2026-11-04T10:42:53.0507566Z === §5.1 ===
+2026-11-04T10:42:53.0507834Z   [PASS] 事件 WORKFLOW_STARTED 真实产生  (已产生)
+2026-11-04T10:42:53.0508396Z   [PASS] 事件 WORKFLOW_FINISHED 真实产生  (已产生)
+2026-11-04T10:42:53.0508748Z   [PASS] 事件 AGENT_BOUND 真实产生  (已产生)
+2026-11-04T10:42:53.0509070Z   [PASS] 事件 AGENT_INVOKED 真实产生  (已产生)
+2026-11-04T10:42:53.0509419Z   [PASS] 事件 AGENT_RETURNED 真实产生  (已产生)
+2026-11-04T10:42:53.0509782Z   [PASS] 事件 TOOL_CALL_REQUESTED 真实产生  (已产生)
+2026-11-04T10:42:53.0510144Z   [PASS] 事件 TOOL_CALL_WAITING 真实产生  (已产生)
+2026-11-04T10:42:53.0510495Z   [PASS] 事件 TOOL_EXECUTION_STARTED 真实产生  (已产生)
+2026-11-04T10:42:53.0510848Z   [PASS] 事件 TOOL_READ_OBSERVED 真实产生  (已产生)
+2026-11-04T10:42:53.0511196Z   [PASS] 事件 SHARE_CANDIDATE_FOUND 真实产生  (已产生)
+2026-11-04T10:42:53.0511559Z   [PASS] 事件 SHARE_VALIDATION_PASSED 真实产生  (已产生)
+2026-11-04T10:42:53.0511926Z   [PASS] 事件 SHARE_VALIDATION_FAILED 真实产生  (已产生)
+2026-11-04T10:42:53.0512319Z   [PASS] 事件 SHARE_PARTICIPANT_DETACHED 真实产生  (已产生)
+2026-11-04T10:42:53.0512698Z   [PASS] 事件 TOOL_EXECUTION_FINISHED 真实产生  (已产生)
+2026-11-04T10:42:53.0513062Z   [PASS] 事件 TOOL_RESULT_DELIVERED 真实产生  (已产生)
+2026-11-04T10:42:53.0513410Z   [PASS] 事件 TOOL_CALL_FAILED 真实产生  (已产生)
+2026-11-04T10:42:53.0513953Z   [PASS] 事件 TOOL_CALL_CANCELLED 真实产生  (已产生)
+2026-11-04T10:42:53.0514330Z   [PASS] 事件携带可解析的因果链  (chained=10 of 27)
+2026-11-04T10:42:53.0514527Z 
+2026-11-04T10:42:53.0514640Z === §21.2 ===
+2026-11-04T10:42:53.0514914Z   [PASS] 快照被篡改时拒绝共享  (executions=2)
+2026-11-04T10:42:53.0515086Z 
+2026-11-04T10:42:53.0515189Z === §8.1 ===
+2026-11-04T10:42:53.0515518Z   [PASS] 候选键不含 workspace snapshot  (keys=1 snapshots=2)
+2026-11-04T10:42:53.0515861Z   [PASS] 不同参数产生不同候选键
+2026-11-04T10:42:53.0515991Z 
+2026-11-04T10:42:53.0516096Z === §16 ===
+2026-11-04T10:42:53.0516360Z   [PASS] 调用与执行记录外键完整  (errors=0)
+2026-11-04T10:42:53.0516656Z   [PASS] 外键关系齐备  (10 条关系)
+2026-11-04T10:42:53.0517176Z   [PASS] 写入错误被计数  (errors=1 last=transaction failed: IntegrityError: FOREIGN KEY constraint failed)
+2026-11-04T10:42:53.0517526Z 
+2026-11-04T10:42:53.0517631Z === §2.2 ===
+2026-11-04T10:42:53.0518030Z   [PASS] 运行时没有对外连接  (connections=[])
+2026-11-04T10:42:53.0518219Z 
+2026-11-04T10:42:53.0518339Z === §10.4 ===
+2026-11-04T10:42:53.0518723Z   [PASS] 取消被记录为取消而不是超时  (executions=[('CANCELLED', 'cancelled')])
+2026-11-04T10:42:53.0518969Z 
+2026-11-04T10:42:53.0519085Z === §16.5 ===
+2026-11-04T10:42:53.0519380Z   [PASS] 事件写入不阻塞主循环  (ticks=9)
+2026-11-04T10:42:53.0519539Z 
+2026-11-04T10:42:53.0519651Z === §11.3 ===
+2026-11-04T10:42:53.0519892Z   [PASS] 未知节点使用 UNKNOWN 状态
+2026-11-04T10:42:53.0520158Z   [PASS] 未知节点被标记为占位
+2026-11-04T10:42:53.0520402Z   [PASS] 乱序事件不产生错误的边
+2026-11-04T10:42:53.0520539Z 
+2026-11-04T10:42:53.0520634Z === §4.8 ===
+2026-11-04T10:42:53.0520872Z   [PASS] 共享组保存逻辑调用列表
+2026-11-04T10:42:53.0521114Z   [PASS] 非法状态转换被拒绝
+2026-11-04T10:42:53.0521350Z   [PASS] 参与者状态机被测试覆盖
+2026-11-04T10:42:53.0521486Z 
+2026-11-04T10:42:53.0521582Z === §13.1 ===
+2026-11-04T10:42:53.0521814Z   [PASS] 比较模式 baseline
+2026-11-04T10:42:53.0522058Z   [PASS] 比较模式 online
+2026-11-04T10:42:53.0522309Z   [PASS] 比较模式 deferred
+2026-11-04T10:42:53.0522553Z   [PASS] 模式 C 可选且已实现
+2026-11-04T10:42:53.0522679Z 
+2026-11-04T10:42:53.0522782Z === §13.2 ===
+2026-11-04T10:42:53.0523257Z   [PASS] 对比模式使用相同的工具与限制  ({'same tool implementations and requests': True, 'same timeout': True})
+2026-11-04T10:42:53.0523738Z 
+2026-11-04T10:42:53.0523844Z === §13.3 ===
+2026-11-04T10:42:53.0524084Z   [PASS] 指标 makespan
+2026-11-04T10:42:53.0524361Z   [PASS] 指标 physical_executions
+2026-11-04T10:42:53.0524652Z   [PASS] 指标 saved_executions
+2026-11-04T10:42:53.0524953Z   [PASS] 指标 share_success_rate
+2026-11-04T10:42:53.0525229Z   [PASS] 指标 total_cpu_time
+2026-11-04T10:42:53.0525500Z   [PASS] 指标 peak_rss
+2026-11-04T10:42:53.0525761Z   [PASS] 指标 avg_share_wait
+2026-11-04T10:42:53.0526031Z   [PASS] 指标 validation_count
+2026-11-04T10:42:53.0526327Z   [PASS] 指标 validation_failures
+2026-11-04T10:42:53.0526606Z   [PASS] 指标 validation_ms
+2026-11-04T10:42:53.0526873Z   [PASS] 指标 detach_count
+2026-11-04T10:42:53.0527141Z   [PASS] 指标 first_conflict_at
+2026-11-04T10:42:53.0527464Z   [PASS] 指标 follower_independent_at
+2026-11-04T10:42:53.0527637Z 
+2026-11-04T10:42:53.0527748Z === §13.4 ===
+2026-11-04T10:42:53.0528177Z   [PASS] Speedup 定义
+2026-11-04T10:42:53.0528527Z   [PASS] 负收益也必须显示
+2026-11-04T10:42:53.0528662Z 
+2026-11-04T10:42:53.0528769Z === §13.5 ===
+2026-11-04T10:42:53.0529010Z   [PASS] 对比页面展示指标
+2026-11-04T10:42:53.0529130Z 
+2026-11-04T10:42:53.0529241Z === §13 ===
+2026-11-04T10:42:53.0529478Z   [PASS] BENCHMARK 文档 场景
+2026-11-04T10:42:53.0529743Z   [PASS] BENCHMARK 文档 方法
+2026-11-04T10:42:53.0530010Z   [PASS] BENCHMARK 文档 工作负载
+2026-11-04T10:42:53.0530284Z   [PASS] BENCHMARK 文档 指标定义
+2026-11-04T10:42:53.0530571Z   [PASS] BENCHMARK 文档 公平性原则
+2026-11-04T10:42:53.0530846Z   [PASS] BENCHMARK 文档 实测结果
+2026-11-04T10:42:53.0530987Z 
+2026-11-04T10:42:53.0531091Z === §19 ===
+2026-11-04T10:42:53.0531381Z   [PASS] P2 清单完整（§19 的十条逐条列出）  (10 条全部列出)
+2026-11-04T10:42:53.0531722Z   [PASS] P2 清单没有多余的条目  (多出的条目: [])
+2026-11-04T10:42:53.0532061Z   [PASS] P2 条款 跨会话持久化结果缓存  (1 个入口存在)
+2026-11-04T10:42:53.0532395Z   [PASS] P2 条款 GPU 资源调度  (1 个入口存在)
+2026-11-04T10:42:53.0532720Z   [PASS] P2 条款 KV Cache 管理  (1 个入口存在)
+2026-11-04T10:42:53.0533226Z   [PASS] P2 条款 真正的 Agent 推理执行优化  (1 个入口存在)
+2026-11-04T10:42:53.0533569Z   [PASS] P2 条款 多节点分布式执行  (1 个入口存在)
+2026-11-04T10:42:53.0533907Z   [PASS] P2 条款 复杂的可抢占任务调度  (1 个入口存在)
+2026-11-04T10:42:53.0534267Z   [PASS] P2 条款 自动预测未来 Agent 路径  (1 个入口存在)
+2026-11-04T10:42:53.0534611Z   [PASS] P2 条款 框架无关的高级自动适配  (1 个入口存在)
+2026-11-04T10:42:53.0534956Z   [PASS] P2 条款 对任意第三方工具进行完备依赖追踪  (1 个入口存在)
+2026-11-04T10:42:53.0535296Z   [PASS] P2 条款 具备安全隔离保证的通用沙箱  (1 个入口存在)
+2026-11-04T10:42:53.0535597Z   [PASS] CI 工作流的内容  (9 项都在)
+2026-11-04T10:42:53.0535752Z 
+2026-11-04T10:42:53.0535853Z === §3.1 ===
+2026-11-04T10:42:53.0536304Z   [PASS] 存在第二个不依赖 Scripted Agent 的适配器实现  (ExternalAdapter 与 ScriptedAdapter 是两个不同的实现)
+2026-11-04T10:42:53.0536853Z   [PASS] 外部框架通过跨进程协议驱动适配器  (agentfuse/adapters/external_adapter.py)
+2026-11-04T10:42:53.0537108Z 
+2026-11-04T10:42:53.0537209Z === §19 ===
+2026-11-04T10:42:53.0537495Z   [PASS] P0 条款 真实多 Agent 工作流  (由 §17.2 覆盖)
+2026-11-04T10:42:53.0537836Z   [PASS] P0 条款 受控调用接入  (由 §7.2 覆盖)
+2026-11-04T10:42:53.0538356Z   [PASS] P0 条款 真实工具进程执行  (由 §9.4 覆盖)
+2026-11-04T10:42:53.0538682Z   [PASS] P0 条款 本地工作区快照  (由 §6.2 覆盖)
+2026-11-04T10:42:53.0539120Z   [PASS] P0 条款 工具依赖追踪  (由 §7.2 覆盖)
+2026-11-04T10:42:53.0539476Z   [PASS] P0 条款 In-flight Sharing  (由 §17.2 覆盖)
+2026-11-04T10:42:53.0539843Z   [PASS] P0 条款 在线动态依赖验证  (由 §8.5 覆盖)
+2026-11-04T10:42:53.0540190Z   [PASS] P0 条款 冲突分离  (由 §8.8 覆盖)
+2026-11-04T10:42:53.0540517Z   [PASS] P0 条款 正确结果分发  (由 §8.7 覆盖)
+2026-11-04T10:42:53.0540852Z   [PASS] P0 条款 Worker 并发控制  (由 §9.2 覆盖)
+2026-11-04T10:42:53.0541189Z   [PASS] P0 条款 基线对比  (由 §13.3 覆盖)
+2026-11-04T10:42:53.0541507Z   [PASS] P0 条款 SQLite  (由 §16 覆盖)
+2026-11-04T10:42:53.0541830Z   [PASS] P0 条款 可运行 CLI  (由 §15 覆盖)
+2026-11-04T10:42:53.0542157Z   [PASS] P0 条款 基础 Web UI  (由 §14 覆盖)
+2026-11-04T10:42:53.0542471Z   [PASS] P0 条款 完整自动化测试  (由 §17.2 覆盖)
+2026-11-04T10:42:53.0542631Z 
+2026-11-04T10:42:53.0542742Z === §20 ===
+2026-11-04T10:42:53.0542984Z   [PASS] 工程目录结构  (49 项)
+2026-11-04T10:42:53.0543131Z 
+2026-11-04T10:42:53.0543257Z === §17.1 ===
+2026-11-04T10:42:53.0543535Z   [PASS] 自动化测试类别覆盖  (3 个关键用例)
+2026-11-04T10:42:53.0543687Z 
+2026-11-04T10:42:53.0543814Z === §17.2 ===
+2026-11-04T10:42:53.0544062Z   [PASS] 自动化测试类别覆盖  (7 个关键用例)
+2026-11-04T10:42:53.0544223Z 
+2026-11-04T10:42:53.0544353Z === §17.3 ===
+2026-11-04T10:42:53.0544595Z   [PASS] 自动化测试类别覆盖  (6 个关键用例)
+2026-11-04T10:42:53.0544752Z 
+2026-11-04T10:42:53.0544857Z === §17.4 ===
+2026-11-04T10:42:53.0545105Z   [PASS] 自动化测试类别覆盖  (6 个关键用例)
+2026-11-04T10:42:53.0545256Z 
+2026-11-04T10:42:53.0545365Z === §17.5 ===
+2026-11-04T10:42:53.0545604Z   [PASS] 自动化测试类别覆盖  (6 个关键用例)
+2026-11-04T10:42:53.0545757Z 
+2026-11-04T10:42:53.0545851Z === §17.6 ===
+2026-11-04T10:42:53.0546092Z   [PASS] 自动化测试类别覆盖  (6 个关键用例)
+2026-11-04T10:42:53.0546250Z 
+2026-11-04T10:42:53.0546352Z === §17.7 ===
+2026-11-04T10:42:53.0546591Z   [PASS] 自动化测试类别覆盖  (8 个关键用例)
+2026-11-04T10:42:53.0546736Z 
+2026-11-04T10:42:53.0546840Z === §22 ===
+2026-11-04T10:42:53.0547117Z   [PASS] 追溯表覆盖需求的每个小节  (99 个小节均有有效测试指针)
+2026-11-04T10:42:53.0547549Z   [PASS] 未验证的功能都写在了测试报告里  (4 项均已列出)
+2026-11-04T10:42:53.0547719Z 
+2026-11-04T10:42:53.0547829Z === §17.1 ===
+2026-11-04T10:42:53.0548226Z   [PASS] 测试子条目均有对应的测试  (6 个子条目均有对应的测试)
+2026-11-04T10:42:53.0548397Z 
+2026-11-04T10:42:53.0548509Z === §17.2 ===
+2026-11-04T10:42:53.0548785Z   [PASS] 测试子条目均有对应的测试  (8 个子条目均有对应的测试)
+2026-11-04T10:42:53.0548959Z 
+2026-11-04T10:42:53.0549057Z === §17.3 ===
+2026-11-04T10:42:53.0549339Z   [PASS] 测试子条目均有对应的测试  (9 个子条目均有对应的测试)
+2026-11-04T10:42:53.0549504Z 
+2026-11-04T10:42:53.0549613Z === §17.4 ===
+2026-11-04T10:42:53.0549886Z   [PASS] 测试子条目均有对应的测试  (8 个子条目均有对应的测试)
+2026-11-04T10:42:53.0550062Z 
+2026-11-04T10:42:53.0550158Z === §17.5 ===
+2026-11-04T10:42:53.0550428Z   [PASS] 测试子条目均有对应的测试  (7 个子条目均有对应的测试)
+2026-11-04T10:42:53.0550598Z 
+2026-11-04T10:42:53.0550707Z === §17.6 ===
+2026-11-04T10:42:53.0550977Z   [PASS] 测试子条目均有对应的测试  (6 个子条目均有对应的测试)
+2026-11-04T10:42:53.0551139Z 
+2026-11-04T10:42:53.0551242Z === §17.7 ===
+2026-11-04T10:42:53.0551514Z   [PASS] 测试子条目均有对应的测试  (8 个子条目均有对应的测试)
+2026-11-04T10:42:53.0551699Z 
+2026-11-04T10:42:53.0551795Z === §22 ===
+2026-11-04T10:42:53.0552063Z   [PASS] 文档必备章节 README.md  (9 节)
+2026-11-04T10:42:53.0552488Z   [PASS] 文档必备章节 docs/ARCHITECTURE.md  (6 节)
+2026-11-04T10:42:53.0552853Z   [PASS] 文档必备章节 docs/EXECUTION_MODEL.md  (8 节)
+2026-11-04T10:42:53.0553225Z   [PASS] 文档必备章节 docs/SHARING_PROTOCOL.md  (8 节)
+2026-11-04T10:42:53.0553596Z   [PASS] 文档必备章节 docs/ADAPTER_GUIDE.md  (3 节)
+2026-11-04T10:42:53.0553952Z   [PASS] 文档必备章节 docs/BENCHMARK.md  (6 节)
+2026-11-04T10:42:53.0554311Z   [PASS] 文档必备章节 docs/TEST_REPORT.md  (5 节)
+2026-11-04T10:42:53.0554676Z   [PASS] 文档必备章节 docs/KNOWN_LIMITATIONS.md  (8 节)
+2026-11-04T10:42:53.0555048Z   [PASS] 文档必备章节 docs/DEVELOPMENT_LOG.md  (4 节)
+2026-11-04T10:42:53.0555477Z   [PASS] README 的演示数字来自一次真实运行  (online=32 指标, baseline=32 指标)
+2026-11-04T10:42:53.0555959Z   [PASS] README 的 逻辑调用数 与实测一致  (README=2 实测=2 (logical_calls))
+2026-11-04T10:42:53.0556586Z   [PASS] README 的 物理执行数 与实测一致  (README=1        <- 两次逻辑调用只做了一次真实计算 实测=1 (physical_executions))
+2026-11-04T10:42:53.0557121Z   [PASS] README 的 节省执行数 与实测一致  (README=1 实测=1 (saved_executions))
+2026-11-04T10:42:53.0557583Z   [PASS] README 的 分离次数 与实测一致  (README=0 实测=0 (detach_count))
+2026-11-04T10:42:53.0558164Z   [PASS] README 的 验证失败 与实测一致  (README=0 实测=0 (validation_failures))
+2026-11-04T10:42:53.0558676Z   [PASS] README 的 验证次数 在可能的范围内  (README=5 实测=5 (1-5, 取决于 Follower 加入的时机))
+2026-11-04T10:42:53.0559142Z   [PASS] README 的 共享成功率 与实测一致  (README=50.0% 实测=50.0%)
+2026-11-04T10:42:53.0559618Z   [PASS] README 的 工作流耗时 数值合理  (README=0.107 s 实测=0.087 (makespan))
+2026-11-04T10:42:53.0560122Z   [PASS] README 的 总 CPU 时间 数值合理  (README=0.031 s 实测=0.013 (total_cpu_time))
+2026-11-04T10:42:53.0560629Z   [PASS] README 的 平均共享等待 数值合理  (README=0.088 s 实测=0.082 (avg_share_wait))
+2026-11-04T10:42:53.0561138Z   [PASS] README 的 峰值 RSS 数值合理  (README=23.1 MiB 实测=24506368.000 (peak_rss))
+2026-11-04T10:42:53.0561657Z   [PASS] README 的对比示例的执行次数与实测一致  (README=['2', '1'] 实测 baseline=2 online=1)
+2026-11-04T10:42:53.0561899Z 
+2026-11-04T10:42:53.0562120Z === §23 ===
+2026-11-04T10:42:53.0562395Z   [PASS] 验收清单的条目数（39 条）  (39 条)
+2026-11-04T10:42:53.0562821Z   [PASS] 验收清单 可在单台电脑上启动  (测试 test_a_fresh_database_has_the_current_schema)
+2026-11-04T10:42:53.0563261Z   [PASS] 验收清单 无需外部 API  (审计 §2.2 的 5 项检查通过)
+2026-11-04T10:42:53.0563640Z   [PASS] 验收清单 无需外部模型  (审计 §2.2 的 5 项检查通过)
+2026-11-04T10:42:53.0564017Z   [PASS] 验收清单 可正常运行 CLI  (测试 test_the_cli_is_usable)
+2026-11-04T10:42:53.0564448Z   [PASS] 验收清单 可打开本地 Web UI  (测试 test_the_dashboard_is_served)
+2026-11-04T10:42:53.0564965Z   [PASS] 验收清单 SQLite 能保存真实执行记录  (测试 test_the_execution_is_written_to_the_database)
+2026-11-04T10:42:53.0565584Z   [PASS] 验收清单 多个 Agent 可以并发运行  (测试 test_many_concurrent_identical_calls_create_one_execution)
+2026-11-04T10:42:53.0566245Z   [PASS] 验收清单 可区分 Agent 和 Invocation  (测试 test_two_invocations_of_the_same_agent_stay_distinct)
+2026-11-04T10:42:53.0566931Z   [PASS] 验收清单 可跟踪 LogicalToolCall  (测试 test_two_equivalent_calls_share_a_single_physical_execution)
+2026-11-04T10:42:53.0567590Z   [PASS] 验收清单 可跟踪 PhysicalExecution  (测试 test_the_physical_execution_is_recorded)
+2026-11-04T10:42:53.0568328Z   [PASS] 验收清单 执行图来自真实事件  (测试 test_the_graph_only_contains_observed_relations)
+2026-11-04T10:42:53.0568888Z   [PASS] 验收清单 并发 Agent 不会产生错误身份绑定  (测试 test_the_two_agents_keep_their_own_identity)
+2026-11-04T10:42:53.0569437Z   [PASS] 验收清单 工具结果传递具有正确关联  (测试 test_the_delivery_event_is_published_exactly_once)
+2026-11-04T10:42:53.0569996Z   [PASS] 验收清单 等价调用可以共享  (测试 test_two_equivalent_calls_share_a_single_physical_execution)
+2026-11-04T10:42:53.0570553Z   [PASS] 验收清单 共享后确实减少物理执行次数  (测试 test_the_comparison_reports_a_real_reduction)
+2026-11-04T10:42:53.0571109Z   [PASS] 验收清单 共享结果与独立执行一致  (测试 test_the_shared_results_are_identical_to_the_baseline)
+2026-11-04T10:42:53.0571684Z   [PASS] 验收清单 不相关文件变化不会必然阻止共享  (测试 test_an_unrelated_file_change_does_not_prevent_sharing)
+2026-11-04T10:42:53.0572254Z   [PASS] 验收清单 实际依赖冲突时会阻止错误共享  (测试 test_a_conflicting_dependency_detaches_the_follower)
+2026-11-04T10:42:53.0572878Z   [PASS] 验收清单 在线验证能够在执行过程中发现冲突  (测试 test_the_detection_happens_while_the_leader_is_still_running)
+2026-11-04T10:42:53.0573493Z   [PASS] 验收清单 冲突后 Follower 能提前独立执行  (测试 test_the_detached_follower_uses_its_own_snapshot)
+2026-11-04T10:42:53.0574126Z   [PASS] 验收清单 未完成验证的调用无法接收共享结果  (测试 test_a_follower_that_fails_the_final_validation_gets_no_result)
+2026-11-04T10:42:53.0574679Z   [PASS] 验收清单 取消和失败不会产生重复结果  (测试 test_no_logical_call_is_delivered_twice)
+2026-11-04T10:42:53.0575159Z   [PASS] 验收清单 有 Worker 并发限制  (测试 test_the_worker_limit_is_enforced)
+2026-11-04T10:42:53.0575699Z   [PASS] 验收清单 能记录 CPU 时间  (测试 test_the_resource_samples_are_written_for_the_real_worker)
+2026-11-04T10:42:53.0576245Z   [PASS] 验收清单 能记录内存使用  (测试 test_the_resource_snapshot_exposes_the_limits)
+2026-11-04T10:42:53.0576755Z   [PASS] 验收清单 能处理超时  (测试 test_a_hanging_worker_is_terminated_by_the_timeout)
+2026-11-04T10:42:53.0577268Z   [PASS] 验收清单 能处理取消  (测试 test_a_cancelled_follower_does_not_stop_the_leader)
+2026-11-04T10:42:53.0578049Z   [PASS] 验收清单 能正确释放资源  (测试 test_cancelling_every_participant_terminates_the_execution)
+2026-11-04T10:42:53.0578617Z   [PASS] 验收清单 提供共享执行演示  (测试 test_the_shared_scenario_shares_one_execution)
+2026-11-04T10:42:53.0579185Z   [PASS] 验收清单 提供动态冲突演示  (测试 test_the_divergent_scenario_reports_the_expected_numbers)
+2026-11-04T10:42:53.0579792Z   [PASS] 验收清单 提供并发多 Agent 演示  (测试 test_the_multi_agent_scenario_builds_the_expected_graph)
+2026-11-04T10:42:53.0580367Z   [PASS] 验收清单 提供失败与取消演示  (测试 test_the_cancel_failure_scenario_covers_every_case)
+2026-11-04T10:42:53.0580888Z   [PASS] 验收清单 可在 Web UI 查看运行图  (测试 test_the_dashboard_renders_the_real_data)
+2026-11-04T10:42:53.0581382Z   [PASS] 验收清单 可查看依赖验证记录  (测试 test_the_dashboard_renders_the_real_data)
+2026-11-04T10:42:53.0581840Z   [PASS] 验收清单 可查看物理执行情况  (测试 test_the_execution_endpoints)
+2026-11-04T10:42:53.0582331Z   [PASS] 验收清单 可运行 Benchmark  (测试 test_the_benchmark_endpoint_runs_a_comparison)
+2026-11-04T10:42:53.0582958Z   [PASS] 验收清单 可对比 Baseline 与 Online Sharing  (测试 test_the_comparison_reports_a_real_reduction)
+2026-11-04T10:42:53.0583448Z   [PASS] 验收清单 有自动化测试  (审计 §17 的 17 项检查通过)
+2026-11-04T10:42:53.0583886Z   [PASS] 验收清单 有完整运行文档  (审计 §22 的 24 项检查通过)
+2026-11-04T10:42:53.0584062Z 
+2026-11-04T10:42:53.0584177Z === §8.2 ===
+2026-11-04T10:42:53.0584625Z   [PASS] 共享组的状态机完整  (['CLOSED', 'COMPLETED', 'CREATED', 'EXECUTING', 'FAILED', 'VALIDATING'])
+2026-11-04T10:42:53.0585063Z   [PASS] 非法的状态转换被拒绝
+2026-11-04T10:42:53.0585203Z 
+2026-11-04T10:42:53.0585309Z === §9.1 ===
+2026-11-04T10:42:53.0585685Z   [PASS] 资源控制器的默认值  (workers=2 timeout=60 budget=1024 strategy=fifo)
+2026-11-04T10:42:53.0585922Z 
+2026-11-04T10:42:53.0586033Z === §10.5 ===
+2026-11-04T10:42:53.0586459Z   [PASS] 被打断的运行标记为 INTERRUPTED  (status=INTERRUPTED recovered=['wf-interrupted'])
+2026-11-04T10:42:53.0586753Z 
+2026-11-04T10:42:53.0586856Z === §19 ===
+2026-11-04T10:42:53.0587137Z   [PASS] 声明覆盖的小节都有检查  (49 个小节均有检查)
+2026-11-04T10:42:53.0587313Z 
+2026-11-04T10:42:53.0587441Z 总计 325 项，未通过 0 项
+2026-11-04T10:42:53.0587796Z 行为检查 110 条（真实运行了运行时） / 文本检查 215 条（只读取源码）
+2026-11-04T10:42:53.1325925Z ##[group]Run python -m pytest tests -q
+2026-11-04T10:42:53.1326358Z [36;1mpython -m pytest tests -q[0m
+2026-11-04T10:42:53.1348331Z shell: /usr/bin/bash -e {0}
+2026-11-04T10:42:53.1348603Z env:
+2026-11-04T10:42:53.1348825Z   PYTHONIOENCODING: utf-8
+2026-11-04T10:42:53.1349069Z   PYTHONUTF8: 1
+2026-11-04T10:42:53.1349347Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:53.1349770Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-11-04T10:42:53.1350190Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:53.1350570Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:53.1350933Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:42:53.1351308Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-11-04T10:42:53.1351624Z ##[endgroup]
+2026-11-04T10:44:08.4349173Z ........................s......F........................................ [ 23%]
+2026-11-04T10:44:56.8242345Z ..........................s............................................. [ 46%]
+2026-11-04T10:46:05.9131887Z ........................................................................ [ 69%]
+2026-11-04T10:47:07.7233314Z ........................................................................ [ 92%]
+2026-11-04T10:47:08.2797095Z ......................                                                   [100%]
+2026-11-04T10:47:08.2798698Z =================================== FAILURES ===================================
+2026-11-04T10:47:08.2800308Z __________ test_cancelling_every_participant_terminates_the_execution __________
+2026-11-04T10:47:08.2801266Z 
+2026-11-04T10:47:08.2801936Z app = <agentfuse.app.AgentFuseApp object at 0x79146843f9b0>
+2026-11-04T10:47:08.2806176Z snapshot = SnapshotInfo(snapshot_id='snap-d9ab22d6aaaf', workspace_id='ws-23e3024fb249', parent_snapshot_id=None, path=PosixPath(...e': 532}}, source_reference='/home/runner/work/AgentFuse/AgentFuse/agentfuse/resources/sample_repository', metadata={})
+2026-11-04T10:47:08.2809364Z 
+2026-11-04T10:47:08.2810292Z     async def test_cancelling_every_participant_terminates_the_execution(app, snapshot):
+2026-11-04T10:47:08.2811876Z         workflow = app.create_workflow("test-cancel-all")
+2026-11-04T10:47:08.2813079Z         workflow.default_snapshot_id = snapshot.snapshot_id
+2026-11-04T10:47:08.2814064Z         workflow.start()
+2026-11-04T10:47:08.2814695Z     
+2026-11-04T10:47:08.2815653Z         # The workload is far longer than the time until the cancellation, so
+2026-11-04T10:47:08.2817251Z         # the execution is really running when it is cancelled - the margin must
+2026-11-04T10:47:08.2818780Z         # not depend on the speed of the machine.
+2026-11-04T10:47:08.2819922Z         arguments = {"files": list(DEMO_FILES), "rounds": 20000}
+2026-11-04T10:47:08.2820917Z         tasks = [
+2026-11-04T10:47:08.2821573Z             asyncio.create_task(
+2026-11-04T10:47:08.2822463Z                 app.coordinator.submit_tool_call(
+2026-11-04T10:47:08.2823509Z                     workflow_id=workflow.workflow_id,
+2026-11-04T10:47:08.2827673Z                     tool_name="content_digest",
+2026-11-04T10:47:08.2828721Z                     arguments=arguments,
+2026-11-04T10:47:08.2829682Z                     snapshot_id=snapshot.snapshot_id,
+2026-11-04T10:47:08.2830508Z                 )
+2026-11-04T10:47:08.2831052Z             )
+2026-11-04T10:47:08.2831621Z             for _ in range(2)
+2026-11-04T10:47:08.2832292Z         ]
+2026-11-04T10:47:08.2832908Z         assert await wait_until(
+2026-11-04T10:47:08.2834144Z             lambda: len(app.coordinator.active_calls(workflow.workflow_id)) >= 2
+2026-11-04T10:47:08.2835594Z         ), "the calls have to be queued before they are cancelled"
+2026-11-04T10:47:08.2837060Z         for call in list(app.coordinator.active_calls(workflow.workflow_id)):
+2026-11-04T10:47:08.2838955Z             await app.coordinator.cancel_logical_call(call.logical_call_id, "cancel all")
+2026-11-04T10:47:08.2840666Z     
+2026-11-04T10:47:08.2841355Z         for task in tasks:
+2026-11-04T10:47:08.2842293Z             with pytest.raises(asyncio.CancelledError):
+2026-11-04T10:47:08.2843398Z                 await asyncio.wait_for(task, timeout=30)
+2026-11-04T10:47:08.2844270Z     
+2026-11-04T10:47:08.2845244Z         executions = app.repository.list_executions(workflow.workflow_id)
+2026-11-04T10:47:08.2846400Z         assert executions
+2026-11-04T10:47:08.2847666Z         # the execution must really have been terminated - a completed or failed
+2026-11-04T10:47:08.2849255Z         # execution would mean that the workers kept running
+2026-11-04T10:47:08.2850254Z >       assert all(
+2026-11-04T10:47:08.2851360Z             execution["execution_status"] == "CANCELLED" for execution in executions
+2026-11-04T10:47:08.2852872Z         ), [execution["execution_status"] for execution in executions]
+2026-11-04T10:47:08.2854067Z E       AssertionError: ['RUNNING']
+2026-11-04T10:47:08.2854512Z E       assert False
+2026-11-04T10:47:08.2855557Z E        +  where False = all(<generator object test_cancelling_every_participant_terminates_the_execution.<locals>.<genexpr> at 0x79146c66fac0>)
+2026-11-04T10:47:08.2856320Z 
+2026-11-04T10:47:08.2856676Z tests/integration/test_concurrency.py:219: AssertionError
+2026-11-04T10:47:08.2857382Z =========================== short test summary info ============================
+2026-11-04T10:47:08.2858898Z FAILED tests/integration/test_concurrency.py::test_cancelling_every_participant_terminates_the_execution - AssertionError: ['RUNNING']
+2026-11-04T10:47:08.2859777Z assert False
+2026-11-04T10:47:08.2860644Z  +  where False = all(<generator object test_cancelling_every_participant_terminates_the_execution.<locals>.<genexpr> at 0x79146c66fac0>)
+2026-11-04T10:47:08.2861666Z 1 failed, 307 passed, 2 skipped in 254.36s (0:04:14)
+2026-11-04T10:47:08.4850217Z ##[error]Process completed with exit code 1.
+2026-11-04T10:47:08.4997354Z ##[group]Run actions/upload-artifact@v4
+2026-11-04T10:47:08.4997815Z with:
+2026-11-04T10:47:08.4998474Z   name: agentfuse-runtime-data-ubuntu-latest-py3.12
+2026-11-04T10:47:08.4999001Z   path: .agentfuse
+
+2026-11-04T10:47:08.4999324Z   retention-days: 7
+2026-11-04T10:47:08.4999679Z   if-no-files-found: ignore
+2026-11-04T10:47:08.5000081Z   compression-level: 6
+2026-11-04T10:47:08.5000436Z   overwrite: false
+2026-11-04T10:47:08.5000793Z   include-hidden-files: false
+2026-11-04T10:47:08.5001183Z env:
+2026-11-04T10:47:08.5001494Z   PYTHONIOENCODING: utf-8
+2026-11-04T10:47:08.5001850Z   PYTHONUTF8: 1
+2026-11-04T10:47:08.5002299Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:47:08.5002973Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib/pkgconfig
+2026-11-04T10:47:08.5003658Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:47:08.5004274Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:47:08.5005001Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.15/x64
+2026-11-04T10:47:08.5005681Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.15/x64/lib
+2026-11-04T10:47:08.5006200Z ##[endgroup]
+2026-11-04T10:47:08.6714304Z (node:5853) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-04T10:47:08.6715573Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-04T10:47:08.6762907Z No files were found with the provided path: .agentfuse. No artifacts will be uploaded.
+2026-11-04T10:47:08.7101687Z Post job cleanup.
+2026-11-04T10:47:08.8045064Z [command]/usr/bin/git version
+2026-11-04T10:47:08.8093332Z git version 2.56.0
+2026-11-04T10:47:08.8142892Z Temporarily overriding HOME='/home/runner/work/_temp/48eeee9d-8113-434a-9f72-a1fe537fcb53' before making global git config changes
+2026-11-04T10:47:08.8143990Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-04T10:47:08.8151895Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/AgentFuse/AgentFuse
+2026-11-04T10:47:08.8200675Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-04T10:47:08.8242377Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-04T10:47:08.8563842Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-04T10:47:08.8589506Z http.https://github.com/.extraheader
+2026-11-04T10:47:08.8603291Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-04T10:47:08.8642525Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-04T10:47:08.8938681Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-04T10:47:08.8975935Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-04T10:47:08.9381524Z Cleaning up orphan processes
+2026-11-04T10:47:08.9705974Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

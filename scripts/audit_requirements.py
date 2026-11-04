@@ -941,19 +941,22 @@ def _audit_behaviour() -> None:
                 and baseline.metrics["saved_executions"] == 0,
                 f"executions={baseline.metrics['physical_executions']}",
             )
-            # The sharing mode must not use **more** compute resources.  The
-            # number of physical executions is the deterministic proof - the
-            # measured CPU time is quantised (10 ms per process) and therefore
-            # only compared with the noise floor.
-            baseline_cpu = float(baseline.metrics["total_cpu_time"] or 0.0)
-            online_cpu = float(shared.metrics["total_cpu_time"] or 0.0)
+            # Tiny AST runs are dominated by timer quantisation/import noise.
+            # Measure real repeated hashing with identical inputs and rounds;
+            # keep the original CPU tolerance rather than widening the gate.
+            resource_options = {"rounds": 12000}
+            resource_baseline = await scenario_shared_heavy(app, RuntimeMode.BASELINE, resource_options)
+            resource_online = await scenario_shared_heavy(app, RuntimeMode.ONLINE, resource_options)
+            baseline_cpu = float(resource_baseline.metrics["total_cpu_time"] or 0.0)
+            online_cpu = float(resource_online.metrics["total_cpu_time"] or 0.0)
             record(
                 "13.2",
                 "共享模式不使用更多计算资源",
-                shared.metrics["physical_executions"] < baseline.metrics["physical_executions"]
+                resource_online.metrics["physical_executions"] < resource_baseline.metrics["physical_executions"]
+                and resource_baseline.results[0].result_hash == resource_online.results[0].result_hash
                 and online_cpu <= baseline_cpu + 0.05,
-                f"executions={shared.metrics['physical_executions']} vs "
-                f"{baseline.metrics['physical_executions']}, "
+                f"content_digest rounds=12000 executions={resource_online.metrics['physical_executions']} vs "
+                f"{resource_baseline.metrics['physical_executions']}, "
                 f"cpu={online_cpu} vs {baseline_cpu}",
             )
             record(
@@ -2259,36 +2262,30 @@ def _comparison_run() -> tuple[dict[str, Any], dict[str, set[tuple[str, str, str
         app = create_app(settings=settings)
         runtime = app.state.runtime
 
-        async def run() -> dict[str, Any]:
-            return await compare(
-                runtime,
-                "shared",
-                repeats=1,
-                modes=("baseline", "online"),
-            )
+        async def run():
+            try:
+                report = await compare(runtime, "shared", repeats=1, modes=("baseline", "online"))
+                # Inspect durable rows while the runtime owns an open database;
+                # close must not silently reopen a reader afterwards.
+                tools: dict[str, set[tuple[str, str, str]]] = {}
+                limits: dict[str, set[float]] = {}
+                for mode, entries in (report.get("runs") or {}).items():
+                    used: set[tuple[str, str, str]] = set()
+                    timeouts: set[float] = set()
+                    for entry in entries:
+                        for row in runtime.repository.list_executions(entry["workflow_id"]):
+                            used.add((row["tool_name"], row["tool_version"], row["arguments_hash"]))
+                            timeouts.add(float(row["timeout_seconds"] or 0))
+                    tools[mode] = used
+                    limits[mode] = timeouts
+                return report, tools, limits
+            finally:
+                await runtime.close()
 
         try:
-            report = asyncio.run(run())
+            return asyncio.run(run())
         except Exception:
             return {}, {}, {}
-        finally:
-            asyncio.run(runtime.close())
-
-        # the executions of the modes - the tool, the request and the limits
-        tools: dict[str, set[tuple[str, str, str]]] = {}
-        limits: dict[str, set[float]] = {}
-        for mode, entries in (report.get("runs") or {}).items():
-            used: set[tuple[str, str, str]] = set()
-            timeouts: set[float] = set()
-            for entry in entries:
-                for row in runtime.repository.list_executions(entry["workflow_id"]):
-                    used.add(
-                        (row["tool_name"], row["tool_version"], row["arguments_hash"])
-                    )
-                    timeouts.add(float(row["timeout_seconds"] or 0))
-            tools[mode] = used
-            limits[mode] = timeouts
-        return report, tools, limits
 
 
 def _fairness_of_the_modes(

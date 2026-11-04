@@ -10,6 +10,31 @@ from agentfuse.storage.database import SCHEMA_VERSION, Database
 from agentfuse.storage.repository import Repository
 
 
+def test_close_releases_connections_owned_by_live_api_threads(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    import threading
+    db = Database(tmp_path / "threaded.sqlite3")
+    db.initialize()
+    db.start()
+    barrier = threading.Barrier(2)
+    def read():
+        assert db.scalar("SELECT 1") == 1
+        conn = db._read_conn()
+        barrier.wait(timeout=10)
+        return conn
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(read) for _ in range(2)]
+        connections = [future.result(timeout=15) for future in futures]
+        assert len(set(connections)) == 2
+        db.close()
+        for conn in connections:
+            with pytest.raises(sqlite3.ProgrammingError):
+                conn.execute("SELECT 1")
+        with pytest.raises(sqlite3.ProgrammingError):
+            db.scalar("SELECT 1")
+        db.path.unlink()
+
+
 def _columns(db: Database, table: str) -> set[str]:
     conn = sqlite3.connect(db.path)
     try:
@@ -274,6 +299,7 @@ def test_the_migration_to_v5_keeps_the_data(tmp_path):
 
     assert db.schema_version() == SCHEMA_VERSION
     assert len(db.foreign_keys()) >= 14, "the rebuild must add the foreign keys"
+    repository = Repository(db)
     assert repository.get_workflow("wf-keep") is not None
     assert db.query("SELECT * FROM agents") != []
     execution = db.query_one("SELECT * FROM physical_executions WHERE execution_id = ?",

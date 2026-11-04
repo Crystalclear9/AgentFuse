@@ -70,8 +70,17 @@ def main():
                     target.unlink()
                 record["status"] = "deleted"
             except (OSError, ValueError) as exc:
+                if name in (".agentfuse/tmp", ".agentfuse/tmp-linux") and target.is_dir() and not any(target.iterdir()):
+                    record.update(status="empty_directory_retained", remaining_files=0, error=str(exc))
+                    records.append(record)
+                    continue
                 quarantine = ROOT / "_manual_delete" / name
                 quarantine.parent.mkdir(parents=True, exist_ok=True)
+                original_destination = quarantine
+                serial = 2
+                while os.path.lexists(quarantine):
+                    quarantine = original_destination.with_name(f"{original_destination.name}-{serial}")
+                    serial += 1
                 quarantine.resolve().relative_to((ROOT / "_manual_delete").resolve())
                 try:
                     target.rename(quarantine)
@@ -88,9 +97,12 @@ def main():
     if pending:
         folder = ROOT / "_manual_delete"
         folder.mkdir(exist_ok=True)
-        (folder / "MANIFEST.json").write_text(json.dumps(pending, ensure_ascii=False, indent=2), encoding="utf-8")
+        manifest = folder / "MANIFEST.json"
+        previous = json.loads(manifest.read_text(encoding="utf-8")) if manifest.exists() else []
+        combined = {row.get("destination", row["path"]):row for row in [*previous, *pending]}
+        manifest.write_text(json.dumps(list(combined.values()), ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({status: sum(r["status"] == status for r in records)
-                      for status in ("deleted", "absent", "moved", "locked_at_original")}))
+                      for status in ("deleted", "absent", "moved", "locked_at_original", "empty_directory_retained")}))
 
 
 if __name__ == "__main__":

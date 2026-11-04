@@ -1678,6 +1678,9 @@ class RuntimeCoordinator:
         """Terminate a running worker (used by timeout, cancellation and shutdown)."""
 
         await terminate_execution(execution, reason, kind=kind)
+        # Termination acknowledges durable terminal state and released slots,
+        # not only a dead OS process. The runner may resume on a later tick.
+        await self._finalize_execution(execution, execution.outcome.result())
 
     # ------------------------------------------------------------------
     # finalisation
@@ -1688,6 +1691,8 @@ class RuntimeCoordinator:
         if execution.termination_task is not None:
             await asyncio.shield(execution.termination_task)
         async with self._lock:
+            if execution.finalized:
+                return
             execution.finish_time = time.time()
             execution.cpu_time = outcome.cpu_time or execution.cpu_time
             execution.exit_status = outcome.exit_status
@@ -1755,6 +1760,7 @@ class RuntimeCoordinator:
                 self._commit_success_locked(execution, group, outcome)
             else:
                 self._commit_failure_locked(execution, group, outcome)
+            execution.finalized = True
 
     def _commit_success_locked(
         self,

@@ -6,6 +6,7 @@
 |---|---|
 | Python 3.11.18（Windows） | `.tools/python` |
 | Windows 项目和开发依赖 | `.venv-local` |
+| Python 3.12.16 / 3.13.18 兼容性验证 | 基础解释器在 `.tools/python`，独立依赖环境在 `.tools/envs/py312`、`.tools/envs/py313` |
 | Python 3.11.18（WSL）及依赖 | `.tools/python-linux`、`.venv-wsl` |
 | uv 0.13.7 | `.tools/uv`、`.tools/uv-linux` |
 | Portable Git 2.56.0.windows.4 | `.tools/git` |
@@ -17,6 +18,7 @@
 
 Windows 新终端运行 `. ./scripts/enter-local.ps1`，WSL Bash 运行 `source scripts/enter-local.sh`。
 首次恢复 Python、开发依赖和浏览器可运行 `scripts/setup-local.ps1`，WSL 使用 `bash scripts/setup-local.sh`。
+完整 Windows Python 版本矩阵可运行 `scripts/setup-local.ps1 -AllPythonVersions`，所有解释器与依赖仍安装在项目内。
 Python 依赖版本和哈希锁定在 `requirements-dev.lock`；已验证可执行文件的 SHA-256 见 `verification/current/toolchain.json`。
 工具与虚拟环境较大，不提交 Git。远端源码提供安装脚本和依赖锁；本机交付目录保留已安装工具。
 虚拟环境包含绝对路径，移动整个项目后应重新运行安装脚本。

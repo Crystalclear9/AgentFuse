@@ -477,6 +477,8 @@ class Database:
         self._writer_thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._local = threading.local()
+        self._read_lock = threading.RLock()
+        self._read_connections: dict[sqlite3.Connection, threading.Thread] = {}
         self._write_conn: sqlite3.Connection | None = None
         self._closed = False
         #: number of statements that could not be persisted - a foreign key
@@ -612,16 +614,14 @@ class Database:
         if self._write_conn is not None:
             self._write_conn.close()
             self._write_conn = None
-        # the read connections live in the threads that opened them - an open
-        # handle would keep the file locked on Windows
-        conn = getattr(self._local, "conn", None)
-        if conn is not None:
-            try:
+        # API reads also run in worker threads. Closing only this thread's
+        # local connection leaves their Windows file handles alive.
+        with self._read_lock:
+            self._closed = True
+            for conn in self._read_connections:
                 conn.close()
-            except Exception:  # pragma: no cover
-                pass
+            self._read_connections.clear()
             self._local.conn = None
-        self._closed = True
 
     # ------------------------------------------------------------------
     # connections
@@ -663,11 +663,20 @@ class Database:
         return conn
 
     def _read_conn(self) -> sqlite3.Connection:
-        conn = getattr(self._local, "conn", None)
-        if conn is None:
-            conn = self._connect()
-            self._local.conn = conn
-        return conn
+        with self._read_lock:
+            if self._closed:
+                raise sqlite3.ProgrammingError("the AgentFuse database is closed")
+            conn = getattr(self._local, "conn", None)
+            if conn is None:
+                # Retired thread-pool workers must not accumulate connections.
+                for old, owner in list(self._read_connections.items()):
+                    if not owner.is_alive():
+                        old.close()
+                        del self._read_connections[old]
+                conn = self._connect()
+                self._local.conn = conn
+                self._read_connections[conn] = threading.current_thread()
+            return conn
 
     # ------------------------------------------------------------------
     # writing
@@ -750,8 +759,9 @@ class Database:
         # Flush the pending writes first so that a reader always observes the
         # writes that were already produced by the runtime (read-your-writes).
         self.flush()
-        conn = self._read_conn()
-        return list(conn.execute(sql, tuple(params)).fetchall())
+        with self._read_lock:
+            conn = self._read_conn()
+            return list(conn.execute(sql, tuple(params)).fetchall())
 
     def query_one(self, sql: str, params: Sequence[Any] = ()) -> sqlite3.Row | None:
         rows = self.query(sql, params)

@@ -927,7 +927,7 @@
       "section": "9.4",
       "clause": "工具在独立进程执行",
       "ok": true,
-      "detail": "pids=[69644]",
+      "detail": "pids=[20496]",
       "kind": "behavioural"
     },
     {
@@ -969,7 +969,7 @@
       "section": "13.2",
       "clause": "共享模式不使用更多计算资源",
       "ok": true,
-      "detail": "executions=1 vs 2, cpu=0.03125 vs 0.0",
+      "detail": "content_digest rounds=12000 executions=1 vs 2, cpu=1.078125 vs 2.09375",
       "kind": "behavioural"
     },
     {
@@ -1018,7 +1018,7 @@
       "section": "12.4",
       "clause": "分离时 Leader 尚未结束后续计算",
       "ok": true,
-      "detail": "lead_ms=1898.51",
+      "detail": "lead_ms=2233.02",
       "kind": "behavioural"
     },
     {
@@ -1067,7 +1067,7 @@
       "section": "21.1",
       "clause": "同一调用不会被重复交付",
       "ok": true,
-      "detail": "delivered={'call-47830f948e12': 1, 'call-209c639e0483': 1}",
+      "detail": "delivered={'call-c74a881089d9': 1, 'call-79d4d9928210': 1}",
       "kind": "behavioural"
     },
     {
@@ -1081,7 +1081,7 @@
       "section": "9.3",
       "clause": "采集真实 worker 的内存与 CPU",
       "ok": true,
-      "detail": "peak_rss=25608192 samples=4",
+      "detail": "peak_rss=25522176 samples=5",
       "kind": "behavioural"
     },
     {
@@ -1984,7 +1984,7 @@
       "section": "22",
       "clause": "README 的 工作流耗时 数值合理",
       "ok": true,
-      "detail": "README=0.107 s 实测=0.225 (makespan)",
+      "detail": "README=0.107 s 实测=0.420 (makespan)",
       "kind": "behavioural"
     },
     {
@@ -1998,14 +1998,14 @@
       "section": "22",
       "clause": "README 的 平均共享等待 数值合理",
       "ok": true,
-      "detail": "README=0.088 s 实测=0.208 (avg_share_wait)",
+      "detail": "README=0.088 s 实测=0.402 (avg_share_wait)",
       "kind": "behavioural"
     },
     {
       "section": "22",
       "clause": "README 的 峰值 RSS 数值合理",
       "ok": true,
-      "detail": "README=23.1 MiB 实测=25669632.000 (peak_rss)",
+      "detail": "README=23.1 MiB 实测=25251840.000 (peak_rss)",
       "kind": "behavioural"
     },
     {

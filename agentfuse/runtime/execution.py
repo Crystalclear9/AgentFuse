@@ -77,6 +77,7 @@ class PhysicalExecution:
     worker_handle: Any = field(default=None, repr=False)
     timeout_task: asyncio.Task | None = field(default=None, repr=False)
     termination_task: asyncio.Task | None = field(default=None, repr=False)
+    finalized: bool = field(default=False, repr=False)
     terminated: bool = False
     admission_reason: str | None = None
     queued_time: float | None = None
