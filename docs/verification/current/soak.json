@@ -2,534 +2,492 @@
   "scenario": "shared",
   "minutes": 10.0,
   "workers": 2,
-  "iterations": 367,
-  "physical_executions": 367,
+  "iterations": 338,
+  "physical_executions": 338,
   "errors": 0,
   "samples": [
     {
       "label": "start",
-      "timestamp": 1793791220.7449791,
+      "timestamp": 1793796722.3043802,
       "workers": 0,
       "worker_rss_mb": 0.0,
-      "processes": 1434
+      "processes": 1429
     },
     {
       "label": "iteration 5",
-      "timestamp": 1793791230.9956362,
+      "timestamp": 1793796733.7664707,
       "workers": 2,
-      "worker_rss_mb": 44.03,
-      "processes": 1434
+      "worker_rss_mb": 44.17,
+      "processes": 1435
     },
     {
       "label": "iteration 10",
-      "timestamp": 1793791239.6764095,
+      "timestamp": 1793796741.6479871,
       "workers": 2,
-      "worker_rss_mb": 44.04,
-      "processes": 1440
+      "worker_rss_mb": 44.18,
+      "processes": 1442
     },
     {
       "label": "iteration 15",
-      "timestamp": 1793791251.6432288,
+      "timestamp": 1793796748.253985,
       "workers": 2,
-      "worker_rss_mb": 44.09,
-      "processes": 1431
+      "worker_rss_mb": 44.18,
+      "processes": 1443
     },
     {
       "label": "iteration 20",
-      "timestamp": 1793791262.660097,
+      "timestamp": 1793796760.2368863,
       "workers": 2,
-      "worker_rss_mb": 44.45,
-      "processes": 1426
+      "worker_rss_mb": 44.54,
+      "processes": 1441
     },
     {
       "label": "iteration 25",
-      "timestamp": 1793791272.7987218,
+      "timestamp": 1793796768.761491,
       "workers": 2,
-      "worker_rss_mb": 44.45,
-      "processes": 1436
+      "worker_rss_mb": 44.55,
+      "processes": 1465
     },
     {
       "label": "iteration 30",
-      "timestamp": 1793791283.0977383,
+      "timestamp": 1793796777.140985,
       "workers": 2,
-      "worker_rss_mb": 44.34,
-      "processes": 1425
+      "worker_rss_mb": 44.55,
+      "processes": 1449
     },
     {
       "label": "iteration 35",
-      "timestamp": 1793791291.636361,
+      "timestamp": 1793796790.4776337,
       "workers": 2,
-      "worker_rss_mb": 44.34,
-      "processes": 1426
+      "worker_rss_mb": 44.43,
+      "processes": 1446
     },
     {
       "label": "iteration 40",
-      "timestamp": 1793791302.2617273,
+      "timestamp": 1793796801.0321224,
       "workers": 2,
-      "worker_rss_mb": 44.34,
-      "processes": 1428
+      "worker_rss_mb": 44.43,
+      "processes": 1438
     },
     {
       "label": "iteration 45",
-      "timestamp": 1793791311.6569204,
+      "timestamp": 1793796812.8586338,
       "workers": 2,
-      "worker_rss_mb": 44.35,
-      "processes": 1426
+      "worker_rss_mb": 44.43,
+      "processes": 1440
     },
     {
       "label": "iteration 50",
-      "timestamp": 1793791323.202751,
+      "timestamp": 1793796824.4542723,
       "workers": 2,
-      "worker_rss_mb": 44.35,
-      "processes": 1433
+      "worker_rss_mb": 44.43,
+      "processes": 1441
     },
     {
       "label": "iteration 55",
-      "timestamp": 1793791333.4573598,
+      "timestamp": 1793796836.5844145,
       "workers": 2,
-      "worker_rss_mb": 44.35,
-      "processes": 1428
+      "worker_rss_mb": 44.43,
+      "processes": 1445
     },
     {
       "label": "iteration 60",
-      "timestamp": 1793791342.5331004,
+      "timestamp": 1793796849.0657141,
       "workers": 2,
-      "worker_rss_mb": 44.35,
-      "processes": 1429
+      "worker_rss_mb": 44.43,
+      "processes": 1440
     },
     {
       "label": "iteration 65",
-      "timestamp": 1793791351.6447656,
+      "timestamp": 1793796860.6764731,
       "workers": 2,
-      "worker_rss_mb": 44.35,
-      "processes": 1429
+      "worker_rss_mb": 44.4,
+      "processes": 1436
     },
     {
       "label": "iteration 70",
-      "timestamp": 1793791363.7603455,
+      "timestamp": 1793796870.8823924,
       "workers": 2,
-      "worker_rss_mb": 44.31,
-      "processes": 1451
+      "worker_rss_mb": 44.4,
+      "processes": 1440
     },
     {
       "label": "iteration 75",
-      "timestamp": 1793791375.2437563,
+      "timestamp": 1793796884.3045716,
       "workers": 2,
-      "worker_rss_mb": 44.32,
-      "processes": 1452
+      "worker_rss_mb": 44.4,
+      "processes": 1442
     },
     {
       "label": "iteration 80",
-      "timestamp": 1793791385.9229765,
+      "timestamp": 1793796894.556238,
       "workers": 2,
-      "worker_rss_mb": 44.32,
-      "processes": 1453
+      "worker_rss_mb": 44.41,
+      "processes": 1444
     },
     {
       "label": "iteration 85",
-      "timestamp": 1793791397.1654296,
+      "timestamp": 1793796907.357319,
       "workers": 2,
-      "worker_rss_mb": 44.32,
+      "worker_rss_mb": 44.41,
       "processes": 1445
     },
     {
       "label": "iteration 90",
-      "timestamp": 1793791407.56481,
+      "timestamp": 1793796918.6685896,
       "workers": 2,
-      "worker_rss_mb": 44.32,
-      "processes": 1449
+      "worker_rss_mb": 44.42,
+      "processes": 1443
     },
     {
       "label": "iteration 95",
-      "timestamp": 1793791417.8885536,
+      "timestamp": 1793796929.1276457,
       "workers": 2,
-      "worker_rss_mb": 44.33,
-      "processes": 1446
+      "worker_rss_mb": 44.42,
+      "processes": 1445
     },
     {
       "label": "iteration 100",
-      "timestamp": 1793791427.3789313,
+      "timestamp": 1793796939.7648587,
       "workers": 2,
-      "worker_rss_mb": 44.33,
-      "processes": 1446
+      "worker_rss_mb": 44.43,
+      "processes": 1440
     },
     {
       "label": "iteration 105",
-      "timestamp": 1793791437.7096415,
+      "timestamp": 1793796950.3420992,
       "workers": 2,
-      "worker_rss_mb": 44.33,
-      "processes": 1449
+      "worker_rss_mb": 44.43,
+      "processes": 1441
     },
     {
       "label": "iteration 110",
-      "timestamp": 1793791447.464166,
+      "timestamp": 1793796963.6036818,
       "workers": 2,
-      "worker_rss_mb": 44.33,
+      "worker_rss_mb": 44.43,
       "processes": 1447
     },
     {
       "label": "iteration 115",
-      "timestamp": 1793791458.5260313,
+      "timestamp": 1793796975.704242,
       "workers": 2,
-      "worker_rss_mb": 44.34,
-      "processes": 1442
+      "worker_rss_mb": 44.43,
+      "processes": 1444
     },
     {
       "label": "iteration 120",
-      "timestamp": 1793791467.5601618,
+      "timestamp": 1793796987.9992895,
       "workers": 2,
-      "worker_rss_mb": 44.34,
-      "processes": 1442
+      "worker_rss_mb": 44.44,
+      "processes": 1444
     },
     {
       "label": "iteration 125",
-      "timestamp": 1793791476.160203,
+      "timestamp": 1793797000.4880779,
       "workers": 2,
-      "worker_rss_mb": 44.34,
-      "processes": 1443
-    },
-    {
-      "label": "iteration 130",
-      "timestamp": 1793791484.969054,
-      "workers": 2,
-      "worker_rss_mb": 44.35,
+      "worker_rss_mb": 44.44,
       "processes": 1445
     },
     {
-      "label": "iteration 135",
-      "timestamp": 1793791497.3672426,
+      "label": "iteration 130",
+      "timestamp": 1793797013.099889,
       "workers": 2,
-      "worker_rss_mb": 44.35,
-      "processes": 1463
+      "worker_rss_mb": 44.44,
+      "processes": 1451
+    },
+    {
+      "label": "iteration 135",
+      "timestamp": 1793797026.5102475,
+      "workers": 2,
+      "worker_rss_mb": 44.64,
+      "processes": 1453
     },
     {
       "label": "iteration 140",
-      "timestamp": 1793791510.0477138,
+      "timestamp": 1793797038.2322803,
       "workers": 2,
-      "worker_rss_mb": 44.35,
-      "processes": 1467
+      "worker_rss_mb": 44.66,
+      "processes": 1453
     },
     {
       "label": "iteration 145",
-      "timestamp": 1793791526.1340382,
+      "timestamp": 1793797050.7551768,
       "workers": 2,
-      "worker_rss_mb": 44.57,
-      "processes": 1458
+      "worker_rss_mb": 44.66,
+      "processes": 1446
     },
     {
       "label": "iteration 150",
-      "timestamp": 1793791536.9581428,
+      "timestamp": 1793797063.5000045,
       "workers": 2,
-      "worker_rss_mb": 44.58,
-      "processes": 1452
+      "worker_rss_mb": 44.66,
+      "processes": 1449
     },
     {
       "label": "iteration 155",
-      "timestamp": 1793791547.4151766,
+      "timestamp": 1793797075.9160182,
       "workers": 2,
-      "worker_rss_mb": 44.58,
-      "processes": 1454
+      "worker_rss_mb": 44.68,
+      "processes": 1442
     },
     {
       "label": "iteration 160",
-      "timestamp": 1793791562.149045,
+      "timestamp": 1793797088.3029304,
       "workers": 2,
-      "worker_rss_mb": 44.59,
-      "processes": 1464
+      "worker_rss_mb": 44.68,
+      "processes": 1443
     },
     {
       "label": "iteration 165",
-      "timestamp": 1793791578.7708461,
+      "timestamp": 1793797099.7198021,
       "workers": 2,
-      "worker_rss_mb": 44.59,
-      "processes": 1470
+      "worker_rss_mb": 44.68,
+      "processes": 1446
     },
     {
       "label": "iteration 170",
-      "timestamp": 1793791593.670766,
+      "timestamp": 1793797112.1275005,
       "workers": 2,
-      "worker_rss_mb": 44.33,
-      "processes": 1467
+      "worker_rss_mb": 44.68,
+      "processes": 1448
     },
     {
       "label": "iteration 175",
-      "timestamp": 1793791608.3860788,
+      "timestamp": 1793797124.3316011,
       "workers": 2,
-      "worker_rss_mb": 44.33,
-      "processes": 1450
+      "worker_rss_mb": 44.68,
+      "processes": 1449
     },
     {
       "label": "iteration 180",
-      "timestamp": 1793791619.0360637,
+      "timestamp": 1793797138.6181114,
       "workers": 2,
-      "worker_rss_mb": 44.33,
-      "processes": 1441
+      "worker_rss_mb": 44.66,
+      "processes": 1445
     },
     {
       "label": "iteration 185",
-      "timestamp": 1793791626.107079,
+      "timestamp": 1793797149.3173263,
       "workers": 2,
-      "worker_rss_mb": 44.3,
-      "processes": 1438
+      "worker_rss_mb": 44.66,
+      "processes": 1444
     },
     {
       "label": "iteration 190",
-      "timestamp": 1793791631.2284565,
+      "timestamp": 1793797158.7019365,
       "workers": 2,
-      "worker_rss_mb": 44.3,
-      "processes": 1429
+      "worker_rss_mb": 44.73,
+      "processes": 1443
     },
     {
       "label": "iteration 195",
-      "timestamp": 1793791633.6935444,
+      "timestamp": 1793797166.830254,
       "workers": 2,
-      "worker_rss_mb": 44.31,
-      "processes": 1433
+      "worker_rss_mb": 44.73,
+      "processes": 1449
     },
     {
       "label": "iteration 200",
-      "timestamp": 1793791638.8415234,
+      "timestamp": 1793797179.0892653,
       "workers": 2,
-      "worker_rss_mb": 44.31,
-      "processes": 1434
+      "worker_rss_mb": 44.73,
+      "processes": 1446
     },
     {
       "label": "iteration 205",
-      "timestamp": 1793791642.6445525,
+      "timestamp": 1793797193.9128659,
       "workers": 2,
-      "worker_rss_mb": 44.31,
-      "processes": 1437
+      "worker_rss_mb": 44.73,
+      "processes": 1457
     },
     {
       "label": "iteration 210",
-      "timestamp": 1793791645.7343943,
+      "timestamp": 1793797209.9760847,
       "workers": 2,
-      "worker_rss_mb": 44.31,
-      "processes": 1439
+      "worker_rss_mb": 44.73,
+      "processes": 1452
     },
     {
       "label": "iteration 215",
-      "timestamp": 1793791649.9855864,
+      "timestamp": 1793797225.3286476,
       "workers": 2,
-      "worker_rss_mb": 44.31,
+      "worker_rss_mb": 44.73,
       "processes": 1438
     },
     {
       "label": "iteration 220",
-      "timestamp": 1793791652.8271956,
+      "timestamp": 1793797235.7204795,
       "workers": 2,
-      "worker_rss_mb": 44.32,
-      "processes": 1461
+      "worker_rss_mb": 44.73,
+      "processes": 1433
     },
     {
       "label": "iteration 225",
-      "timestamp": 1793791657.985122,
+      "timestamp": 1793797241.9439607,
       "workers": 2,
-      "worker_rss_mb": 44.32,
-      "processes": 1460
+      "worker_rss_mb": 44.73,
+      "processes": 1430
     },
     {
       "label": "iteration 230",
-      "timestamp": 1793791661.85248,
+      "timestamp": 1793797249.800395,
       "workers": 2,
-      "worker_rss_mb": 44.32,
-      "processes": 1462
+      "worker_rss_mb": 44.73,
+      "processes": 1422
     },
     {
       "label": "iteration 235",
-      "timestamp": 1793791665.6251235,
+      "timestamp": 1793797253.9271207,
       "workers": 2,
-      "worker_rss_mb": 44.32,
-      "processes": 1463
+      "worker_rss_mb": 44.73,
+      "processes": 1412
     },
     {
       "label": "iteration 240",
-      "timestamp": 1793791672.4526532,
+      "timestamp": 1793797256.8821213,
       "workers": 2,
-      "worker_rss_mb": 44.32,
-      "processes": 1465
+      "worker_rss_mb": 44.73,
+      "processes": 1419
     },
     {
       "label": "iteration 245",
-      "timestamp": 1793791676.9985635,
+      "timestamp": 1793797259.0350041,
       "workers": 2,
-      "worker_rss_mb": 44.33,
-      "processes": 1467
+      "worker_rss_mb": 44.73,
+      "processes": 1415
     },
     {
       "label": "iteration 250",
-      "timestamp": 1793791683.968416,
+      "timestamp": 1793797261.3127255,
       "workers": 2,
-      "worker_rss_mb": 44.33,
-      "processes": 1472
+      "worker_rss_mb": 44.73,
+      "processes": 1418
     },
     {
       "label": "iteration 255",
-      "timestamp": 1793791688.6685493,
+      "timestamp": 1793797265.3812096,
       "workers": 2,
-      "worker_rss_mb": 44.33,
-      "processes": 1465
+      "worker_rss_mb": 44.73,
+      "processes": 1418
     },
     {
       "label": "iteration 260",
-      "timestamp": 1793791692.840484,
+      "timestamp": 1793797269.1465118,
       "workers": 2,
-      "worker_rss_mb": 44.34,
-      "processes": 1463
+      "worker_rss_mb": 44.73,
+      "processes": 1414
     },
     {
       "label": "iteration 265",
-      "timestamp": 1793791696.1156576,
+      "timestamp": 1793797273.722471,
       "workers": 2,
-      "worker_rss_mb": 44.34,
-      "processes": 1466
+      "worker_rss_mb": 44.73,
+      "processes": 1413
     },
     {
       "label": "iteration 270",
-      "timestamp": 1793791701.2728822,
+      "timestamp": 1793797278.2536674,
       "workers": 2,
-      "worker_rss_mb": 44.21,
-      "processes": 1464
+      "worker_rss_mb": 44.73,
+      "processes": 1424
     },
     {
       "label": "iteration 275",
-      "timestamp": 1793791708.117147,
+      "timestamp": 1793797281.868583,
       "workers": 2,
-      "worker_rss_mb": 44.21,
-      "processes": 1466
+      "worker_rss_mb": 44.73,
+      "processes": 1415
     },
     {
       "label": "iteration 280",
-      "timestamp": 1793791712.5414226,
+      "timestamp": 1793797285.144235,
       "workers": 2,
-      "worker_rss_mb": 44.21,
-      "processes": 1459
+      "worker_rss_mb": 44.73,
+      "processes": 1417
     },
     {
       "label": "iteration 285",
-      "timestamp": 1793791719.0213857,
+      "timestamp": 1793797288.4721732,
       "workers": 2,
-      "worker_rss_mb": 44.22,
-      "processes": 1474
+      "worker_rss_mb": 44.73,
+      "processes": 1414
     },
     {
       "label": "iteration 290",
-      "timestamp": 1793791722.6280065,
+      "timestamp": 1793797291.1457107,
       "workers": 2,
-      "worker_rss_mb": 44.22,
-      "processes": 1462
+      "worker_rss_mb": 44.79,
+      "processes": 1416
     },
     {
       "label": "iteration 295",
-      "timestamp": 1793791727.8497956,
+      "timestamp": 1793797293.1421187,
       "workers": 2,
-      "worker_rss_mb": 44.23,
-      "processes": 1471
+      "worker_rss_mb": 44.79,
+      "processes": 1414
     },
     {
       "label": "iteration 300",
-      "timestamp": 1793791732.6970594,
+      "timestamp": 1793797295.252565,
       "workers": 2,
-      "worker_rss_mb": 44.23,
-      "processes": 1483
+      "worker_rss_mb": 44.79,
+      "processes": 1415
     },
     {
       "label": "iteration 305",
-      "timestamp": 1793791738.1775978,
+      "timestamp": 1793797298.581995,
       "workers": 2,
-      "worker_rss_mb": 44.23,
-      "processes": 1481
+      "worker_rss_mb": 44.79,
+      "processes": 1421
     },
     {
       "label": "iteration 310",
-      "timestamp": 1793791744.0884082,
+      "timestamp": 1793797302.4367342,
       "workers": 2,
-      "worker_rss_mb": 44.23,
-      "processes": 1474
+      "worker_rss_mb": 44.79,
+      "processes": 1412
     },
     {
       "label": "iteration 315",
-      "timestamp": 1793791748.1595967,
+      "timestamp": 1793797307.1639452,
       "workers": 2,
-      "worker_rss_mb": 44.23,
-      "processes": 1480
+      "worker_rss_mb": 44.79,
+      "processes": 1416
     },
     {
       "label": "iteration 320",
-      "timestamp": 1793791751.4813745,
+      "timestamp": 1793797310.8938954,
       "workers": 2,
-      "worker_rss_mb": 44.24,
-      "processes": 1472
+      "worker_rss_mb": 44.79,
+      "processes": 1412
     },
     {
       "label": "iteration 325",
-      "timestamp": 1793791754.8991566,
+      "timestamp": 1793797314.5476615,
       "workers": 2,
-      "worker_rss_mb": 44.18,
-      "processes": 1471
+      "worker_rss_mb": 44.79,
+      "processes": 1410
     },
     {
       "label": "iteration 330",
-      "timestamp": 1793791759.742685,
+      "timestamp": 1793797317.3853736,
       "workers": 2,
-      "worker_rss_mb": 44.15,
-      "processes": 1479
+      "worker_rss_mb": 44.79,
+      "processes": 1416
     },
     {
       "label": "iteration 335",
-      "timestamp": 1793791765.058052,
+      "timestamp": 1793797321.0523374,
       "workers": 2,
-      "worker_rss_mb": 44.14,
-      "processes": 1480
-    },
-    {
-      "label": "iteration 340",
-      "timestamp": 1793791770.0878222,
-      "workers": 2,
-      "worker_rss_mb": 44.14,
-      "processes": 1485
-    },
-    {
-      "label": "iteration 345",
-      "timestamp": 1793791775.5516908,
-      "workers": 2,
-      "worker_rss_mb": 44.13,
-      "processes": 1480
-    },
-    {
-      "label": "iteration 350",
-      "timestamp": 1793791782.203109,
-      "workers": 2,
-      "worker_rss_mb": 33.41,
-      "processes": 1500
-    },
-    {
-      "label": "iteration 355",
-      "timestamp": 1793791791.9057276,
-      "workers": 2,
-      "worker_rss_mb": 21.98,
-      "processes": 1513
-    },
-    {
-      "label": "iteration 360",
-      "timestamp": 1793791799.1402717,
-      "workers": 2,
-      "worker_rss_mb": 21.98,
-      "processes": 1508
-    },
-    {
-      "label": "iteration 365",
-      "timestamp": 1793791818.3909223,
-      "workers": 2,
-      "worker_rss_mb": 16.19,
-      "processes": 1511
+      "worker_rss_mb": 44.79,
+      "processes": 1420
     },
     {
       "label": "end",
-      "timestamp": 1793791831.0533144,
+      "timestamp": 1793797324.3381402,
       "workers": 0,
       "worker_rss_mb": 0.0,
-      "processes": 1489
+      "processes": 1410
     }
   ],
   "worker_growth": 0,

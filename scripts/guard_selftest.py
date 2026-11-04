@@ -1070,7 +1070,9 @@ _LEGACY_MUTATIONS: list[dict[str, Any]] = [
                 # terminated.  Otherwise the worker would keep running after
                 # the call was cancelled.
                 execution = self._executions.get(call.physical_execution_id or "")
-                if execution is not None and execution.status is ExecutionStatus.RUNNING:
+                if execution is not None and execution.status in (
+                    ExecutionStatus.CREATED, ExecutionStatus.QUEUED, ExecutionStatus.RUNNING
+                ):
                     terminate.append(execution)
 """,
         "new": "",

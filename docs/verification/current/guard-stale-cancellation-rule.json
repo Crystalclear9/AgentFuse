@@ -1,0 +1,875 @@
+{
+  "total": 58,
+  "failed": 1,
+  "mutations": [
+    {
+      "name": "P2 清单不再完整",
+      "clause": "19",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §19 P2 清单没有多余的条目",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "验收清单不再完整",
+      "clause": "23",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §23 验收清单的条目数（39 条）",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "守卫自检不再要求指名的检查",
+      "clause": "17.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": " guard without a named expectation must not count\"\nE       AssertionError: a guard without a named expectation must not count\nE       assert not True\n\ntests\\unit\\test_guard_selftest.py:142: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_guard_selftest.py::test_a_guard_without_a_named_expectation_is_not_proven\n1 failed in 0.27s\n"
+        }
+      ]
+    },
+    {
+      "name": "绕过检测不再覆盖 stat",
+      "clause": "7.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §7.2 绕过检测覆盖文件、目录与 stat",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "长跑观测不再是门",
+      "clause": "17.5",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "exe', 'scripts/soak.py', '-...n\\n  长跑观测未通过：\\n    - worker 数增长 0 (>阈值 -100000)：残留了无效进程\\n    - worker RSS 增长 0.0 MiB (>阈值 -100000.0 MiB)\\n', stderr='').returncode\n\ntests\\unit\\test_soak_gate.py:44: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_soak_gate.py::test_the_soak_gate_reports_a_problem - A...\n1 failed in 64.60s (0:01:04)\n"
+        }
+      ]
+    },
+    {
+      "name": "追溯表不再覆盖每个小节",
+      "clause": "22",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §22 追溯表覆盖需求的每个小节",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "声明覆盖的小节不再有检查",
+      "clause": "19",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §19 声明覆盖的小节都有检查",
+          "output": " strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": false,\n      \"detail\": \"没有检查的小节: ['99.99']\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "测试子条目的映射不再完整",
+      "clause": "17.3",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §17.3 测试子条目均有对应的测试",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "演示场景不再经由适配器执行",
+      "clause": "12.1",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "\"fault_injector\",\nE                       arguments={\"mode\": \"exit\", \"exit_code\": 7},...\nE         \nE         ...Full output truncated, use '-vv' to show\n\ntests\\integration\\test_demo_protocol.py:39: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_demo_protocol.py::test_the_demo_has_no_own_execution_path\n1 failed in 0.29s\n"
+        }
+      ]
+    },
+    {
+      "name": "追溯表不再覆盖每个小节",
+      "clause": "22",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "ions without a proof: {'16.8': ['test_a_test_that_does_not_exist']}\nE       assert not {'16.8': ['test_a_test_that_does_not_exist']}\n\ntests\\unit\\test_requirement_traceability.py:93: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_requirement_traceability.py::test_every_subsection_of_the_requirement_has_a_proof\n1 failed in 0.38s\n"
+        }
+      ]
+    },
+    {
+      "name": "依赖完整性不再决定工具能否共享",
+      "clause": "7.2 / 21.3",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "c9777e', 'tool...4b9', 'workflow_id': 'wf-224664e476f04c47b63731cf11c9777e', 'tool_name': 'ast_analyzer', 'tool_version': '1.0.0', ...}])\n\ntests\\integration\\test_dependency_tracking.py:200: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_dependency_tracking.py::test_a_controlled_tool_is_shared\n1 failed, 7 passed in 8.66s\n"
+        },
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "t_shared_execution.py::test_two_scripted_agents_produce_a_real_execution_graph\nFAILED tests/integration/test_shared_execution.py::test_the_share_group_records_its_participants\nFAILED tests/integration/test_shared_execution.py::test_a_finished_share_group_is_closed\nFAILED tests/integration/test_shared_execution.py::test_a_shared_execution_does_not_merge_two_invocations\n6 failed, 8 passed in 16.76s\n"
+        }
+      ]
+    },
+    {
+      "name": "调用与执行之间的外键被删除",
+      "clause": "16",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §16 外键关系齐备",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "写入错误不再被计数",
+      "clause": "16",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §16 写入错误被计数",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "分离后不再独立执行",
+      "clause": "8.8",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "                   raise exceptions.TimeoutError() from exc\nE                   TimeoutError\n\n..\\..\\.tools\\python\\cpython-3.11-windows-x86_64-none\\Lib\\asyncio\\tasks.py:502: TimeoutError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_divergent.py::test_the_detection_happens_while_the_leader_is_still_running\n1 failed in 61.59s (0:01:01)\n"
+        }
+      ]
+    },
+    {
+      "name": "取消不再记录为取消",
+      "clause": "10.4",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "where False = all(<generator object test_cancelling_every_participant_terminates_the_execution.<locals>.<genexpr> at 0x000001F50456D220>)\n\ntests\\integration\\test_concurrency.py:219: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_cancelling_every_participant_terminates_the_execution\n1 failed in 1.02s\n"
+        }
+      ]
+    },
+    {
+      "name": "前端不再渲染真实数据",
+      "clause": "14",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "\\playwright\\\\driver\\\\nod.../C:/Users/70454/Desktop/AgentFuse/.agentfuse/guard-current/tests/frontend/dom_harness.mjs:378:1\\n\\nNode.js v24.22.1\\n').returncode\n\ntests\\frontend\\test_frontend.py:166: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/frontend/test_frontend.py::test_the_dashboard_renders_the_real_data\n1 failed, 3 passed in 2.54s\n"
+        }
+      ]
+    },
+    {
+      "name": "超时不再记录为超时",
+      "clause": "10.1",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §10.1 区分超时",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "候选键包含 workspace snapshot",
+      "clause": "8.1",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "  \nE         - 2baeed053e481c2b1ab89eb59bb0561a01b8132c62591484612074e5580da82b\nE         + 1def4158f9bd7236677f421cb914f3385891dc69e5bce52456cd56203cce497e\n\ntests\\unit\\test_candidate.py:75: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_candidate.py::test_candidate_key_does_not_contain_the_snapshot\n1 failed, 6 passed in 0.18s\n"
+        }
+      ]
+    },
+    {
+      "name": "种子不再到达工具",
+      "clause": "7.4",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "he same call must draw the same numbers\"\nE       AssertionError: the same call must draw the same numbers\nE       assert 0.6603784823233969 == 0.22220583832982244\n\ntests\\unit\\test_tools.py:248: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_tools.py::test_the_random_source_of_a_call_is_reproducible\n1 failed, 20 passed in 4.22s\n"
+        }
+      ]
+    },
+    {
+      "name": "一个逻辑调用可以再拥有第二个执行",
+      "clause": "8.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "bbaf32148207a3...-f750a5ca9bd14bdfa08154748d445aaf': ['exec-bf7619561b0843b1a6df2e29f323ab46', 'exec-d8766202d45b4fdca46b4f1875cdecce']}.get\n\ntests\\integration\\test_concurrency.py:587: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_detached_follower_never_gets_a_second_execution\n1 failed in 10.13s\n"
+        }
+      ]
+    },
+    {
+      "name": "失败的参与者不再得到失败状态",
+      "clause": "10.1",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "_INDEPENDENTLY\nE           assert 'RUNNING_INDEPENDENTLY' == 'FAILED'\nE             \nE             - FAILED\nE             + RUNNING_INDEPENDENTLY\n\ntests\\integration\\test_concurrency.py:399: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_the_participants_of_a_failed_group_are_failed\n1 failed in 1.36s\n"
+        }
+      ]
+    },
+    {
+      "name": "调度器错误又被报告成进程崩溃",
+      "clause": "10.1",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "worker crash: worker_crash\nE       assert 'worker_crash' == 'internal_error'\nE         \nE         - internal_error\nE         + worker_crash\n\ntests\\integration\\test_concurrency.py:647: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_runtime_failure_is_not_reported_as_a_worker_crash\n1 failed in 0.91s\n"
+        }
+      ]
+    },
+    {
+      "name": "共享组不再关闭",
+      "clause": "4.8",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "ror: a finished share group must be closed, not COMPLETED\nE       assert 'COMPLETED' == 'CLOSED'\nE         \nE         - CLOSED\nE         + COMPLETED\n\ntests\\integration\\test_shared_execution.py:420: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_shared_execution.py::test_a_finished_share_group_is_closed\n1 failed in 1.14s\n"
+        }
+      ]
+    },
+    {
+      "name": "身份未确定的状态被忽略",
+      "clause": "5.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "] == \"UNDETERMINED\"\nE       AssertionError: assert 'CONFIRMED' == 'UNDETERMINED'\nE         \nE         - UNDETERMINED\nE         + CONFIRMED\n\ntests\\integration\\test_shared_execution.py:383: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_shared_execution.py::test_an_undetermined_agent_identity_is_recorded\n1 failed in 0.78s\n"
+        }
+      ]
+    },
+    {
+      "name": "内置工具开始依赖当前时间",
+      "clause": "7.4",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §7.4 内置工具不依赖时间/随机数/环境变量/绝对路径",
+          "output": " \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": false,\n      \"detail\": \"没有检查的小节: ['8.1', '8.5', '8.7', '8.8', '9.2', '9.3', '9.4', '10.1', '12.4', '12.6', '21.1', '21.2', '21.4']\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "重试的参与者又被记成失败",
+      "clause": "10.1",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "assert not ('FAILED' == 'FAILED'\nE             \nE               FAILED and 'COMPLETED' == 'COMPLETED'\nE             \nE               COMPLETED)\n\ntests\\integration\\test_concurrency.py:716: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_retried_participant_is_not_recorded_as_failed\n1 failed in 1.81s\n"
+        }
+      ]
+    },
+    {
+      "name": "失败类型不再落库",
+      "clause": "10.1",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "ted: {calls[0]['error_kind']}\"\n        )\nE       AssertionError: the kind has to be persisted: None\nE       assert None == 'internal_error'\n\ntests\\integration\\test_concurrency.py:657: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_runtime_failure_is_not_reported_as_a_worker_crash\n1 failed in 0.89s\n"
+        }
+      ]
+    },
+    {
+      "name": "冲突文件又被挪到第一个",
+      "clause": "12.4",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "     )\nE           AssertionError: the follower must not be rejected at join time - the separation has to happen through the online validation\nE           assert 1 == 0\n\ntests\\integration\\test_divergent.py:556: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_divergent.py::test_the_separation_is_reliable\n1 failed in 4.72s\n"
+        }
+      ]
+    },
+    {
+      "name": "场景目录与运行时脱节",
+      "clause": "13",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "HARED_HEAVY_ROUNDS\n    \n        divergent = describe(\"divergent\")\n>       assert divergent[\"workload\"][\"rounds\"] == DIVERGENT_ROUNDS\nE       assert 1500 == 40000\n\ntests\\integration\\test_scenarios.py:122: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_scenarios.py::test_the_catalogue_matches_the_runtime\n1 failed in 0.32s\n"
+        }
+      ]
+    },
+    {
+      "name": "超时的失败类型不再落库",
+      "clause": "10.1",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "rt timeout_calls[0][\"error_kind\"] == \"timeout\"\n>       assert timeout_executions[0][\"error_kind\"] == \"timeout\"\nE       AssertionError: assert None == 'timeout'\n\ntests\\integration\\test_concurrency.py:978: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_every_failure_kind_is_persisted\n1 failed in 1.71s\n"
+        }
+      ]
+    },
+    {
+      "name": "事务吞掉失败的语句",
+      "clause": "16",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "tatement: IntegrityError: NOT NULL constraint failed: workflows.status | INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) VALUES ('wf-broken', 'demo', 1.0, NULL, 'online') | ()\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_a_failing_statement_rolls_the_whole_transaction_back\n1 failed in 0.40s\n"
+        }
+      ]
+    },
+    {
+      "name": "崩溃恢复漏掉参与者",
+      "clause": "10.1",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "ssertionError: a waiting participant must not stay SHARED_WAIT\nE       assert 'SHARED_WAIT' == 'FAILED'\nE         \nE         - FAILED\nE         + SHARED_WAIT\n\ntests\\unit\\test_database.py:500: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_the_recovery_brings_every_table_into_a_terminal_state\n1 failed in 0.43s\n"
+        }
+      ]
+    },
+    {
+      "name": "基线更新覆盖了其他场景",
+      "clause": "13.5",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": " AssertionError: the reference of the other scenarios has to survive the update\nE       assert 'divergent' in {'shared': {'online': {'makespan': 0.08}}}\n\ntests\\unit\\test_regression_guard.py:80: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_regression_guard.py::test_a_baseline_update_keeps_the_other_scenarios\n1 failed in 0.27s\n"
+        }
+      ]
+    },
+    {
+      "name": "缺基线时守卫判绿",
+      "clause": "13.5",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": " \"a missing reference must not be reported as a pass\"\nE       AssertionError: a missing reference must not be reported as a pass\nE       assert not True\n\ntests\\unit\\test_regression_guard.py:65: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_regression_guard.py::test_a_missing_reference_is_a_failure_not_a_pass\n1 failed in 0.27s\n"
+        }
+      ]
+    },
+    {
+      "name": "守卫自检不再还原变异",
+      "clause": "17.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "   ^\nE         + VALUE = 2\nE         ?         ^\n\ntests\\unit\\test_guard_selftest.py:76: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_guard_selftest.py::test_a_mutation_is_reverted_even_if_the_guard_fails\nFAILED tests/unit/test_guard_selftest.py::test_a_mutation_is_reverted_even_if_the_guard_passes\n2 failed, 5 passed in 0.56s\n"
+        }
+      ]
+    },
+    {
+      "name": "关闭时不再关闭数据库",
+      "clause": "17.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "\ntimeout = 5.0\n\n    def stuck(timeout: float = 5.0) -> None:\n>       raise TimeoutError(\"the writer thread is stuck\")\nE       TimeoutError: the writer thread is stuck\n\ntests\\unit\\test_database.py:549: TimeoutError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_a_stuck_writer_does_not_keep_the_database_open\n1 failed in 0.47s\n"
+        }
+      ]
+    },
+    {
+      "name": "共享状态不再原子落库",
+      "clause": "8.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "ror\n------------------------------ Captured log call ------------------------------\nERROR    agentfuse.storage:database.py:901 could not commit transaction: transaction failed: IntegrityError: FOREIGN KEY constraint failed\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_the_share_state_is_written_atomically\n1 failed in 0.23s\n"
+        }
+      ]
+    },
+    {
+      "name": "文本检查被算成行为检查",
+      "clause": "17.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "ly reads the source - it is not a behaviour\nE           assert 'behavioural' == 'structural'\nE             \nE             - structural\nE             + behavioural\n\ntests\\unit\\test_audit_report.py:91: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_audit_report.py::test_a_text_match_is_not_counted_as_behaviour\n1 failed in 26.46s\n"
+        }
+      ]
+    },
+    {
+      "name": "审计不再报告检查的种类",
+      "clause": "17.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "E            +    where <built-in method get of dict object at 0x000001E2CCD3FA40> = {'section': '2.2', 'clause': '不调用任何外部模型 API', 'ok': True, 'detail': '[]'}.get\n\ntests\\unit\\test_audit_report.py:42: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_audit_report.py::test_the_report_names_the_kind_of_every_check\n1 failed in 26.74s\n"
+        }
+      ]
+    },
+    {
+      "name": "审计不再检查 CI 工作流",
+      "clause": "19",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §19 CI 工作流的内容",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "审计不再检查 CI 工作流的内容",
+      "clause": "19",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "checks, \"the audit has to check the content of the CI workflow\"\nE       AssertionError: the audit has to check the content of the CI workflow\nE       assert []\n\ntests\\unit\\test_audit_report.py:110: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_audit_report.py::test_the_ci_workflow_is_checked_for_its_content\n1 failed in 22.51s\n"
+        }
+      ]
+    },
+    {
+      "name": "前端不再显示等待原因",
+      "clause": "14",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "tests/frontend/dom_harness.mjs",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "作流详情显示 Agent 列表\n  [PASS] 工作流详情显示身份状态\n  [PASS] 工作流详情显示已确认依赖\n  [PASS] 依赖检查器显示真实的等待原因\n  [PASS] 页签 overview 存在\n  [PASS] 页签 overview 的面板被激活\n  [PASS] 页签 workflow 存在\n  [PASS] 页签 workflow 的面板被激活\n  [PASS] 页签 dependency 存在\n  [PASS] 页签 dependency 的面板被激活\n  [PASS] 页签 benchmark 存在\n  [PASS] 页签 benchmark 的面板被激活\n  [PASS] 页签 tools 存在\n  [PASS] 页签 tools 的面板被激活\n  [PASS] 状态徽标显示后端的真实状态\n  [PASS] 所有请求都命中了后端路由\n\n1 个前端检查未通过\n"
+        }
+      ]
+    },
+    {
+      "name": "前端不再显示加入被拒的计数",
+      "clause": "14",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "tests/frontend/dom_harness.mjs",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "作流详情显示 Agent 列表\n  [PASS] 工作流详情显示身份状态\n  [PASS] 工作流详情显示已确认依赖\n  [PASS] 依赖检查器显示真实的等待原因\n  [PASS] 页签 overview 存在\n  [PASS] 页签 overview 的面板被激活\n  [PASS] 页签 workflow 存在\n  [PASS] 页签 workflow 的面板被激活\n  [PASS] 页签 dependency 存在\n  [PASS] 页签 dependency 的面板被激活\n  [PASS] 页签 benchmark 存在\n  [PASS] 页签 benchmark 的面板被激活\n  [PASS] 页签 tools 存在\n  [PASS] 页签 tools 的面板被激活\n  [PASS] 状态徽标显示后端的真实状态\n  [PASS] 所有请求都命中了后端路由\n\n1 个前端检查未通过\n"
+        }
+      ]
+    },
+    {
+      "name": "前端录制的响应与接口不一致",
+      "clause": "14",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "ng'] - run python scripts/capture_frontend_payloads.py\nE           assert not ['workflow.metrics.retried_participants is missing in the recording']\n\ntests\\frontend\\test_frontend.py:148: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/frontend/test_frontend.py::test_the_recorded_payloads_have_the_shape_of_the_current_api\n1 failed in 2.37s\n"
+        }
+      ]
+    },
+    {
+      "name": "deferred 模式不再校验快照完整性",
+      "clause": "8.7",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "ED\nE       assert 'COMPLETED' == 'DETACHED'\nE         \nE         - DETACHED\nE         + COMPLETED\n\ntests\\integration\\test_resources_and_integrity.py:259: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_resources_and_integrity.py::test_a_snapshot_tampered_after_the_join_is_not_shared_in_the_deferred_mode\n1 failed in 3.85s\n"
+        }
+      ]
+    },
+    {
+      "name": "绕过检测不再覆盖目录列举",
+      "clause": "21.3",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "sting must be reported as a bypass\"\nE       AssertionError: the directory listing must be reported as a bypass\nE       assert []\n\ntests\\integration\\test_dependency_tracking.py:169: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_dependency_tracking.py::test_a_tool_that_only_lists_directories_is_detected\n1 failed in 1.30s\n"
+        }
+      ]
+    },
+    {
+      "name": "API 读路径不再让出事件循环",
+      "clause": "16.5",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "rker thread\"\n        )\nE       AssertionError: the event loop was blocked while the API answered - the database reads have to run in a worker thread\nE       assert 0 > 0\n\ntests\\integration\\test_api.py:179: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_api.py::test_the_api_does_not_block_the_event_loop\n1 failed in 2.02s\n"
+        }
+      ]
+    },
+    {
+      "name": "API 不再拒绝非回环监听",
+      "clause": "2.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "from dataclasses import replace\n    \n        public = replace(settings, api_host=\"0.0.0.0\")\n>       with pytest.raises(PermissionError):\nE       Failed: DID NOT RAISE PermissionError\n\ntests\\integration\\test_api.py:195: Failed\n=========================== short test summary info ===========================\nFAILED tests/integration/test_api.py::test_the_api_refuses_a_public_address\n1 failed in 1.49s\n"
+        }
+      ]
+    },
+    {
+      "name": "取消的调用不再终止自己的 worker",
+      "clause": "10.4",
+      "ok": false,
+      "detail": "变异点不存在于 agentfuse/runtime/coordinator.py（代码已经变了？）",
+      "guards": []
+    },
+    {
+      "name": "审计不再运行 CLI 命令",
+      "clause": "15",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "S] 共享组的状态机完整  (['CLOSED', 'COMPLETED', 'CREATED', 'EXECUTING', 'FAILED', 'VALIDATING'])\n  [PASS] 非法的状态转换被拒绝\n\n=== §9.1 ===\n  [PASS] 资源控制器的默认值  (workers=2 timeout=60 budget=1024 strategy=fifo)\n\n=== §10.5 ===\n  [PASS] 被打断的运行标记为 INTERRUPTED  (status=INTERRUPTED recovered=['wf-interrupted'])\n\n=== §19 ===\n  [FAIL] 声明覆盖的小节都有检查  (没有检查的小节: ['15'])\n\n总计 318 项，未通过 2 项\n行为检查 110 条（真实运行了运行时） / 文本检查 208 条（只读取源码）\n"
+        }
+      ]
+    },
+    {
+      "name": "共享状态不再原子落库",
+      "clause": "16",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/acceptance_check.py",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": " Dashboard 读取真实后端状态\n[PASS] Dashboard 返回真实字段\n[PASS] Dashboard 的调用计数与数据库一致\n[PASS] 工具注册表带依赖声明\n[PASS] 工具注册表可查询\n[PASS] 工作流详情显示已确认依赖与等待原因\n[PASS] 资源端点返回真实快照\n[PASS] 基准场景端点返回场景清单\n[PASS] 工作流指标端点返回真实指标\n[PASS] 执行图端点返回节点与边\n[PASS] 需求条款审计全部通过\n[PASS] 基准场景目录可导入且与运行时一致\n[PASS] 无外部模型 API 依赖\n[PASS] 前端不加载 CDN 资源\n\n43/44 项通过\n报告: C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\guard-current\\.agentfuse\\reports\\acceptance.json\n"
+        }
+      ]
+    },
+    {
+      "name": "公平性不再比较数据",
+      "clause": "13.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "          \"a different request has to be reported\"\n        )\nE       AssertionError: a different request has to be reported\nE       assert True is False\n\ntests\\unit\\test_audit_fairness.py:47: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_audit_fairness.py::test_the_fairness_comparison_reports_the_differences\n1 failed in 0.24s\n"
+        }
+      ]
+    },
+    {
+      "name": "事件不再有稳定的序号",
+      "clause": "5.1",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §5.1 Workflow 内稳定序号",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "受控读取不再拒绝越界路径",
+      "clause": "7.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §7.2 受控读取拒绝越界路径",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    },
+    {
+      "name": "结果缓存不再按配置开启",
+      "clause": "10.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/acceptance_check.py",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": " Dashboard 读取真实后端状态\n[PASS] Dashboard 返回真实字段\n[PASS] Dashboard 的调用计数与数据库一致\n[PASS] 工具注册表带依赖声明\n[PASS] 工具注册表可查询\n[PASS] 工作流详情显示已确认依赖与等待原因\n[PASS] 资源端点返回真实快照\n[PASS] 基准场景端点返回场景清单\n[PASS] 工作流指标端点返回真实指标\n[PASS] 执行图端点返回节点与边\n[PASS] 需求条款审计全部通过\n[PASS] 基准场景目录可导入且与运行时一致\n[PASS] 无外部模型 API 依赖\n[PASS] 前端不加载 CDN 资源\n\n43/44 项通过\n报告: C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\guard-current\\.agentfuse\\reports\\acceptance.json\n"
+        }
+      ]
+    },
+    {
+      "name": "被拒候选者仍算作组员",
+      "clause": "8.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "         assert 'call-167a140466694a62b452b48e563f4fa5' not in {'call-167a140466694a62b452b48e563f4fa5', 'call-b928b0b1a4e1415e9b312d8b257c1c64'}\n\ntests\\integration\\test_divergent.py:346: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_divergent.py::test_a_rejected_candidate_is_not_a_member_of_the_group\n1 failed in 2.11s\n"
+        }
+      ]
+    },
+    {
+      "name": "离组的参与者不再是终态",
+      "clause": "8.2",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "-m pytest",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the guard failed as expected",
+          "output": "t be counted as a separation\"\n        )\nE       AssertionError: a retried participant must not be counted as a separation\nE       assert 2 == 0\n\ntests\\integration\\test_concurrency.py:754: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_retried_participant_is_not_recorded_as_failed\n1 failed in 1.96s\n"
+        }
+      ]
+    },
+    {
+      "name": "README 的演示数字不再与实测一致",
+      "clause": "22",
+      "ok": true,
+      "detail": "所有守卫都发现了变异",
+      "guards": [
+        {
+          "guard": "scripts/audit_requirements.py --json",
+          "exit_code": 1,
+          "caught": true,
+          "reason": "the audit reported the expected failure: §22 README 的 物理执行数 与实测一致",
+          "output": "dget=1024 strategy=fifo\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"10.5\",\n      \"clause\": \"被打断的运行标记为 INTERRUPTED\",\n      \"ok\": true,\n      \"detail\": \"status=INTERRUPTED recovered=['wf-interrupted']\",\n      \"kind\": \"behavioural\"\n    },\n    {\n      \"section\": \"19\",\n      \"clause\": \"声明覆盖的小节都有检查\",\n      \"ok\": true,\n      \"detail\": \"49 个小节均有检查\",\n      \"kind\": \"structural\"\n    }\n  ]\n}\n"
+        }
+      ]
+    }
+  ]
+}

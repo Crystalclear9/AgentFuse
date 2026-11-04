@@ -43,7 +43,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": " guard without a named expectation must not count\"\nE       AssertionError: a guard without a named expectation must not count\nE       assert not True\n\ntests\\unit\\test_guard_selftest.py:142: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_guard_selftest.py::test_a_guard_without_a_named_expectation_is_not_proven\n1 failed in 0.35s\n"
+          "output": " guard without a named expectation must not count\"\nE       AssertionError: a guard without a named expectation must not count\nE       assert not True\n\ntests\\unit\\test_guard_selftest.py:142: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_guard_selftest.py::test_a_guard_without_a_named_expectation_is_not_proven\n1 failed in 0.40s\n"
         }
       ]
     },
@@ -73,7 +73,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "s\\\\python.exe', 'scripts/soak.py', '-...n\\n  长跑观测未通过：\\n    - worker 数增长 0 (>阈值 -100000)：残留了无效进程\\n    - worker RSS 增长 0.0 MiB (>阈值 -100000.0 MiB)\\n', stderr='').returncode\n\ntests\\unit\\test_soak_gate.py:44: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_soak_gate.py::test_the_soak_gate_reports_a_problem - A...\n1 failed in 44.77s\n"
+          "output": "s\\\\python.exe', 'scripts/soak.py', '-...n\\n  长跑观测未通过：\\n    - worker 数增长 0 (>阈值 -100000)：残留了无效进程\\n    - worker RSS 增长 0.0 MiB (>阈值 -100000.0 MiB)\\n', stderr='').returncode\n\ntests\\unit\\test_soak_gate.py:44: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_soak_gate.py::test_the_soak_gate_reports_a_problem - A...\n1 failed in 44.29s\n"
         }
       ]
     },
@@ -133,7 +133,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "\"fault_injector\",\nE                       arguments={\"mode\": \"exit\", \"exit_code\": 7},...\nE         \nE         ...Full output truncated, use '-vv' to show\n\ntests\\integration\\test_demo_protocol.py:39: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_demo_protocol.py::test_the_demo_has_no_own_execution_path\n1 failed in 0.18s\n"
+          "output": "\"fault_injector\",\nE                       arguments={\"mode\": \"exit\", \"exit_code\": 7},...\nE         \nE         ...Full output truncated, use '-vv' to show\n\ntests\\integration\\test_demo_protocol.py:39: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_demo_protocol.py::test_the_demo_has_no_own_execution_path\n1 failed in 0.24s\n"
         }
       ]
     },
@@ -148,7 +148,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "ions without a proof: {'16.8': ['test_a_test_that_does_not_exist']}\nE       assert not {'16.8': ['test_a_test_that_does_not_exist']}\n\ntests\\unit\\test_requirement_traceability.py:93: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_requirement_traceability.py::test_every_subsection_of_the_requirement_has_a_proof\n1 failed in 0.27s\n"
+          "output": "ions without a proof: {'16.8': ['test_a_test_that_does_not_exist']}\nE       assert not {'16.8': ['test_a_test_that_does_not_exist']}\n\ntests\\unit\\test_requirement_traceability.py:93: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_requirement_traceability.py::test_every_subsection_of_the_requirement_has_a_proof\n1 failed in 0.31s\n"
         }
       ]
     },
@@ -163,14 +163,14 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "ool_version': ...id': 'exec-904acffbba04', 'workflow_id': 'wf-5e62564afc90', 'tool_name': 'ast_analyzer', 'tool_version': '1.0.0', ...}])\n\ntests\\integration\\test_dependency_tracking.py:200: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_dependency_tracking.py::test_a_controlled_tool_is_shared\n1 failed, 7 passed in 4.40s\n"
+          "output": "2855d6', 'tool...870', 'workflow_id': 'wf-715b2538825c4fc2bc09db81e42855d6', 'tool_name': 'ast_analyzer', 'tool_version': '1.0.0', ...}])\n\ntests\\integration\\test_dependency_tracking.py:200: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_dependency_tracking.py::test_a_controlled_tool_is_shared\n1 failed, 7 passed in 4.69s\n"
         },
         {
           "guard": "-m pytest",
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "t_shared_execution.py::test_two_scripted_agents_produce_a_real_execution_graph\nFAILED tests/integration/test_shared_execution.py::test_the_share_group_records_its_participants\nFAILED tests/integration/test_shared_execution.py::test_a_finished_share_group_is_closed\nFAILED tests/integration/test_shared_execution.py::test_a_shared_execution_does_not_merge_two_invocations\n6 failed, 8 passed in 12.79s\n"
+          "output": "t_shared_execution.py::test_two_scripted_agents_produce_a_real_execution_graph\nFAILED tests/integration/test_shared_execution.py::test_the_share_group_records_its_participants\nFAILED tests/integration/test_shared_execution.py::test_a_finished_share_group_is_closed\nFAILED tests/integration/test_shared_execution.py::test_a_shared_execution_does_not_merge_two_invocations\n6 failed, 8 passed in 10.99s\n"
         }
       ]
     },
@@ -215,7 +215,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "                   raise exceptions.TimeoutError() from exc\nE                   TimeoutError\n\n..\\..\\.tools\\python\\cpython-3.11-windows-x86_64-none\\Lib\\asyncio\\tasks.py:502: TimeoutError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_divergent.py::test_the_detection_happens_while_the_leader_is_still_running\n1 failed in 60.73s (0:01:00)\n"
+          "output": "                   raise exceptions.TimeoutError() from exc\nE                   TimeoutError\n\n..\\..\\.tools\\python\\cpython-3.11-windows-x86_64-none\\Lib\\asyncio\\tasks.py:502: TimeoutError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_divergent.py::test_the_detection_happens_while_the_leader_is_still_running\n1 failed in 60.71s (0:01:00)\n"
         }
       ]
     },
@@ -230,7 +230,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "where False = all(<generator object test_cancelling_every_participant_terminates_the_execution.<locals>.<genexpr> at 0x0000022503258860>)\n\ntests\\integration\\test_concurrency.py:219: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_cancelling_every_participant_terminates_the_execution\n1 failed in 0.61s\n"
+          "output": "where False = all(<generator object test_cancelling_every_participant_terminates_the_execution.<locals>.<genexpr> at 0x000001CA3180D560>)\n\ntests\\integration\\test_concurrency.py:219: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_cancelling_every_participant_terminates_the_execution\n1 failed in 2.75s\n"
         }
       ]
     },
@@ -245,7 +245,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "\\playwright\\\\driver\\\\nod...70454/Desktop/AgentFuse/.agentfuse/guard-heavy-audit-final/tests/frontend/dom_harness.mjs:378:1\\n\\nNode.js v24.22.1\\n').returncode\n\ntests\\frontend\\test_frontend.py:166: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/frontend/test_frontend.py::test_the_dashboard_renders_the_real_data\n1 failed, 3 passed in 2.07s\n"
+          "output": "\\playwright\\\\driver\\\\nod.../Users/70454/Desktop/AgentFuse/.agentfuse/guard-parallel-0/tests/frontend/dom_harness.mjs:378:1\\n\\nNode.js v24.22.1\\n').returncode\n\ntests\\frontend\\test_frontend.py:166: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/frontend/test_frontend.py::test_the_dashboard_renders_the_real_data\n1 failed, 3 passed in 2.18s\n"
         }
       ]
     },
@@ -275,7 +275,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "  \nE         - 2baeed053e481c2b1ab89eb59bb0561a01b8132c62591484612074e5580da82b\nE         + 1def4158f9bd7236677f421cb914f3385891dc69e5bce52456cd56203cce497e\n\ntests\\unit\\test_candidate.py:75: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_candidate.py::test_candidate_key_does_not_contain_the_snapshot\n1 failed, 6 passed in 0.26s\n"
+          "output": "  \nE         - 2baeed053e481c2b1ab89eb59bb0561a01b8132c62591484612074e5580da82b\nE         + 1def4158f9bd7236677f421cb914f3385891dc69e5bce52456cd56203cce497e\n\ntests\\unit\\test_candidate.py:75: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_candidate.py::test_candidate_key_does_not_contain_the_snapshot\n1 failed, 6 passed in 0.36s\n"
         }
       ]
     },
@@ -290,7 +290,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "he same call must draw the same numbers\"\nE       AssertionError: the same call must draw the same numbers\nE       assert 0.10178778824701695 == 0.5815285712284258\n\ntests\\unit\\test_tools.py:248: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_tools.py::test_the_random_source_of_a_call_is_reproducible\n1 failed, 20 passed in 4.25s\n"
+          "output": "the same call must draw the same numbers\"\nE       AssertionError: the same call must draw the same numbers\nE       assert 0.5654542284823406 == 0.2204521599396949\n\ntests\\unit\\test_tools.py:248: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_tools.py::test_the_random_source_of_a_call_is_reproducible\n1 failed, 20 passed in 4.43s\n"
         }
       ]
     },
@@ -305,7 +305,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "600> = {'call-7662359808ee': ['exec-7a70f1c7b7ad', 'exec-d7907824f77a'], 'call-c799c4b3fcd9': ['exec-9cc9c6cce4d0', 'exec-cd7ec8a78a68']}.get\n\ntests\\integration\\test_concurrency.py:587: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_detached_follower_never_gets_a_second_execution\n1 failed in 6.84s\n"
+          "output": "7dd91ec98c76ad4...-f618ea5a0c4248d0a37a1b7702464c1f': ['exec-911734fa2b844255b0910bb66fb0e14e', 'exec-94b91367e24a48caab6733a958157b83']}.get\n\ntests\\integration\\test_concurrency.py:587: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_detached_follower_never_gets_a_second_execution\n1 failed in 6.43s\n"
         }
       ]
     },
@@ -320,7 +320,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "_INDEPENDENTLY\nE           assert 'RUNNING_INDEPENDENTLY' == 'FAILED'\nE             \nE             - FAILED\nE             + RUNNING_INDEPENDENTLY\n\ntests\\integration\\test_concurrency.py:399: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_the_participants_of_a_failed_group_are_failed\n1 failed in 0.86s\n"
+          "output": "_INDEPENDENTLY\nE           assert 'RUNNING_INDEPENDENTLY' == 'FAILED'\nE             \nE             - FAILED\nE             + RUNNING_INDEPENDENTLY\n\ntests\\integration\\test_concurrency.py:399: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_the_participants_of_a_failed_group_are_failed\n1 failed in 1.15s\n"
         }
       ]
     },
@@ -335,7 +335,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "worker crash: worker_crash\nE       assert 'worker_crash' == 'internal_error'\nE         \nE         - internal_error\nE         + worker_crash\n\ntests\\integration\\test_concurrency.py:647: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_runtime_failure_is_not_reported_as_a_worker_crash\n1 failed in 1.08s\n"
+          "output": "worker crash: worker_crash\nE       assert 'worker_crash' == 'internal_error'\nE         \nE         - internal_error\nE         + worker_crash\n\ntests\\integration\\test_concurrency.py:647: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_runtime_failure_is_not_reported_as_a_worker_crash\n1 failed in 1.22s\n"
         }
       ]
     },
@@ -350,7 +350,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "ror: a finished share group must be closed, not COMPLETED\nE       assert 'COMPLETED' == 'CLOSED'\nE         \nE         - CLOSED\nE         + COMPLETED\n\ntests\\integration\\test_shared_execution.py:420: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_shared_execution.py::test_a_finished_share_group_is_closed\n1 failed in 0.83s\n"
+          "output": "ror: a finished share group must be closed, not COMPLETED\nE       assert 'COMPLETED' == 'CLOSED'\nE         \nE         - CLOSED\nE         + COMPLETED\n\ntests\\integration\\test_shared_execution.py:420: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_shared_execution.py::test_a_finished_share_group_is_closed\n1 failed in 0.72s\n"
         }
       ]
     },
@@ -365,7 +365,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "] == \"UNDETERMINED\"\nE       AssertionError: assert 'CONFIRMED' == 'UNDETERMINED'\nE         \nE         - UNDETERMINED\nE         + CONFIRMED\n\ntests\\integration\\test_shared_execution.py:383: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_shared_execution.py::test_an_undetermined_agent_identity_is_recorded\n1 failed in 0.61s\n"
+          "output": "] == \"UNDETERMINED\"\nE       AssertionError: assert 'CONFIRMED' == 'UNDETERMINED'\nE         \nE         - UNDETERMINED\nE         + CONFIRMED\n\ntests\\integration\\test_shared_execution.py:383: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_shared_execution.py::test_an_undetermined_agent_identity_is_recorded\n1 failed in 0.99s\n"
         }
       ]
     },
@@ -395,7 +395,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "assert not ('FAILED' == 'FAILED'\nE             \nE               FAILED and 'COMPLETED' == 'COMPLETED'\nE             \nE               COMPLETED)\n\ntests\\integration\\test_concurrency.py:716: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_retried_participant_is_not_recorded_as_failed\n1 failed in 1.68s\n"
+          "output": "assert not ('FAILED' == 'FAILED'\nE             \nE               FAILED and 'COMPLETED' == 'COMPLETED'\nE             \nE               COMPLETED)\n\ntests\\integration\\test_concurrency.py:716: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_retried_participant_is_not_recorded_as_failed\n1 failed in 1.48s\n"
         }
       ]
     },
@@ -410,7 +410,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "ted: {calls[0]['error_kind']}\"\n        )\nE       AssertionError: the kind has to be persisted: None\nE       assert None == 'internal_error'\n\ntests\\integration\\test_concurrency.py:657: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_runtime_failure_is_not_reported_as_a_worker_crash\n1 failed in 0.70s\n"
+          "output": "ted: {calls[0]['error_kind']}\"\n        )\nE       AssertionError: the kind has to be persisted: None\nE       assert None == 'internal_error'\n\ntests\\integration\\test_concurrency.py:657: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_runtime_failure_is_not_reported_as_a_worker_crash\n1 failed in 2.48s\n"
         }
       ]
     },
@@ -425,7 +425,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "     )\nE           AssertionError: the follower must not be rejected at join time - the separation has to happen through the online validation\nE           assert 1 == 0\n\ntests\\integration\\test_divergent.py:556: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_divergent.py::test_the_separation_is_reliable\n1 failed in 4.96s\n"
+          "output": "     )\nE           AssertionError: the follower must not be rejected at join time - the separation has to happen through the online validation\nE           assert 1 == 0\n\ntests\\integration\\test_divergent.py:556: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_divergent.py::test_the_separation_is_reliable\n1 failed in 4.46s\n"
         }
       ]
     },
@@ -440,7 +440,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "HARED_HEAVY_ROUNDS\n    \n        divergent = describe(\"divergent\")\n>       assert divergent[\"workload\"][\"rounds\"] == DIVERGENT_ROUNDS\nE       assert 1500 == 40000\n\ntests\\integration\\test_scenarios.py:122: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_scenarios.py::test_the_catalogue_matches_the_runtime\n1 failed in 0.28s\n"
+          "output": "HARED_HEAVY_ROUNDS\n    \n        divergent = describe(\"divergent\")\n>       assert divergent[\"workload\"][\"rounds\"] == DIVERGENT_ROUNDS\nE       assert 1500 == 40000\n\ntests\\integration\\test_scenarios.py:122: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_scenarios.py::test_the_catalogue_matches_the_runtime\n1 failed in 0.18s\n"
         }
       ]
     },
@@ -455,7 +455,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "rt timeout_calls[0][\"error_kind\"] == \"timeout\"\n>       assert timeout_executions[0][\"error_kind\"] == \"timeout\"\nE       AssertionError: assert None == 'timeout'\n\ntests\\integration\\test_concurrency.py:978: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_every_failure_kind_is_persisted\n1 failed in 1.53s\n"
+          "output": "rt timeout_calls[0][\"error_kind\"] == \"timeout\"\n>       assert timeout_executions[0][\"error_kind\"] == \"timeout\"\nE       AssertionError: assert None == 'timeout'\n\ntests\\integration\\test_concurrency.py:978: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_every_failure_kind_is_persisted\n1 failed in 2.43s\n"
         }
       ]
     },
@@ -470,7 +470,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "tatement: IntegrityError: NOT NULL constraint failed: workflows.status | INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) VALUES ('wf-broken', 'demo', 1.0, NULL, 'online') | ()\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_a_failing_statement_rolls_the_whole_transaction_back\n1 failed in 0.34s\n"
+          "output": "tatement: IntegrityError: NOT NULL constraint failed: workflows.status | INSERT INTO workflows (workflow_id, scenario, start_time, status, runtime_mode) VALUES ('wf-broken', 'demo', 1.0, NULL, 'online') | ()\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_a_failing_statement_rolls_the_whole_transaction_back\n1 failed in 0.24s\n"
         }
       ]
     },
@@ -485,7 +485,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "ssertionError: a waiting participant must not stay SHARED_WAIT\nE       assert 'SHARED_WAIT' == 'FAILED'\nE         \nE         - FAILED\nE         + SHARED_WAIT\n\ntests\\unit\\test_database.py:500: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_the_recovery_brings_every_table_into_a_terminal_state\n1 failed in 0.31s\n"
+          "output": "ssertionError: a waiting participant must not stay SHARED_WAIT\nE       assert 'SHARED_WAIT' == 'FAILED'\nE         \nE         - FAILED\nE         + SHARED_WAIT\n\ntests\\unit\\test_database.py:500: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_the_recovery_brings_every_table_into_a_terminal_state\n1 failed in 0.29s\n"
         }
       ]
     },
@@ -500,7 +500,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": " AssertionError: the reference of the other scenarios has to survive the update\nE       assert 'divergent' in {'shared': {'online': {'makespan': 0.08}}}\n\ntests\\unit\\test_regression_guard.py:80: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_regression_guard.py::test_a_baseline_update_keeps_the_other_scenarios\n1 failed in 0.29s\n"
+          "output": " AssertionError: the reference of the other scenarios has to survive the update\nE       assert 'divergent' in {'shared': {'online': {'makespan': 0.08}}}\n\ntests\\unit\\test_regression_guard.py:80: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_regression_guard.py::test_a_baseline_update_keeps_the_other_scenarios\n1 failed in 0.24s\n"
         }
       ]
     },
@@ -515,7 +515,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": " \"a missing reference must not be reported as a pass\"\nE       AssertionError: a missing reference must not be reported as a pass\nE       assert not True\n\ntests\\unit\\test_regression_guard.py:65: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_regression_guard.py::test_a_missing_reference_is_a_failure_not_a_pass\n1 failed in 0.23s\n"
+          "output": " \"a missing reference must not be reported as a pass\"\nE       AssertionError: a missing reference must not be reported as a pass\nE       assert not True\n\ntests\\unit\\test_regression_guard.py:65: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_regression_guard.py::test_a_missing_reference_is_a_failure_not_a_pass\n1 failed in 0.20s\n"
         }
       ]
     },
@@ -530,7 +530,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "   ^\nE         + VALUE = 2\nE         ?         ^\n\ntests\\unit\\test_guard_selftest.py:76: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_guard_selftest.py::test_a_mutation_is_reverted_even_if_the_guard_fails\nFAILED tests/unit/test_guard_selftest.py::test_a_mutation_is_reverted_even_if_the_guard_passes\n2 failed, 5 passed in 0.50s\n"
+          "output": "   ^\nE         + VALUE = 2\nE         ?         ^\n\ntests\\unit\\test_guard_selftest.py:76: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_guard_selftest.py::test_a_mutation_is_reverted_even_if_the_guard_fails\nFAILED tests/unit/test_guard_selftest.py::test_a_mutation_is_reverted_even_if_the_guard_passes\n2 failed, 5 passed in 0.45s\n"
         }
       ]
     },
@@ -545,7 +545,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "\ntimeout = 5.0\n\n    def stuck(timeout: float = 5.0) -> None:\n>       raise TimeoutError(\"the writer thread is stuck\")\nE       TimeoutError: the writer thread is stuck\n\ntests\\unit\\test_database.py:549: TimeoutError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_a_stuck_writer_does_not_keep_the_database_open\n1 failed in 0.52s\n"
+          "output": "\ntimeout = 5.0\n\n    def stuck(timeout: float = 5.0) -> None:\n>       raise TimeoutError(\"the writer thread is stuck\")\nE       TimeoutError: the writer thread is stuck\n\ntests\\unit\\test_database.py:549: TimeoutError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_a_stuck_writer_does_not_keep_the_database_open\n1 failed in 0.49s\n"
         }
       ]
     },
@@ -560,7 +560,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "ror\n------------------------------ Captured log call ------------------------------\nERROR    agentfuse.storage:database.py:901 could not commit transaction: transaction failed: IntegrityError: FOREIGN KEY constraint failed\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_the_share_state_is_written_atomically\n1 failed in 0.26s\n"
+          "output": "ror\n------------------------------ Captured log call ------------------------------\nERROR    agentfuse.storage:database.py:901 could not commit transaction: transaction failed: IntegrityError: FOREIGN KEY constraint failed\n=========================== short test summary info ===========================\nFAILED tests/unit/test_database.py::test_the_share_state_is_written_atomically\n1 failed in 0.20s\n"
         }
       ]
     },
@@ -575,7 +575,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "ly reads the source - it is not a behaviour\nE           assert 'behavioural' == 'structural'\nE             \nE             - structural\nE             + behavioural\n\ntests\\unit\\test_audit_report.py:91: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_audit_report.py::test_a_text_match_is_not_counted_as_behaviour\n1 failed in 20.12s\n"
+          "output": "ly reads the source - it is not a behaviour\nE           assert 'behavioural' == 'structural'\nE             \nE             - structural\nE             + behavioural\n\ntests\\unit\\test_audit_report.py:91: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_audit_report.py::test_a_text_match_is_not_counted_as_behaviour\n1 failed in 17.76s\n"
         }
       ]
     },
@@ -590,7 +590,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "E            +    where <built-in method get of dict object at 0x00000247FBBBA980> = {'section': '2.2', 'clause': '不调用任何外部模型 API', 'ok': True, 'detail': '[]'}.get\n\ntests\\unit\\test_audit_report.py:42: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_audit_report.py::test_the_report_names_the_kind_of_every_check\n1 failed in 19.21s\n"
+          "output": "E            +    where <built-in method get of dict object at 0x00000212B43B25C0> = {'section': '2.2', 'clause': '不调用任何外部模型 API', 'ok': True, 'detail': '[]'}.get\n\ntests\\unit\\test_audit_report.py:42: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_audit_report.py::test_the_report_names_the_kind_of_every_check\n1 failed in 20.88s\n"
         }
       ]
     },
@@ -620,7 +620,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "checks, \"the audit has to check the content of the CI workflow\"\nE       AssertionError: the audit has to check the content of the CI workflow\nE       assert []\n\ntests\\unit\\test_audit_report.py:110: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_audit_report.py::test_the_ci_workflow_is_checked_for_its_content\n1 failed in 23.96s\n"
+          "output": "checks, \"the audit has to check the content of the CI workflow\"\nE       AssertionError: the audit has to check the content of the CI workflow\nE       assert []\n\ntests\\unit\\test_audit_report.py:110: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/unit/test_audit_report.py::test_the_ci_workflow_is_checked_for_its_content\n1 failed in 19.34s\n"
         }
       ]
     },
@@ -665,7 +665,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "ng'] - run python scripts/capture_frontend_payloads.py\nE           assert not ['workflow.metrics.retried_participants is missing in the recording']\n\ntests\\frontend\\test_frontend.py:148: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/frontend/test_frontend.py::test_the_recorded_payloads_have_the_shape_of_the_current_api\n1 failed in 2.31s\n"
+          "output": "ng'] - run python scripts/capture_frontend_payloads.py\nE           assert not ['workflow.metrics.retried_participants is missing in the recording']\n\ntests\\frontend\\test_frontend.py:148: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/frontend/test_frontend.py::test_the_recorded_payloads_have_the_shape_of_the_current_api\n1 failed in 1.68s\n"
         }
       ]
     },
@@ -680,7 +680,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "ED\nE       assert 'COMPLETED' == 'DETACHED'\nE         \nE         - DETACHED\nE         + COMPLETED\n\ntests\\integration\\test_resources_and_integrity.py:259: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_resources_and_integrity.py::test_a_snapshot_tampered_after_the_join_is_not_shared_in_the_deferred_mode\n1 failed in 2.04s\n"
+          "output": "ED\nE       assert 'COMPLETED' == 'DETACHED'\nE         \nE         - DETACHED\nE         + COMPLETED\n\ntests\\integration\\test_resources_and_integrity.py:259: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_resources_and_integrity.py::test_a_snapshot_tampered_after_the_join_is_not_shared_in_the_deferred_mode\n1 failed in 1.95s\n"
         }
       ]
     },
@@ -695,7 +695,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "sting must be reported as a bypass\"\nE       AssertionError: the directory listing must be reported as a bypass\nE       assert []\n\ntests\\integration\\test_dependency_tracking.py:169: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_dependency_tracking.py::test_a_tool_that_only_lists_directories_is_detected\n1 failed in 1.00s\n"
+          "output": "sting must be reported as a bypass\"\nE       AssertionError: the directory listing must be reported as a bypass\nE       assert []\n\ntests\\integration\\test_dependency_tracking.py:169: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_dependency_tracking.py::test_a_tool_that_only_lists_directories_is_detected\n1 failed in 0.92s\n"
         }
       ]
     },
@@ -710,7 +710,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "rker thread\"\n        )\nE       AssertionError: the event loop was blocked while the API answered - the database reads have to run in a worker thread\nE       assert 0 > 0\n\ntests\\integration\\test_api.py:179: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_api.py::test_the_api_does_not_block_the_event_loop\n1 failed in 2.14s\n"
+          "output": "rker thread\"\n        )\nE       AssertionError: the event loop was blocked while the API answered - the database reads have to run in a worker thread\nE       assert 0 > 0\n\ntests\\integration\\test_api.py:179: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_api.py::test_the_api_does_not_block_the_event_loop\n1 failed in 1.46s\n"
         }
       ]
     },
@@ -725,7 +725,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "from dataclasses import replace\n    \n        public = replace(settings, api_host=\"0.0.0.0\")\n>       with pytest.raises(PermissionError):\nE       Failed: DID NOT RAISE PermissionError\n\ntests\\integration\\test_api.py:195: Failed\n=========================== short test summary info ===========================\nFAILED tests/integration/test_api.py::test_the_api_refuses_a_public_address\n1 failed in 1.27s\n"
+          "output": "from dataclasses import replace\n    \n        public = replace(settings, api_host=\"0.0.0.0\")\n>       with pytest.raises(PermissionError):\nE       Failed: DID NOT RAISE PermissionError\n\ntests\\integration\\test_api.py:195: Failed\n=========================== short test summary info ===========================\nFAILED tests/integration/test_api.py::test_the_api_refuses_a_public_address\n1 failed in 0.99s\n"
         }
       ]
     },
@@ -740,7 +740,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "ot stay in the running state\"\nE       AssertionError: the execution of a cancelled call must not stay in the running state\nE       assert False\n\ntests\\integration\\test_concurrency.py:1087: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_cancelled_independent_call_stops_its_worker\n1 failed in 30.88s\n"
+          "output": "ot stay in the running state\"\nE       AssertionError: the execution of a cancelled call must not stay in the running state\nE       assert False\n\ntests\\integration\\test_concurrency.py:1087: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_cancelled_independent_call_stops_its_worker\n1 failed in 30.80s\n"
         }
       ]
     },
@@ -770,7 +770,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": " 读取真实后端状态\n[PASS] Dashboard 返回真实字段\n[PASS] Dashboard 的调用计数与数据库一致\n[PASS] 工具注册表带依赖声明\n[PASS] 工具注册表可查询\n[PASS] 工作流详情显示已确认依赖与等待原因\n[PASS] 资源端点返回真实快照\n[PASS] 基准场景端点返回场景清单\n[PASS] 工作流指标端点返回真实指标\n[PASS] 执行图端点返回节点与边\n[PASS] 需求条款审计全部通过\n[PASS] 基准场景目录可导入且与运行时一致\n[PASS] 无外部模型 API 依赖\n[PASS] 前端不加载 CDN 资源\n\n43/44 项通过\n报告: C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\guard-heavy-audit-final\\.agentfuse\\reports\\acceptance.json\n"
+          "output": "shboard 读取真实后端状态\n[PASS] Dashboard 返回真实字段\n[PASS] Dashboard 的调用计数与数据库一致\n[PASS] 工具注册表带依赖声明\n[PASS] 工具注册表可查询\n[PASS] 工作流详情显示已确认依赖与等待原因\n[PASS] 资源端点返回真实快照\n[PASS] 基准场景端点返回场景清单\n[PASS] 工作流指标端点返回真实指标\n[PASS] 执行图端点返回节点与边\n[PASS] 需求条款审计全部通过\n[PASS] 基准场景目录可导入且与运行时一致\n[PASS] 无外部模型 API 依赖\n[PASS] 前端不加载 CDN 资源\n\n43/44 项通过\n报告: C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\guard-parallel-2\\.agentfuse\\reports\\acceptance.json\n"
         }
       ]
     },
@@ -830,7 +830,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": " 读取真实后端状态\n[PASS] Dashboard 返回真实字段\n[PASS] Dashboard 的调用计数与数据库一致\n[PASS] 工具注册表带依赖声明\n[PASS] 工具注册表可查询\n[PASS] 工作流详情显示已确认依赖与等待原因\n[PASS] 资源端点返回真实快照\n[PASS] 基准场景端点返回场景清单\n[PASS] 工作流指标端点返回真实指标\n[PASS] 执行图端点返回节点与边\n[PASS] 需求条款审计全部通过\n[PASS] 基准场景目录可导入且与运行时一致\n[PASS] 无外部模型 API 依赖\n[PASS] 前端不加载 CDN 资源\n\n43/44 项通过\n报告: C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\guard-heavy-audit-final\\.agentfuse\\reports\\acceptance.json\n"
+          "output": "shboard 读取真实后端状态\n[PASS] Dashboard 返回真实字段\n[PASS] Dashboard 的调用计数与数据库一致\n[PASS] 工具注册表带依赖声明\n[PASS] 工具注册表可查询\n[PASS] 工作流详情显示已确认依赖与等待原因\n[PASS] 资源端点返回真实快照\n[PASS] 基准场景端点返回场景清单\n[PASS] 工作流指标端点返回真实指标\n[PASS] 执行图端点返回节点与边\n[PASS] 需求条款审计全部通过\n[PASS] 基准场景目录可导入且与运行时一致\n[PASS] 无外部模型 API 依赖\n[PASS] 前端不加载 CDN 资源\n\n43/44 项通过\n报告: C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\guard-parallel-0\\.agentfuse\\reports\\acceptance.json\n"
         }
       ]
     },
@@ -845,7 +845,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": " not be counted as a member of the group that refused it\nE           assert 'call-3339c3c37e1f' not in {'call-3339c3c37e1f', 'call-5646ba611e50'}\n\ntests\\integration\\test_divergent.py:346: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_divergent.py::test_a_rejected_candidate_is_not_a_member_of_the_group\n1 failed in 2.19s\n"
+          "output": "         assert 'call-58b8416fcb2940c597468e2f27dc5a84' not in {'call-0cbd88e55d6c4590abf58940d4f7ba06', 'call-58b8416fcb2940c597468e2f27dc5a84'}\n\ntests\\integration\\test_divergent.py:346: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_divergent.py::test_a_rejected_candidate_is_not_a_member_of_the_group\n1 failed in 1.75s\n"
         }
       ]
     },
@@ -860,7 +860,7 @@
           "exit_code": 1,
           "caught": true,
           "reason": "the guard failed as expected",
-          "output": "t be counted as a separation\"\n        )\nE       AssertionError: a retried participant must not be counted as a separation\nE       assert 2 == 0\n\ntests\\integration\\test_concurrency.py:754: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_retried_participant_is_not_recorded_as_failed\n1 failed in 1.82s\n"
+          "output": "t be counted as a separation\"\n        )\nE       AssertionError: a retried participant must not be counted as a separation\nE       assert 2 == 0\n\ntests\\integration\\test_concurrency.py:754: AssertionError\n=========================== short test summary info ===========================\nFAILED tests/integration/test_concurrency.py::test_a_retried_participant_is_not_recorded_as_failed\n1 failed in 1.58s\n"
         }
       ]
     },

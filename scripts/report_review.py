@@ -30,7 +30,7 @@ def source_digest():
         files.extend(path for path in (ROOT / directory).rglob("*")
                      if path.suffix in (".py", ".js", ".mjs", ".html", ".css", ".toml", ".ps1", ".sh", ".json", ".yml", ".yaml"))
     files.extend([ROOT / "pyproject.toml", ROOT / "requirements-dev.lock", ROOT / "README.md", ROOT / "LICENSE", ROOT / ".gitattributes"])
-    for path in sorted(files):
+    for path in sorted(files, key=lambda item: item.relative_to(ROOT).as_posix()):
         digest.update(path.relative_to(ROOT).as_posix().encode())
         digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
     return digest.hexdigest()
@@ -46,6 +46,8 @@ def main():
     py312, py312_cases = suite(reports / "py312-suite.xml")
     py313, py313_cases = suite(reports / "py313-suite.xml")
     cancellation_ack, _ = suite(reports / "cancellation-ack.xml")
+    cancellation_review, _ = suite(reports / "cancellation-review.xml")
+    guard_refresh, _ = suite(reports / "guard-rule-refresh.xml")
     close_capture, _ = suite(reports / "close-capture-final.xml")
     docker, _ = suite(reports / "docker-extensions.xml")
     resources, _ = suite(reports / "resource-final-recheck.xml")
@@ -114,6 +116,8 @@ def main():
     summary = dict(date="2026-11-04", windows=windows, wsl=wsl, docker=docker, matrix=matrix,
                    python312=py312, python313=py313, cancellation_ack=cancellation_ack,
                    close_capture=close_capture,
+                   cancellation_review=cancellation_review,
+                   guard_rule_refresh=guard_refresh,
                    resource_recheck=resources, external_framework_recheck=external,
                    review_regressions=review_regressions,
                    wsl_final_recheck=wsl_recheck,
@@ -154,6 +158,8 @@ def main():
 | WSL2 完整测试，项目内独立 Python/Node | {wsl['passed']} passed / {wsl['skipped']} skipped |
 | Windows Python 3.12 / 3.13 完整测试 | {py312['passed']} / {py313['passed']} passed，分别 {py312['skipped']} / {py313['skipped']} skipped |
 | 取消确认与延迟后台回收定向复检 | {cancellation_ack['passed']} passed；旧行为确定性失败证据另存 |
+| 调用协程取消、排队撤销、关闭和共享参与者回归 | {cancellation_review['passed']} passed |
+| 变异规则更新后的守卫、审计与取消复检 | {guard_refresh['passed']} passed |
 | 数据库跨线程关闭、并发录制与本轮回归 | {close_capture['passed']} passed |
 | Docker、TLS 与扩展独立验证 | {docker['passed']} passed / {docker['skipped']} skipped |
 | 资源释放与迟到 RSS 定向复检 | {resources['passed']} passed |
@@ -178,6 +184,8 @@ Docker Engine、WSL2 和操作系统属于系统前提，未伪称可通过复�
 完整映射见 [PLAN_REVIEW.md](PLAN_REVIEW.md)。测试通过不代表所有 P2 都完成，保留的范围见 KNOWN_LIMITATIONS.md。
 
 本轮解决取消/最终回收重复终止同一个进程、超时任务自取消、Windows 解释器启动器开销、API 文档 CDN 依赖和远程 RSS 未接入问题。
+再次复核补齐直接取消调用协程、排队撤销与关闭收尾；监控线程通过事件循环安全唤醒准入，实体 ID 保留完整 UUID。
+本次变异首轮 57/58，原因是取消路径扩展后旧定位字符串失效；更新规则后定向复检及全部 58 项重跑通过，失败原始证据保留。
 另外修复外部框架强杀导致 SQLite 未刷盘，以及已释放执行收到迟到 RSS 后重新占用预算的竞态；定向复检单独列出。
 空闲预热 Worker 不再扫描进程树；本地进程树 RSS 改为父子内存求和，真实父子进程验证通过。
 首轮变异自检 57/58，发现报告中的无效测试引用未被审计；已补齐引用核验并重新完成全部 58 项。自检使用独立源码副本，逐文件验证还原和主源码未改动。

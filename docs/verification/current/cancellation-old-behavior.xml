@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="4" time="1.987" timestamp="2026-11-04T20:56:49.323962+08:00" hostname="Crystalclear9"><testcase classname="tests.integration.test_cancellation_review" name="test_identifiers_preserve_full_uuid_entropy" time="0.003"><failure message="AssertionError: assert 'call-123456789abc' != 'call-123456789abc'&#10; +  where 'call-123456789abc' = new_id('call')&#10; +  and   'call-123456789abc' = new_id('call')">tests\integration\test_cancellation_review.py:18: in test_identifiers_preserve_full_uuid_entropy
+    assert new_id("call") != new_id("call")
+E   AssertionError: assert 'call-123456789abc' != 'call-123456789abc'
+E    +  where 'call-123456789abc' = new_id('call')
+E    +  and   'call-123456789abc' = new_id('call')</failure></testcase><testcase classname="tests.integration.test_cancellation_review" name="test_cancelled_admission_waiter_does_not_leave_a_reservation" time="0.036"><failure message="assert 1 == 0">tests\integration\test_cancellation_review.py:29: in test_cancelled_admission_waiter_does_not_leave_a_reservation
+    assert scheduler.snapshot()["waiting"] == 0
+E   assert 1 == 0</failure></testcase><testcase classname="tests.integration.test_cancellation_review" name="test_caller_task_cancellation_persists_and_stops_worker" time="0.613"><failure message="AssertionError: assert 'RUNNING_INDEPENDENTLY' == 'CANCELLED'&#10;  &#10;  - CANCELLED&#10;  + RUNNING_INDEPENDENTLY">tests\integration\test_cancellation_review.py:52: in test_caller_task_cancellation_persists_and_stops_worker
+    assert app.repository.list_logical_calls(workflow.workflow_id)[0]["status"] == "CANCELLED"
+E   AssertionError: assert 'RUNNING_INDEPENDENTLY' == 'CANCELLED'
+E     
+E     - CANCELLED
+E     + RUNNING_INDEPENDENTLY</failure></testcase><testcase classname="tests.integration.test_cancellation_review" name="test_queued_cancellation_never_starts_a_worker[False]" time="0.733"><failure message="assert 1 == 0">tests\integration\test_cancellation_review.py:78: in test_queued_cancellation_never_starts_a_worker
+    assert app.scheduler.snapshot()["waiting"] == 0
+E   assert 1 == 0</failure></testcase></testsuite></testsuites>

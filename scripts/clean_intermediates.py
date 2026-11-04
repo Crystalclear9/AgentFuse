@@ -30,7 +30,7 @@ def checked(relative):
         raise ValueError("cannot remove the workspace")
     parts = target.relative_to(ROOT).parts
     cache = target.name == "__pycache__" and parts[0] in ("agentfuse", "tests", "scripts", "examples")
-    allowed = (cache or parts[0] in (".agentfuse", ".venv", "build", ".pytest_cache")
+    allowed = (cache or parts[0] in (".agentfuse", ".venv", "build", ".pytest_cache", "agentfuse.egg-info")
                or parts[:2] in ((".tools", "downloads"), (".tools", "cache"))
                or (len(parts) == 1 and parts[0].startswith(".tmp_")))
     if not allowed:

@@ -300,6 +300,9 @@ class RuntimeCoordinator:
             thread.join(timeout=10)
         self._pool_warmup_thread = None
 
+        for call in list(self._calls.values()):
+            await self.cancel_logical_call(call.logical_call_id, "runtime shutdown")
+
         for execution in list(self._executions.values()):
             if execution.status is ExecutionStatus.RUNNING:
                 await self._terminate_execution(execution, "runtime shutdown")
@@ -357,6 +360,8 @@ class RuntimeCoordinator:
     ) -> ToolCallResult:
         """Execute (or share) one logical tool call."""
 
+        if self._closing:
+            raise RuntimeError("runtime is shutting down")
         spec = self.registry.get(tool_name, tool_version)
         normalized = self._normalize_arguments(spec, arguments)
         arguments_hash = hash_arguments(normalized)
@@ -397,16 +402,22 @@ class RuntimeCoordinator:
 
         mode = self.mode_for(workflow_id)
         sharing_enabled = mode is not RuntimeMode.BASELINE and spec.shareable
-        if sharing_enabled:
-            served = await self._serve_from_cache(call)
-            if served:
-                return await call.future
-            await self._enter_share_flow(call)
-        else:
-            async with self._lock:
-                self._start_independent_locked(call)
-
-        return await call.future
+        try:
+            if sharing_enabled:
+                served = await self._serve_from_cache(call)
+                if not served:
+                    await self._enter_share_flow(call)
+            else:
+                async with self._lock:
+                    self._start_independent_locked(call)
+            # A cancelled caller must detach through the same persisted state
+            # transition as explicit cancellation, without cancelling this future.
+            return await asyncio.shield(call.future)
+        except asyncio.CancelledError:
+            await self.cancel_logical_call(call.logical_call_id, "caller task cancelled")
+            if call.future.done() and not call.future.cancelled():
+                call.future.exception()
+            raise
 
     async def cancel_logical_call(self, logical_call_id: str, reason: str = "cancelled") -> bool:
         """Cancel a logical call (follower, leader or independent)."""
@@ -435,7 +446,9 @@ class RuntimeCoordinator:
                     cancelled_participant = participant
                 if not group.has_live_participants():
                     execution = self._executions.get(group.leader_execution_id)
-                    if execution is not None and execution.status is ExecutionStatus.RUNNING:
+                    if execution is not None and execution.status in (
+                        ExecutionStatus.CREATED, ExecutionStatus.QUEUED, ExecutionStatus.RUNNING
+                    ):
                         terminate.append(execution)
             else:
                 # The call runs on its own (a tool that is not shareable) - it
@@ -443,7 +456,9 @@ class RuntimeCoordinator:
                 # terminated.  Otherwise the worker would keep running after
                 # the call was cancelled.
                 execution = self._executions.get(call.physical_execution_id or "")
-                if execution is not None and execution.status is ExecutionStatus.RUNNING:
+                if execution is not None and execution.status in (
+                    ExecutionStatus.CREATED, ExecutionStatus.QUEUED, ExecutionStatus.RUNNING
+                ):
                     terminate.append(execution)
             if group is not None:
                 # the call row, the participant row and the group describe the
@@ -964,6 +979,8 @@ class RuntimeCoordinator:
     async def _run_execution(self, execution: PhysicalExecution) -> None:
         spec = self.registry.get(execution.tool_name, execution.tool_version)
         try:
+            if execution.terminated:
+                return
             if self.scheduler.strategy.name == "preemptive":
                 # a waiting execution of a higher priority may take the slot
                 # of a running one of a lower priority
@@ -975,11 +992,11 @@ class RuntimeCoordinator:
                 requires_gpu=spec.requires_gpu,
                 priority=spec.priority,
             )
+            if execution.terminated:
+                return
             execution.admission_reason = reason
             execution.queued_time = round(max(0.0, time.time() - execution.created_at), 6)
             self._persist_execution(execution)
-            if execution.terminated:
-                return
             await self._spawn_worker(execution)
         except asyncio.CancelledError:  # pragma: no cover - shutdown path
             raise

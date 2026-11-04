@@ -927,7 +927,7 @@
       "section": "9.4",
       "clause": "工具在独立进程执行",
       "ok": true,
-      "detail": "pids=[20496]",
+      "detail": "pids=[63712]",
       "kind": "behavioural"
     },
     {
@@ -969,7 +969,7 @@
       "section": "13.2",
       "clause": "共享模式不使用更多计算资源",
       "ok": true,
-      "detail": "content_digest rounds=12000 executions=1 vs 2, cpu=1.078125 vs 2.09375",
+      "detail": "content_digest rounds=12000 executions=1 vs 2, cpu=1.296875 vs 2.625",
       "kind": "behavioural"
     },
     {
@@ -1018,7 +1018,7 @@
       "section": "12.4",
       "clause": "分离时 Leader 尚未结束后续计算",
       "ok": true,
-      "detail": "lead_ms=2233.02",
+      "detail": "lead_ms=2466.79",
       "kind": "behavioural"
     },
     {
@@ -1067,7 +1067,7 @@
       "section": "21.1",
       "clause": "同一调用不会被重复交付",
       "ok": true,
-      "detail": "delivered={'call-c74a881089d9': 1, 'call-79d4d9928210': 1}",
+      "detail": "delivered={'call-5e90bf64627a4937a2992dfdfa5a42cd': 1, 'call-b4b33c3e8c3d49f49f9c24581580b204': 1}",
       "kind": "behavioural"
     },
     {
@@ -1081,7 +1081,7 @@
       "section": "9.3",
       "clause": "采集真实 worker 的内存与 CPU",
       "ok": true,
-      "detail": "peak_rss=25522176 samples=5",
+      "detail": "peak_rss=25546752 samples=5",
       "kind": "behavioural"
     },
     {
@@ -1984,28 +1984,28 @@
       "section": "22",
       "clause": "README 的 工作流耗时 数值合理",
       "ok": true,
-      "detail": "README=0.107 s 实测=0.420 (makespan)",
+      "detail": "README=0.107 s 实测=0.332 (makespan)",
       "kind": "behavioural"
     },
     {
       "section": "22",
       "clause": "README 的 总 CPU 时间 数值合理",
       "ok": true,
-      "detail": "README=0.031 s 实测=0.047 (total_cpu_time)",
+      "detail": "README=0.031 s 实测=0.031 (total_cpu_time)",
       "kind": "behavioural"
     },
     {
       "section": "22",
       "clause": "README 的 平均共享等待 数值合理",
       "ok": true,
-      "detail": "README=0.088 s 实测=0.402 (avg_share_wait)",
+      "detail": "README=0.088 s 实测=0.312 (avg_share_wait)",
       "kind": "behavioural"
     },
     {
       "section": "22",
       "clause": "README 的 峰值 RSS 数值合理",
       "ok": true,
-      "detail": "README=23.1 MiB 实测=25251840.000 (peak_rss)",
+      "detail": "README=23.1 MiB 实测=25595904.000 (peak_rss)",
       "kind": "behavioural"
     },
     {

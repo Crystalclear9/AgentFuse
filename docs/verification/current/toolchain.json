@@ -57,13 +57,15 @@
       "version": "3.12.16",
       "python": ".tools/envs/py312/Scripts/python.exe",
       "base_python": ".tools/python/cpython-3.12-windows-x86_64-none/python.exe",
-      "sha256": "246221b571e7a692a8b26818b628cac4c163e836de9897812eaebc2a8e1efa90"
+      "base_python_sha256": "246221b571e7a692a8b26818b628cac4c163e836de9897812eaebc2a8e1efa90",
+      "environment_python_sha256": "493763c9ec2cfe909d8490be5613df49e31a064d54def95e5130e28c9996fde0"
     },
     {
       "version": "3.13.18",
       "python": ".tools/envs/py313/Scripts/python.exe",
       "base_python": ".tools/python/cpython-3.13-windows-x86_64-none/python.exe",
-      "sha256": "d0a3fdb2f523217cc05cbfa015a249f53f670fe38c72522fa893377c5d2f17d5"
+      "base_python_sha256": "d0a3fdb2f523217cc05cbfa015a249f53f670fe38c72522fa893377c5d2f17d5",
+      "environment_python_sha256": "60855ede3e797299980ea1d430b7648b55b5074ae9174c37255eb0a27d923de7"
     }
   ]
 }

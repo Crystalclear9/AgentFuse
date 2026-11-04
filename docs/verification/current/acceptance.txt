@@ -26,8 +26,8 @@
 [PASS] CLI 命令可用: agentfuse compare --scenario shared --repeat 1
 [PASS] CLI 命令可用: agentfuse serve --help
 [PASS] CLI 命令可用: agentfuse --version
-[PASS] CLI 命令可用: agentfuse trace wf-70af74a0a4be
-[PASS] CLI 命令可用: agentfuse inspect exec-5b7e2a47b6e6
+[PASS] CLI 命令可用: agentfuse trace wf-04ee3ac7dad547f8b78485125b4df2bc
+[PASS] CLI 命令可用: agentfuse inspect exec-8c0af858b6c444758e97f99fa1741c36
 [PASS] Web UI 可打开
 [PASS] Dashboard 读取真实后端状态
 [PASS] Dashboard 返回真实字段

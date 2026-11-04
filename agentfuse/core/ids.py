@@ -17,7 +17,7 @@ _counter_lock = threading.Lock()
 def new_id(prefix: str) -> str:
     """Return a globally unique identifier with a readable prefix."""
 
-    return f"{prefix}-{uuid.uuid4().hex[:12]}"
+    return f"{prefix}-{uuid.uuid4().hex}"
 
 
 def sequence_id(prefix: str) -> str:

@@ -219,19 +219,40 @@ class LocalResourceController:
         with self._lock:
             self._pending.append(slot)
         self._pump()
-        return await future
+        try:
+            return await future
+        except asyncio.CancelledError:
+            self.release(execution_id)
+            raise
 
     def release(self, execution_id: str) -> None:
         with self._lock:
+            removed = [slot for slot in self._pending if slot.execution_id == execution_id]
+            self._pending = [slot for slot in self._pending if slot.execution_id != execution_id]
             self._running.pop(execution_id, None)
             self._observed_rss_mb.pop(execution_id, None)
+        for slot in removed:
+            self._resolve(slot.future, "cancelled")
         self._pump()
+
+    @staticmethod
+    def _resolve(future: asyncio.Future, reason: str) -> None:
+        # RSS sampling can admit work from a monitor thread. Future callbacks
+        # must always run on their owning event loop.
+        def resolve() -> None:
+            if not future.done():
+                future.set_result(reason)
+        try:
+            future.get_loop().call_soon_threadsafe(resolve)
+        except RuntimeError:  # the owning event loop has already closed
+            pass
 
     def _pump(self) -> None:
         """Grant execution slots according to the configured strategy."""
 
         while True:
             with self._lock:
+                self._pending = [slot for slot in self._pending if not slot.future.cancelled()]
                 if not self._pending:
                     return
                 decision = self.strategy.select(
@@ -256,8 +277,7 @@ class LocalResourceController:
                 self._running[slot.execution_id] = slot
                 self._total_admitted += 1
                 reason = decision.reason
-            if not slot.future.done():
-                slot.future.set_result(reason)
+            self._resolve(slot.future, reason)
 
     # ------------------------------------------------------------------
     # monitoring

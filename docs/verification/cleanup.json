@@ -12,23 +12,27 @@
     "status": "deleted"
   },
   {
+    "path": ".agentfuse/cancel-original",
+    "status": "deleted"
+  },
+  {
     "path": ".agentfuse/frontend-capture",
     "status": "deleted"
   },
   {
-    "path": ".agentfuse/guard-final-all",
+    "path": ".agentfuse/guard-current",
     "status": "deleted"
   },
   {
-    "path": ".agentfuse/guard-heavy-audit-final",
+    "path": ".agentfuse/guard-parallel-0",
     "status": "deleted"
   },
   {
-    "path": ".agentfuse/guard-post-ci",
+    "path": ".agentfuse/guard-parallel-1",
     "status": "deleted"
   },
   {
-    "path": ".agentfuse/guard-release-final",
+    "path": ".agentfuse/guard-parallel-2",
     "status": "deleted"
   },
   {
@@ -36,7 +40,19 @@
     "status": "deleted"
   },
   {
-    "path": ".agentfuse/report-generation.json",
+    "path": ".agentfuse/revalidate_guard.py",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/revalidate_guard_parallel.py",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/review-audit-fixed.json",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/review-audit.json",
     "status": "deleted"
   },
   {
@@ -54,7 +70,11 @@
     "status": "deleted"
   },
   {
-    "path": ".agentfuse/wheel-installed-final",
+    "path": ".agentfuse/wheel-installed",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/wheel_smoke_current.py",
     "status": "deleted"
   },
   {
@@ -147,6 +167,10 @@
   },
   {
     "path": "tests/unit/__pycache__",
+    "status": "deleted"
+  },
+  {
+    "path": "agentfuse.egg-info",
     "status": "deleted"
   }
 ]
