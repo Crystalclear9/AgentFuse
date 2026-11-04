@@ -43,6 +43,11 @@ BROWSERS = (
 
 
 def _browser() -> str | None:
+    configured = os.environ.get("AGENTFUSE_BROWSER_PATH")
+    if configured:
+        if not Path(configured).is_file():
+            raise RuntimeError(f"configured browser does not exist: {configured}")
+        return configured
     for candidate in BROWSERS:
         if Path(candidate).exists():
             return candidate

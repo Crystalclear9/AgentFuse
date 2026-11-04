@@ -166,20 +166,23 @@ async def terminate_execution(
     if execution.status is ExecutionStatus.RUNNING:
         execution.status = ExecutionStatus.CANCELLED
     if execution.timeout_task is not None:
-        execution.timeout_task.cancel()
+        if execution.timeout_task is not asyncio.current_task():
+            execution.timeout_task.cancel()
         execution.timeout_task = None
+    # Publish the cleanup task before the outcome wakes finalisation. Both
+    # paths join the same termination rather than killing the same PID twice.
+    if getattr(execution, "termination_task", None) is None:
+        if handle is not None:
+            execution.termination_task = asyncio.create_task(asyncio.to_thread(handle.terminate))
+        else:
+            execution.termination_task = asyncio.create_task(asyncio.to_thread(
+                terminate_worker, execution.process, execution.pid))
     if not execution.outcome.done():
         if kind == ERROR_TIMEOUT:
             execution.outcome.set_result(_timeout_outcome(reason))
         else:
             execution.outcome.set_result(_cancelled_outcome(reason))
-    await asyncio.to_thread(
-        terminate_worker,
-        execution.process,
-        execution.pid,
-        worker_pid=getattr(handle, "worker_pid", None),
-        child_pids=list(getattr(handle, "child_pids", ()) or ()),
-    )
+    await asyncio.shield(execution.termination_task)
 
 
 def _cancelled_outcome(reason: str) -> Any:

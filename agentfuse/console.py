@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 from pathlib import Path
+
+_LOG_LOCK = threading.RLock()
 
 
 def configure_console() -> None:
@@ -30,7 +33,12 @@ def configure_console() -> None:
             pass
 
 
-def configure_logging(logs_dir: Path) -> None:
+def configure_logging(logs_dir: Path) -> logging.FileHandler | None:
+    with _LOG_LOCK:
+        return _acquire_logging(logs_dir)
+
+
+def _acquire_logging(logs_dir: Path) -> logging.FileHandler | None:
     """Write the log of the runtime into the home directory.
 
     The dashboard shows the state of the runtime; the log file explains what
@@ -52,7 +60,8 @@ def configure_logging(logs_dir: Path) -> None:
         if isinstance(handler, logging.FileHandler) and Path(
             getattr(handler, "baseFilename", "")
         ) == target:
-            return
+            handler._agentfuse_owners = getattr(handler, "_agentfuse_owners", 0) + 1
+            return handler
     try:
         handler = logging.FileHandler(target, encoding="utf-8")
     except OSError:  # pragma: no cover - a read only home
@@ -61,5 +70,19 @@ def configure_logging(logs_dir: Path) -> None:
         logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
     )
     logger.addHandler(handler)
+    handler._agentfuse_owners = 1
     if logger.level == logging.NOTSET:
         logger.setLevel(logging.INFO)
+    return handler
+
+
+def release_logging(handler: logging.FileHandler | None) -> None:
+    """Release one application's lease without closing another owner's log."""
+    if handler is None:
+        return
+    with _LOG_LOCK:
+        owners = max(0, getattr(handler, "_agentfuse_owners", 1) - 1)
+        handler._agentfuse_owners = owners
+        if not owners:
+            logging.getLogger("agentfuse").removeHandler(handler)
+            handler.close()

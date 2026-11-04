@@ -40,7 +40,9 @@ def base_interpreter() -> str:
 
 def environment(pool: int | None = None, workers: int | None = None) -> dict[str, str]:
     env = dict(os.environ)
-    parts = [str(PYLIBS), str(ROOT)]
+    # Reuse the current project's locked dependencies in the base interpreter.
+    # A separate historical pylibs directory may contain stale distributions.
+    parts = [str(ROOT), *[entry for entry in sys.path if entry and Path(entry).is_dir()], str(PYLIBS)]
     if env.get("PYTHONPATH"):
         parts.append(env["PYTHONPATH"])
     env["PYTHONPATH"] = os.pathsep.join(parts)
@@ -54,12 +56,17 @@ def environment(pool: int | None = None, workers: int | None = None) -> dict[str
     return env
 
 
-def run(python: str, pool: int | None, workers: int | None, extra: list[str]) -> int:
+def run(python: str, pool: int | None, workers: int | None, extra: list[str], focused=False) -> int:
+    selection = ["tests"] if not focused else [
+        "tests/unit/test_scheduler.py", "tests/integration/test_worker_pool.py",
+        "tests/integration/test_worker_lifecycle.py", "tests/integration/test_concurrency.py",
+        "tests/integration/test_divergent.py",
+    ]
     command = [
         python,
         "-m",
         "pytest",
-        "tests",
+        *selection,
         "-q",
         "-p",
         "no:cacheprovider",
@@ -76,6 +83,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--python", default=None, help="the interpreter to use")
     parser.add_argument("--matrix", action="store_true", help="run the pool matrix")
+    parser.add_argument("--focused", action="store_true", help="exercise scheduling, sharing, races and worker lifecycle in each configuration")
+    parser.add_argument("--report-dir", default=None)
     args = parser.parse_args()
 
     python = args.python or base_interpreter()
@@ -94,9 +103,14 @@ def main() -> int:
     if args.matrix:
         for pool in (0, 1, 2):
             for workers in (1, 2):
-                failures += 1 if run(python, pool, workers, []) else 0
+                extra = []
+                if args.report_dir:
+                    directory = Path(args.report_dir)
+                    directory.mkdir(parents=True, exist_ok=True)
+                    extra = [f"--junitxml={directory / f'pool-{pool}-workers-{workers}.xml'}"]
+                failures += 1 if run(python, pool, workers, extra, args.focused) else 0
     else:
-        failures += 1 if run(python, None, None, []) else 0
+        failures += 1 if run(python, None, None, [], args.focused) else 0
     print()
     print("FAILURES:", failures)
     return 1 if failures else 0

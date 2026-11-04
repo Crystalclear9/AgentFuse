@@ -201,6 +201,51 @@ async function main() {
       JSON.stringify(callCount),
     );
 
+    // The dashboard of requirement 14.2: every item of it has to be there.
+    // The values come from the real backend - the page renders them into the
+    // cards of the overview.
+    const dashboard = await page.evaluate(
+      `(() => {
+        const cards = [...document.querySelectorAll("#overview-cards .card")].map((card) => ({
+          label: (card.querySelector(".label")?.textContent ?? "").trim(),
+          value: (card.querySelector(".value")?.textContent ?? "").trim(),
+        }));
+        const wanted = [
+          "\u8fd0\u884c\u4e2d\u7684 Workflow",
+          "Agent Invocation",
+          "\u903b\u8f91\u5de5\u5177\u8c03\u7528",
+          "\u7269\u7406\u6267\u884c",
+          "\u8fd0\u884c Worker",
+          "\u7cfb\u7edf CPU",
+          "\u5df2\u7528 RSS",
+        ];
+        const missing = wanted.filter((label) => !cards.some((card) => card.label.includes(label)));
+        const valueOf = (label) => cards.find((card) => card.label.includes(label))?.value ?? null;
+        return {
+          missing,
+          count: cards.length,
+          workers: valueOf("\u8fd0\u884c Worker"),
+          cpu: valueOf("\u7cfb\u7edf CPU"),
+          rss: valueOf("\u5df2\u7528 RSS"),
+        };
+      })()`,
+    );
+    check(
+      "the dashboard shows every item of the requirement",
+      dashboard.missing.length === 0,
+      `missing: ${dashboard.missing}`,
+    );
+    check(
+      "the dashboard shows the running workers",
+      dashboard.workers !== null && /\d+\/\d+/.test(dashboard.workers),
+      `workers=${dashboard.workers}`,
+    );
+    check(
+      "the dashboard shows the CPU and the memory",
+      dashboard.cpu !== null && dashboard.rss !== null,
+      `cpu=${dashboard.cpu} rss=${dashboard.rss}`,
+    );
+
     // the tabs have to work - a click has to activate the panel
     const tabs = ["overview", "workflow", "dependency", "benchmark", "tools"];
     for (const tab of tabs) {
@@ -282,6 +327,52 @@ async function main() {
       "the dependency table has the columns of the requirement",
       inspector.headers.length >= 5,
       JSON.stringify(inspector.headers),
+    );
+
+    // The observable states of requirement 11.4: the user has to see which
+    // agent asked, which tool really computed, which calls are waiting, which
+    // ones are validated, which ones were separated, which execution occupies
+    // the resources and which calls wait for a free slot.
+    const observable = await page.evaluate(
+      `(() => {
+        const rows = (id) => [...document.querySelectorAll(id + " tbody tr")];
+        const text = (id) => (document.querySelector(id)?.textContent ?? "");
+        return {
+          agents: rows("#workflow-agent-table").length,
+          calls: rows("#call-table").length,
+          participants: rows("#participant-table").length,
+          dependencies: rows("#dependency-table").length,
+          execution: text("#execution-summary"),
+          pending: text("#overview-cards"),
+          events: rows("#event-table").length,
+          share: rows("#share-table").length,
+        };
+      })()`,
+    );
+    check(
+      "the agents that asked are visible",
+      observable.agents > 0,
+      `agents=${observable.agents}`,
+    );
+    check(
+      "the logical calls are visible",
+      observable.calls > 0,
+      `calls=${observable.calls}`,
+    );
+    check(
+      "the participants of the shared execution are visible",
+      observable.participants > 0,
+      `participants=${observable.participants}`,
+    );
+    check(
+      "the execution that really computed is visible with its resources",
+      observable.execution.includes("ast_analyzer") && observable.execution.includes("RSS"),
+      observable.execution.slice(0, 120),
+    );
+    check(
+      "the dependency ledger of the execution is visible",
+      observable.dependencies > 0,
+      `dependencies=${observable.dependencies}`,
     );
 
     // the benchmark page has a real run button

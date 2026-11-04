@@ -150,9 +150,8 @@ _NEW_MUTATIONS: list[dict[str, Any]] = [
         "clause": "22",
         "file": "docs/TEST_REPORT.md",
         # a row of the traceability table disappears - the audit has to notice
-        "old": """| §9.1 | 审计检查 资源控制器的默认值 |
-""",
-        "new": """|""",
+        "old": '| §9.1 | 测试 test_the_resource_snapshot_exposes_the_limits',
+        "new": '| §9.1 | 测试 test_a_test_that_does_not_exist',
         "expect_audit": "22",
         "guards": [
             [
@@ -193,6 +192,45 @@ _NEW_MUTATIONS: list[dict[str, Any]] = [
                 sys.executable,
                 "scripts/audit_requirements.py",
                 "--json",
+            ],
+        ],
+    },
+    {
+        "name": "演示场景不再经由适配器执行",
+        "clause": "12.1",
+        "file": "agentfuse/scenarios/definitions.py",
+        # the demo reaches into the coordinator again
+        "old": """        await adapter.submit_tool_call(
+            invocation_id=crash_invocation.invocation_id,""",
+        "new": """        await coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id,
+            invocation_id=crash_invocation.invocation_id,""",
+        "expect": "test_the_demo_has_no_own_execution_path",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/integration/test_demo_protocol.py::test_the_demo_has_no_own_execution_path",
+                "-q",
+            ],
+        ],
+    },
+    {
+        "name": "追溯表不再覆盖每个小节",
+        "clause": "22",
+        "file": "scripts/audit_requirements.py",
+        # the mapping loses a subsection
+        "old": """    "16.8": ("test_an_old_database_is_migrated",),""",
+        "new": """    "16.8": ("test_a_test_that_does_not_exist",),""",
+        "expect": "test_every_subsection_of_the_requirement_has_a_proof",
+        "guards": [
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "tests/unit/test_requirement_traceability.py::test_every_subsection_of_the_requirement_has_a_proof",
+                "-q",
             ],
         ],
     },
@@ -1539,7 +1577,12 @@ def main() -> int:
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
-    results = [_check_mutation(mutation) for mutation in MUTATIONS]
+    results = []
+    for index, mutation in enumerate(MUTATIONS, 1):
+        result = _check_mutation(mutation)
+        results.append(result)
+        print(f"[{index}/{len(MUTATIONS)}] {'PASS' if result['ok'] else 'FAIL'} {mutation['name']}",
+              file=sys.stderr, flush=True)
     failed = [item for item in results if not item["ok"]]
 
     if args.json:

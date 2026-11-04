@@ -1,4 +1,8 @@
 .venv/
+.venv-local/
+.venv-wsl/
+.tools/
+_manual_delete/
 .agentfuse/
 __pycache__/
 *.py[cod]

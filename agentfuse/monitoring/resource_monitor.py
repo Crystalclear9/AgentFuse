@@ -45,7 +45,7 @@ class ResourceMonitor:
         try:
             for child in process.children(recursive=True):
                 try:
-                    rss = max(rss, int(child.memory_info().rss))
+                    rss += int(child.memory_info().rss)
                 except Exception:
                     continue
         except Exception:

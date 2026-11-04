@@ -1,0 +1,47 @@
+
+[PASS] 工程目录结构完整
+[PASS] 等价调用共享一次物理执行
+[PASS] 共享结果与独立执行一致
+[PASS] 结果缓存按配置开启后相同的请求不再启动物理执行
+[PASS] 执行图由真实事件重建
+[PASS] 多 Agent 并发工作流完成
+[PASS] CPU 密集场景共享一次执行
+[PASS] 不同工作区仍能共享
+[PASS] 取消与失败场景覆盖全部情形
+[PASS] SQLite 保存真实执行记录
+[PASS] 资源数据被采集
+[PASS] 事件协议落库
+[PASS] 数据库写入零错误
+[PASS] 数据库版本与代码一致
+[PASS] 外键约束无违规
+[PASS] 外键约束已声明
+[PASS] 外键关系齐备
+[PASS] 调用与执行原子落库
+[PASS] 失败的事务不会留下半写的状态
+[PASS] CLI 命令可用: agentfuse init
+[PASS] CLI 命令可用: agentfuse tools
+[PASS] CLI 命令可用: agentfuse demo --scenario shared --mode online
+[PASS] CLI 命令可用: agentfuse demo --scenario diverged --mode online
+[PASS] CLI 命令可用: agentfuse demo --scenario multi-agent --mode online
+[PASS] CLI 命令可用: agentfuse compare --scenario shared --repeat 1
+[PASS] CLI 命令可用: agentfuse serve --help
+[PASS] CLI 命令可用: agentfuse --version
+[PASS] CLI 命令可用: agentfuse trace wf-29bf25707331
+[PASS] CLI 命令可用: agentfuse inspect exec-577a87f8d53c
+[PASS] Web UI 可打开
+[PASS] Dashboard 读取真实后端状态
+[PASS] Dashboard 返回真实字段
+[PASS] Dashboard 的调用计数与数据库一致
+[PASS] 工具注册表带依赖声明
+[PASS] 工具注册表可查询
+[PASS] 工作流详情显示已确认依赖与等待原因
+[PASS] 资源端点返回真实快照
+[PASS] 基准场景端点返回场景清单
+[PASS] 工作流指标端点返回真实指标
+[PASS] 执行图端点返回节点与边
+[PASS] 需求条款审计全部通过
+[PASS] 基准场景目录可导入且与运行时一致
+[PASS] 无外部模型 API 依赖
+[PASS] 前端不加载 CDN 资源
+
+44/44 项通过

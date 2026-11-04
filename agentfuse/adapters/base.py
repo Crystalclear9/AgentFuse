@@ -72,8 +72,13 @@ class AgentAdapter(ABC):
         tool_name: str,
         arguments: dict[str, Any],
         snapshot_id: str | None = None,
+        timeout_seconds: float | None = None,
     ) -> Any:
-        """Submit a logical tool call and await its result."""
+        """Submit a logical tool call and await its result.
+
+        ``timeout_seconds`` shortens the timeout of **this** call - the
+        default of the runtime stays in force otherwise.
+        """
 
     @abstractmethod
     async def deliver_result(self, invocation_id: str, logical_call_id: str, result: Any) -> None:

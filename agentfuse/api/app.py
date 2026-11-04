@@ -18,6 +18,7 @@ from .routes import executions as execution_routes
 from .routes import overview as overview_routes
 from .routes import tools as tool_routes
 from .routes import workflows as workflow_routes
+from .routes import extensions as extension_routes
 
 WEB_ROOT = Path(__file__).resolve().parent.parent / "web"
 
@@ -50,12 +51,17 @@ def create_app(
         title="AgentFuse",
         description="面向多智能体工作流的共享执行与资源管理 Runtime - 本地管理界面",
         version="0.1.0",
-        docs_url="/api/docs",
+        docs_url=None,
+        redoc_url=None,
         openapi_url="/api/openapi.json",
         lifespan=lifespan,
     )
     app.state.runtime = runtime
     app.state.benchmark_jobs: dict[str, dict[str, Any]] = {}
+
+    @app.get("/api/docs", include_in_schema=False)
+    def offline_api_docs():
+        return FileResponse(WEB_ROOT / "api-docs.html")
 
     @app.exception_handler(Exception)
     async def unhandled_error(_: Request, exc: Exception) -> JSONResponse:
@@ -75,6 +81,7 @@ def create_app(
     app.include_router(execution_routes.router)
     app.include_router(benchmark_routes.router)
     app.include_router(tool_routes.router)
+    app.include_router(extension_routes.router)
 
     if WEB_ROOT.exists():
         app.mount("/static", StaticFiles(directory=str(WEB_ROOT)), name="static")

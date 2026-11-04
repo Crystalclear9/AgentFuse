@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from .console import configure_logging
+from .console import configure_logging, release_logging
 from .core.events import EventBus
 from .core.state import RuntimeMode
 from .core.workflow import WorkflowRuntime
@@ -43,9 +43,21 @@ class AgentFuseApp:
     ) -> None:
         self.settings = settings or load_settings()
         self.settings.ensure_directories()
-        configure_logging(self.settings.logs_dir)
         self.mode = mode
 
+        from .runtime.inference import AttentionModel, InferenceRuntime, reference_weights
+        import json
+        inference_options = self.settings.raw.get("inference", {})
+        weights_path = inference_options.get("weights_path")
+        if weights_path:
+            from pathlib import Path
+            weights = json.loads(Path(weights_path).read_text(encoding="utf-8"))
+        else:
+            weights = reference_weights()
+        self.inference_model = AttentionModel(weights)
+        self.inference = InferenceRuntime(int(inference_options.get("max_cache_bytes", 8 * 1024 * 1024)))
+
+        self._log_handler = configure_logging(self.settings.logs_dir)
         self.database = Database(self.settings.db_path)
         self.database.initialize()
         self.database.start()
@@ -71,6 +83,10 @@ class AgentFuseApp:
         )
         self.event_bus = EventBus()
         self.event_bus.subscribe(self._persist_event)
+        from .runtime.prediction import PathPredictor
+        self.predictor = PathPredictor()
+        self.agent_predictor = PathPredictor()
+        self.event_bus.subscribe(self._observe_path)
         self.result_store = ResultStore(self.settings.results_dir, repository=self.repository)
         self.scheduler = ResourceScheduler(
             max_workers=self.settings.max_workers,
@@ -94,6 +110,7 @@ class AgentFuseApp:
             worker_pool_size=self.settings.worker_pool_size,
             resource_sample_interval_ms=self.settings.resource_sample_interval_ms,
         )
+        self.coordinator.remote_endpoints = tuple(self.settings.raw.get("distributed", {}).get("workers", ()))
         self._workflows: list[WorkflowRuntime] = []
         # Start the pool workers while the runtime is idle.
         self.coordinator.prewarm_workers()
@@ -102,6 +119,21 @@ class AgentFuseApp:
     @property
     def workflows(self) -> list[WorkflowRuntime]:
         return list(self._workflows)
+
+    def _observe_path(self, event: Any) -> None:
+        if event.event_type == "AGENT_INVOKED" and event.invocation_id:
+            label = event.metadata.get("agent_label")
+            if label:
+                self.agent_predictor.observe_invocation(event.workflow_id, event.invocation_id, label,
+                                                       event.metadata.get("parent_invocation_id"))
+        elif event.event_type == "WORKFLOW_FINISHED":
+            self.agent_predictor.finish_workflow(event.workflow_id)
+        elif event.event_type == "TOOL_CALL_REQUESTED" and event.invocation_id:
+            tool = event.metadata.get("tool_name")
+            if tool:
+                self.predictor.observe(event.invocation_id, tool)
+        elif event.event_type == "AGENT_RETURNED" and event.invocation_id:
+            self.predictor.finish(event.invocation_id)
 
     def _persist_event(self, event: Any) -> None:
         """Persist every runtime event (the event bus is the single source)."""
@@ -161,7 +193,11 @@ class AgentFuseApp:
                     "could not flush the database before the shutdown: %s", exc
                 )
             finally:
-                self.database.close()
+                try:
+                    self.database.close()
+                finally:
+                    release_logging(self._log_handler)
+                    self._log_handler = None
 
     def close_sync(self) -> None:
         """Close the application from synchronous code (CLI entry points)."""

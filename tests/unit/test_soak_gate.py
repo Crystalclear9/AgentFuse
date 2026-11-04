@@ -51,7 +51,25 @@ def test_the_soak_gate_passes_on_a_healthy_run():
     """A healthy run has to pass - otherwise the gate would be useless."""
 
     # a loaded machine needs more than a few seconds for the first round
-    result = _soak(["--minutes", "0.5", "--sample-every", "2"])
+    # A different runtime starts AFTER the soak baseline. Its worker must not
+    # be mistaken for a leak belonging to the subprocess under observation.
+    import threading
+    from agentfuse.runtime.pool import build_command, build_environment
+    foreign = []
+    def start_foreign():
+        foreign.append(subprocess.Popen(build_command(), env=build_environment(),
+                       stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+    timer = threading.Timer(5, start_foreign)
+    timer.start()
+    try:
+        result = _soak(["--minutes", "0.5", "--sample-every", "2"])
+    finally:
+        timer.cancel()
+        timer.join()
+        for process in foreign:
+            process.kill()
+            process.wait(timeout=10)
+            process.stdin.close()
     assert result.returncode == 0, (
         "the soak has to pass on a healthy runtime:\n" + result.stdout + result.stderr
     )

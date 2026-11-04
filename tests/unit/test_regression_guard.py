@@ -37,6 +37,20 @@ def _load_guard() -> Any:
     return module
 
 
+async def test_measurements_are_isolated_without_deleting_previous_history(tmp_path, monkeypatch):
+    guard = _load_guard()
+    monkeypatch.setattr(guard, "ROOT", tmp_path)
+    history = tmp_path / ".agentfuse" / "regression" / "db"
+    history.mkdir(parents=True)
+    sentinel = history / "preserve.txt"
+    sentinel.write_text("previous experiment")
+    report = await guard.run("shared", 1, ("baseline", "online"), None)
+    assert report["correctness"]["online"]["mismatched"] == 0
+    assert report["correctness"]["online"]["compared"] == 1
+    assert sentinel.read_text() == "previous experiment"
+    assert not list(history.parent.glob("measurement-*"))
+
+
 def test_a_missing_reference_is_a_failure_not_a_pass():
     """Without a reference the guard has compared nothing."""
 

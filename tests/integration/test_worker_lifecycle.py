@@ -25,23 +25,36 @@ from tests.support import wait_for_process_exit, wait_until
 from agentfuse.scenarios.common import DEMO_FILES
 
 ME = os.getpid()
+OWNED_WORKERS: dict[int, float] = {}
 
 
 def worker_processes() -> list[int]:
     """The pids of the processes that really run the worker child."""
 
     found: list[int] = []
-    for pid in psutil.pids():
+    for process in psutil.process_iter(["pid", "name"]):
+        pid = process.pid
         if pid == ME:
             continue
+        if "python" not in (process.info["name"] or "").lower():
+            continue
         try:
-            cmdline = psutil.Process(pid).cmdline()
+            cmdline = process.cmdline()
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
         if len(cmdline) >= 2 and "python" in cmdline[0].lower() and cmdline[-1].endswith(
             "worker_child"
         ):
-            found.append(pid)
+            try:
+                created = process.create_time()
+                if OWNED_WORKERS.get(pid) == created or any(parent.pid == ME for parent in process.parents()):
+                    OWNED_WORKERS[pid] = created
+                    found.append(pid)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+    for pid in list(OWNED_WORKERS):
+        if pid not in found:
+            OWNED_WORKERS.pop(pid)
     return found
 
 
@@ -131,7 +144,7 @@ async def test_terminate_retries_until_the_process_is_gone(app, snapshot):
     assert not psutil.pid_exists(handle.process.pid)
 
 
-async def test_the_real_worker_process_is_terminated(app, snapshot):
+async def test_the_real_worker_process_is_terminated(app, snapshot, monkeypatch):
     """The process that really executes the tool must be gone, not only the launcher.
 
     A virtual environment on Windows starts the interpreter through a launcher
@@ -142,25 +155,38 @@ async def test_the_real_worker_process_is_terminated(app, snapshot):
     import json
 
     from agentfuse.runtime.pool import start_worker
+    from agentfuse.runtime import pool
+    from tests.support import wait_until
 
+    # Force the slow-start race: early child discovery is only a best effort.
+    # The authoritative hello message must still let us terminate the worker.
+    monkeypatch.setattr(pool, "discover_children", lambda pid: [])
     handle = start_worker()
     started_pid = handle.process.pid
     children = list(handle.child_pids)
+    identities = {}
     try:
         # the worker reports which process really executes the tool
         message = json.loads(handle.process.stdout.readline())
         assert message["t"] == "hello"
         real_pid = int(message["pid"])
-        assert real_pid == started_pid or real_pid in children
+        handle.worker_pid = real_pid
+        if real_pid != started_pid:
+            assert started_pid in {parent.pid for parent in psutil.Process(real_pid).parents()}
+        for pid in {started_pid, real_pid, *children}:
+            identities[pid] = psutil.Process(pid).create_time()
     finally:
         handle.terminate()
-    assert await wait_for_process_exit([started_pid, real_pid, *children])
-
-    for pid in {started_pid, real_pid, *children}:
-        try:
-            assert not psutil.Process(pid).is_running(), f"process {pid} survived"
-        except psutil.NoSuchProcess:
-            continue
+    def all_original_processes_are_gone():
+        for pid, created in identities.items():
+            try:
+                process = psutil.Process(pid)
+                if process.create_time() == created and process.is_running():
+                    return False
+            except psutil.NoSuchProcess:
+                continue
+        return True
+    assert await wait_until(all_original_processes_are_gone), "original worker survived"
 
 
 async def test_no_worker_survives_the_runtime_lifetime(app, snapshot):

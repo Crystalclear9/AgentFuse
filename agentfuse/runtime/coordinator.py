@@ -1077,6 +1077,8 @@ class RuntimeCoordinator:
                 "share_group_id": execution.share_group_id,
                 "timeout_seconds": execution.timeout_seconds,
                 "pooled": handle.jobs_served > 1,
+                "worker_node": (f"{handle.endpoint['host']}:{handle.endpoint['port']}"
+                                if handle.endpoint else "local"),
             },
         )
         execution.start_event_id = started_event.event_id
@@ -1110,7 +1112,7 @@ class RuntimeCoordinator:
                 handle.terminate()
                 self._worker_handles.discard(handle)
 
-        handle = start_worker()
+        handle = self._start_configured_worker()
         with self._pool_lock:
             # The worker was created while the runtime could have been shut
             # down in the meantime.  The epoch check makes sure that such a
@@ -1179,6 +1181,15 @@ class RuntimeCoordinator:
             with self._pool_lock:
                 self._worker_handles.discard(evicted)
 
+    def _start_configured_worker(self):
+        endpoints = getattr(self, "remote_endpoints", ())
+        if not endpoints:
+            return start_worker()
+        with self._pool_lock:
+            index = getattr(self, "_remote_index", 0)
+            self._remote_index = index + 1
+        return start_worker(endpoint=endpoints[index % len(endpoints)])
+
     def prewarm_workers(self) -> None:
         """Start the pool workers in the background.
 
@@ -1199,7 +1210,7 @@ class RuntimeCoordinator:
                         epoch = self._pool_epoch
                     handle = None
                     try:
-                        handle = start_worker()
+                        handle = self._start_configured_worker()
                         with self._pool_lock:
                             stale = (
                                 self._pool_stopped.is_set() or self._pool_epoch != epoch
@@ -1331,14 +1342,22 @@ class RuntimeCoordinator:
     def _monitor_loop(self, handle: WorkerHandle) -> None:
         """Sample the memory of a worker while it serves executions."""
 
-        if psutil is None or handle.process.pid is None:
+        if handle.endpoint is not None or psutil is None or handle.process.pid is None:
             return
         while not self._closing:
+            execution_id = handle.current_execution_id
+            execution = self._executions.get(execution_id) if execution_id else None
+            if execution is None:
+                # Idle warm workers consume no running-execution budget. A
+                # recursive process-tree scan is costly on Windows and can
+                # contend with active workers without yielding useful data.
+                if not handle.is_alive():
+                    break
+                time.sleep(self._resource_monitor.interval)
+                continue
             rss = self._resource_monitor.sample(self._worker_pid(handle))
             if rss is None:
                 break
-            execution_id = handle.current_execution_id
-            execution = self._executions.get(execution_id) if execution_id else None
             if execution is not None:
                 if rss > execution.peak_rss:
                     execution.peak_rss = rss
@@ -1360,7 +1379,7 @@ class RuntimeCoordinator:
         """
 
         handle = execution.worker_handle
-        if handle is None or not handle.is_alive():
+        if handle is None or handle.endpoint is not None or not handle.is_alive():
             return
         candidates = [
             self._worker_pid(handle),
@@ -1424,7 +1443,15 @@ class RuntimeCoordinator:
 
     def _on_worker_message(self, execution_id: str, message: dict[str, Any]) -> None:
         kind = message.get("t")
-        if kind == MSG_DEPENDENCY:
+        if kind == "resource":
+            execution = self._executions.get(execution_id)
+            if execution is not None and execution.worker_handle.endpoint is not None:
+                rss = int(message.get("rss", 0))
+                if rss > 0:
+                    execution.peak_rss = max(execution.peak_rss, rss)
+                    self.scheduler.record_rss(execution_id, rss)
+                    self._resource_monitor.record(execution.workflow_id, execution_id, rss)
+        elif kind == MSG_DEPENDENCY:
             self._spawn(self._handle_dependency(execution_id, message))
         elif kind == MSG_RESULT:
             self._spawn(self._handle_result(execution_id, message))
@@ -1532,6 +1559,11 @@ class RuntimeCoordinator:
         execution = self._executions.get(execution_id)
         if execution is None or execution.outcome.done():
             return
+        if execution.worker_handle and execution.worker_handle.endpoint is not None:
+            rss = int(message.get("remote_peak_rss", message.get("rss_end", 0)))
+            execution.peak_rss = max(execution.peak_rss, rss)
+            if rss > 0:
+                self._resource_monitor.record(execution.workflow_id, execution_id, rss)
         bypass = list(message.get("dependency_bypass") or [])
         if bypass:
             self.event_bus.publish(
@@ -1653,6 +1685,8 @@ class RuntimeCoordinator:
     async def _finalize_execution(
         self, execution: PhysicalExecution, outcome: ExecutionOutcome
     ) -> None:
+        if execution.termination_task is not None:
+            await asyncio.shield(execution.termination_task)
         async with self._lock:
             execution.finish_time = time.time()
             execution.cpu_time = outcome.cpu_time or execution.cpu_time

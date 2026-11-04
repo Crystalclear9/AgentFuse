@@ -191,7 +191,7 @@ async def test_a_late_joiner_validates_the_existing_ledger(app, snapshot):
     assert len(executions) == 2, "the second call must not reuse a finished execution"
 
 
-async def test_a_late_joiner_validates_the_early_dependencies(app, snapshot):
+async def test_a_late_joiner_validates_the_early_dependencies(app, snapshot, monkeypatch):
     """§17.3 - a participant that joins in the middle must not miss the
     dependencies that the leader already observed.
 
@@ -203,6 +203,19 @@ async def test_a_late_joiner_validates_the_early_dependencies(app, snapshot):
     workflow = app.create_workflow("test-late-join-prefix")
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
+
+    # Hold result processing until a follower really joins. CPU rounds are not
+    # a reliable join window on a loaded runner: IPC messages may already be
+    # queued when the test task resumes. This tests prefix validation while
+    # the group is in flight; physical CPU overlap is tested separately.
+    joined = asyncio.Event()
+    original_handle_result = app.coordinator._handle_result
+
+    async def handle_result_after_join(execution_id, message):
+        await asyncio.wait_for(joined.wait(), timeout=60)
+        await original_handle_result(execution_id, message)
+
+    monkeypatch.setattr(app.coordinator, "_handle_result", handle_result_after_join)
 
     arguments = {"files": list(DEMO_FILES), "rounds": 4000}
     leader_task = asyncio.create_task(
@@ -221,6 +234,8 @@ async def test_a_late_joiner_validates_the_early_dependencies(app, snapshot):
         nonlocal reads
         if event.event_type == EventType.TOOL_READ_OBSERVED:
             reads += 1
+        elif event.event_type == EventType.TOOL_CALL_WAITING and reads >= 2:
+            joined.set()
 
     app.event_bus.subscribe(observer)
     assert await wait_until(lambda: reads >= 2), (

@@ -441,7 +441,11 @@ async def scenario_cancel_failure(
     async def cancelling_follower(context: Any) -> Any:
         await wait_for_first_dependency(app.event_bus, workflow.workflow_id)
         task = asyncio.create_task(context.call_tool("content_digest", {"files": files, "rounds": rounds}))
-        await asyncio.sleep(0.05)
+        await wait_for_event(
+            app.event_bus, EventType.TOOL_CALL_REQUESTED,
+            workflow_id=workflow.workflow_id,
+            predicate=lambda event: event.invocation_id == context.invocation_id,
+        )
         for call in coordinator.calls_for_invocation(context.invocation_id):
             await coordinator.cancel_logical_call(call.logical_call_id, "follower cancelled")
         try:
@@ -468,6 +472,7 @@ async def scenario_cancel_failure(
     # the share group, otherwise the cancellation would hit a follower and the
     # case would be identical to case 1.
     leader_ready = asyncio.Event()
+    follower_identity: dict[str, str] = {}
 
     async def cancelling_leader(context: Any) -> Any:
         task = asyncio.create_task(
@@ -491,17 +496,11 @@ async def scenario_cancel_failure(
         # wait until the follower is active - it either joined the group or
         # (in the baseline mode) it started its own execution.  Then the
         # leader is cancelled immediately, the execution must still run.
-        try:
-            await wait_for_any_event(
-                app.event_bus,
-                (EventType.TOOL_CALL_WAITING, EventType.TOOL_EXECUTION_STARTED),
-                workflow_id=workflow.workflow_id,
-                timeout=5.0,
-            )
-        except Exception:
-            # nobody joined (the baseline mode never shares) - the leader is
-            # cancelled anyway
-            pass
+        await wait_for_event(
+            app.event_bus, EventType.TOOL_CALL_REQUESTED,
+            workflow_id=workflow.workflow_id,
+            predicate=lambda event: event.invocation_id == follower_identity.get("id"),
+        )
         if leader_call is not None:
             await coordinator.cancel_logical_call(
                 leader_call.logical_call_id, "leader cancelled"
@@ -514,6 +513,7 @@ async def scenario_cancel_failure(
 
     async def joining_follower(context: Any) -> Any:
         # the follower only joins after the leader exists
+        follower_identity["id"] = context.invocation_id
         await leader_ready.wait()
         return await context.call_tool(
             "content_digest", {"files": files, "rounds": rounds}
@@ -537,9 +537,20 @@ async def scenario_cancel_failure(
     # that the check stays fast.  The semantics do not change.
     timeout_seconds = float(options.get("timeout_seconds", 1.0))
     timeout_result: Any = None
+    # the call needs an invocation - the demo binds its agents through the
+    # adapter as well (requirement 12.1)
+    timeout_agent = await adapter.bind_agent(
+        external_identity="timeout-agent",
+        agent_description="the agent whose execution runs into the timeout",
+        registration_source="scenario",
+    )
+    timeout_invocation = await adapter.begin_invocation(timeout_agent.agent_id)
     try:
-        await coordinator.submit_tool_call(
-            workflow_id=workflow.workflow_id,
+        # The call goes through the **adapter** - the demo has no execution path
+        # of its own (requirement 12.1).  The adapter takes the timeout from
+        # the options of the call.
+        await adapter.submit_tool_call(
+            invocation_id=timeout_invocation.invocation_id,
             tool_name="fault_injector",
             arguments={"mode": "sleep", "seconds": 30},
             snapshot_id=base.snapshot_id,
@@ -551,9 +562,16 @@ async def scenario_cancel_failure(
 
     # -- case 4: the worker process crashes ---------------------------------
     crash_result: Any = None
+    crash_agent = await adapter.bind_agent(
+        external_identity="crash-agent",
+        agent_description="the agent whose worker crashes",
+        registration_source="scenario",
+    )
+    crash_invocation = await adapter.begin_invocation(crash_agent.agent_id)
     try:
-        await coordinator.submit_tool_call(
-            workflow_id=workflow.workflow_id,
+        # through the adapter, like every other call of the demo
+        await adapter.submit_tool_call(
+            invocation_id=crash_invocation.invocation_id,
             tool_name="fault_injector",
             arguments={"mode": "exit", "exit_code": 7},
             snapshot_id=base.snapshot_id,

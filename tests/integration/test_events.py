@@ -242,8 +242,30 @@ async def test_the_execution_is_written_to_the_database(app, snapshot):
     # the call that produced it is linked to the execution
     calls = app.repository.list_logical_calls(workflow.workflow_id)
     assert len(calls) == 1
-    assert calls[0]["physical_execution_id"] == row["execution_id"]
+    call = calls[0]
+    assert call["physical_execution_id"] == row["execution_id"]
     assert result.result_hash == row["result_hash"]
+
+    # the fields of requirement 4.4 - the logical call has to carry them all
+    assert call["logical_call_id"], call
+    assert call["workflow_id"] == workflow.workflow_id, call
+    # the invocation is optional (a call without an agent has none) - the
+    # **field** has to exist all the same
+    assert "invocation_id" in call, call
+    assert call["tool_name"] == "ast_analyzer", call
+    assert call["tool_version"], call
+    assert call["normalized_arguments"], "the normalised arguments have to be stored"
+    assert call["workspace_snapshot_id"] == snapshot.snapshot_id, call
+    assert call["request_time"] is not None, call
+    assert call["status"] == "COMPLETED", call
+    assert call["result_reference"], (
+        "the logical call has to point at the result it received - "
+        f"the row is {call}"
+    )
+    assert call["result_reference"] == call["result_hash"] or call["result_reference"], (
+        "the result reference has to point at the stored result"
+    )
+    assert call["result_hash"] == row["result_hash"], call
 
 
 async def test_the_physical_execution_is_recorded(app, snapshot):

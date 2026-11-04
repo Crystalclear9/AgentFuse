@@ -66,7 +66,7 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 | 数据存储 | SQLite（WAL，独立写入线程） |
 | 本地 API | FastAPI + Uvicorn |
 | 前端 | 原生 HTML / CSS / JavaScript（无框架、无构建链、无 CDN）；测试用 Node 执行真实脚本 |
-| 自动化测试 | pytest + pytest-asyncio + httpx（275 个用例，含前端脚本的执行测试） |
+| 自动化测试 | pytest + pytest-asyncio + httpx（当前实测数量见 TEST_REPORT，含真实浏览器测试） |
 | 配置 | TOML（`config/default.toml`） |
 | 命令行 | argparse |
 
@@ -82,29 +82,30 @@ AgentFuse 在这些执行之间建立了一个**受控的共享层**：
 ### Windows（首要目标平台）
 
 ```powershell
-# 在项目目录内创建本地虚拟环境（所有文件都留在项目目录中）
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -e ".[dev]"
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-local.ps1
+. .\scripts\enter-local.ps1
+python -m agentfuse init
 ```
 
-### WSL2 / Linux（已实测验证）
+脚本把独立 Python、uv、Portable Git、Chromium、Node 和全部开发依赖放在当前项目的
+`.tools/` 与 `.venv-local/`，不修改全局 PATH。Python 依赖按 `requirements-dev.lock` 的版本与哈希安装。
+每个新终端先执行 `. .\scripts\enter-local.ps1`。安装后核心 Runtime 可完全离线运行。
+Docker CLI 与离线镜像位于 `.tools/docker/`、`.tools/images/`；可选隔离功能仍要求操作系统已有 Docker Linux Engine。
 
-Ubuntu-22.04 自带的 Python 是 3.10，AgentFuse 需要 3.11+。推荐用 `uv` 在
-**项目目录内**创建虚拟环境：
+### WSL2 / Linux（可选平台）
 
 ```bash
-cd /mnt/c/Users/<you>/Desktop/AgentFuse     # 或你的项目路径
-uv venv --python 3.11 .agentfuse/wsl/venv
-uv pip install --python .agentfuse/wsl/venv/bin/python -e ".[dev]"
-
-# 运行测试
-.agentfuse/wsl/venv/bin/python -m pytest tests -q
-.agentfuse/wsl/venv/bin/python scripts/acceptance_check.py
+cd /mnt/c/Users/<you>/Desktop/AgentFuse
+bash scripts/setup-local.sh
+source scripts/enter-local.sh
+python -m pytest tests -q
+python scripts/acceptance_check.py
 ```
 
-实测结果见 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) §3（Windows 275 passed /
-WSL2 275 passed，两平台验收自检（44/44））。
+Linux 独立 Python 与 uv 位于 `.tools/python-linux/`、`.tools/uv-linux/`，依赖位于 `.venv-wsl/`。
+WSL2 由 Windows 提供，Docker Engine 和 WSL2 属于系统服务，不通过复制二进制伪装成项目内安装。
+
+当前与历史实测结果分开记录于 [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md)。WSL2 的历史通过结果不代表新增 P2 扩展已在该平台复验。
 
 > 跨平台实测发现并修复了一个 Linux 专属缺陷：父进程未 `wait()` 回收 worker
 > 导致僵尸进程堆积。详见 TEST_REPORT §4。
@@ -290,3 +291,10 @@ python scripts/check_regression.py
 ## 12. 许可
 
 MIT，见 [LICENSE](LICENSE)。
+
+## 13. 可选 P2 扩展
+
+已提供远程 Worker 流式执行、参考注意力推理与 KV 前缀缓存、下一工具概率预测、Docker 第三方命令隔离。
+运行 `python -m agentfuse.extensions inference-demo` 可直接对比真实推理计算；其默认权重是未训练夹具。
+远程执行与隔离命令的配置、测试及支持边界见 [P2_EXTENSIONS.md](docs/P2_EXTENSIONS.md)。
+生产 LLM/GPU 推理、跨 Agent 全路径预测、任意程序完备追踪和绝对通用沙箱仍不能宣称全部完成。

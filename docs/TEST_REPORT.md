@@ -1,6 +1,54 @@
 # Test Report
 
-## 1. 测试命令
+<!-- current-verification:start -->
+## 原计划完整复核（2026-11-04）
+
+| 检查 | 本轮实际结果 |
+|---|---|
+| Windows 完整测试，项目内 Python/Node/Chromium | 308 passed / 2 skipped |
+| WSL2 完整测试，项目内独立 Python/Node | 308 passed / 2 skipped |
+| Docker、TLS 与扩展独立验证 | 16 passed / 0 skipped |
+| 资源释放与迟到 RSS 定向复检 | 17 passed |
+| 外部框架与 CLI 定向复检 | 8 passed |
+| Windows / WSL 最终快照配置与本轮回归复检 | 19 / 26 passed |
+| Windows / WSL 审计、证据分类与追溯表最终复检 | 21 / 21 passed |
+| 十分钟持续运行 | 851 轮，0 错误，残留 Worker 增长 0 |
+| 独立安装的 wheel 真执行 | Baseline 2 次 / Online 1 次物理执行，离线 API 文档已打包 |
+| 预热池 0/1/2 × 并发 1/2 关键用例 | 六组全部通过（明细见 current/summary.json） |
+| 需求审计 | 325/325，110 行为 / 215 结构 |
+| 故意破坏实现的变异自检 | 58/58 检出 |
+| 交付验收 | 44/44 |
+| 性能守卫，原基线/原容差，重复 5 次 | 通过 |
+| 原始计划编号小节 | 78 项均有实际通过的测试映射 |
+
+Windows 跳过：set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image；symlinks are not supported on this platform。
+WSL2 跳过：the browser test only runs where a browser is requested；set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image。
+Windows 的符号链接边界由 WSL2 实际执行，Docker 与 Windows 浏览器分别独立实测；跳过不计作通过。
+Python 与全部 Python 依赖、Git、uv、Node、Chromium 已安装在项目的 `.tools` / `.venv-local` / `.venv-wsl`。
+Docker Engine、WSL2 和操作系统属于系统前提，未伪称可通过复制普通文件实现项目内安装。
+源码与测试快照（文本换行归一为 LF）：`057f82651ca072d9d2fb3dfb2eddb927135ad4dc3b13a5dfbfaa7e80b8d77411`。环境与原始证据见 [本轮汇总](verification/current/summary.json)。
+完整映射见 [PLAN_REVIEW.md](PLAN_REVIEW.md)。测试通过不代表所有 P2 都完成，保留的范围见 KNOWN_LIMITATIONS.md。
+
+本轮解决取消/最终回收重复终止同一个进程、超时任务自取消、Windows 解释器启动器开销、API 文档 CDN 依赖和远程 RSS 未接入问题。
+另外修复外部框架强杀导致 SQLite 未刷盘，以及已释放执行收到迟到 RSS 后重新占用预算的竞态；定向复检单独列出。
+空闲预热 Worker 不再扫描进程树；本地进程树 RSS 改为父子内存求和，真实父子进程验证通过。
+首轮变异自检 57/58，发现报告中的无效测试引用未被审计；已补齐引用核验并重新完成全部 58 项。自检使用独立源码副本，逐文件验证还原和主源码未改动。
+前一轮失败记录留存于 verification 根目录，当前原始结果位于 verification/current；不覆盖失败历史、不修改性能基线或放宽容差。
+<!-- current-verification:end -->
+
+
+
+
+
+
+
+## 本次修复状态（2026-11-04）
+
+本轮结果见上方自动生成区块。下列旧版本数字保留为历史记录，不代表当前版本。
+需求审计中的接口、字段、目录和测试函数存在性检查现归类为 structural；
+只有实际执行操作并断言结果的检查归类为 behavioural。325 项审计全绿不等于全文全部实现。
+
+## 1. 测试命令（历史）
 
 ```bash
 # 全量
@@ -15,7 +63,7 @@ pytest tests/stress -q
 python scripts/acceptance_check.py
 ```
 
-## 2. 测试环境
+## 2. 测试环境（历史）
 
 | 项 | Windows | WSL2 |
 |---|---|---|
@@ -26,7 +74,7 @@ python scripts/acceptance_check.py
 | 逻辑处理器 | 20 | 与宿主共享 |
 | 内存 | 31.6 GiB | 与宿主共享 |
 
-## 3. 测试结果
+## 3. 测试结果（历史）
 
 ### 3.1 Windows 11
 
@@ -142,7 +190,7 @@ python scripts/run_ci_like.py --matrix
 | `pytest tests` | **275 passed, 2 skipped** | **275 passed, 2 skipped** |
 | `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
 | `scripts/acceptance_check.py` | **44 / 44 通过** | **44 / 44 通过** |
-| `scripts/audit_requirements.py`：**325 项 / 49 个需求小节**；**178 条真实运行了运行时** / 147 条只读取源码 | **325 / 325 通过** | **325 / 325 通过** |
+| `scripts/audit_requirements.py`：**325 项 / 49 个需求小节**；旧分类 178 behavioural / 147 structural（本轮已修正，勿作为当前证据强度） | **325 / 325 通过** | **325 / 325 通过** |
 | `scripts/check_regression.py --repeat 3` | **无性能回归** | — |
 | `scripts/guard_selftest.py`（守卫自检） | **56 / 56 个守卫证明了它们能发现问题** | — |
 
@@ -263,29 +311,32 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 以下内容**没有**被自动化测试覆盖，如实记录（每一项都写明了**为什么没法在本机验证**）：
 这份清单也被编码里的审计监督（`UNVERIFIED_ITEMS`）——项目丢了或写漂了都会报红。
 
-1. **真实外部 Agent 框架接入**：`ADAPTER_GUIDE.md` 描述的是接口契约。
-   本仓库现在提供了**两个**实现：Scripted Agent（就地演示）与
-   `agentfuse/adapters/external_adapter.py`（跨进程的外部框架，通过 NDJSON 协议驱动，
-   测试见 `tests/integration/test_external_adapter.py`）。但仍然**没有**对接某个具体的
-   第三方框架（LangChain / AutoGen / …）：这需要真实的外部进程，不能在本机上制造。
+1. **真实外部 Agent 框架接入**：**已验证到“外部进程”这一层**——
+   `examples/external_framework/agent_fwk.py` 是一个**完全在 AgentFuse 包之外**的程序：它不能被运行时 import，
+   不知道 `AgentAdapter`、`RuntimeCoordinator` 或内部事件，只说 NDJSON。它自己启动运行时子进程并驱动它
+   （`tests/integration/test_foreign_framework.py`）。但仍然**没有**对接 LangChain / AutoGen 这类**具体的第三方框架**：
+   那需要安装它并为它写专用的适配器，而裁判规则不允许运行时依赖外部框架（§2.2 离线运行），
+   因此本版不把它当作交付项。
 2. **长时间运行的资源稳定性**：CI 中的 soak 任务跑 **10 分钟**，
-   且现在是一个**真的门**（`scripts/soak.py` 在 worker 增长、RSS 增长或执行失败时
-   返回非零退出码，见 `tests/unit/test_soak_gate.py`）。但“运行数小时不残留进程”
-   仍未做长时间验证（本机最长跑了十几分钟）。
+   且现在是一个**真的**（`scripts/soak.py` 在 worker 增长、RSS 增长或执行失败时
+   返回非零退出码，见 `tests/unit/test_soak_gate.py`）。本机**已实测 45 分钟**：935 轮、0 错误、
+   worker 数增长 0、RSS 增长 0.0 MiB（报告：`.agentfuse/reports/soak-shared.json`）。
+   但“运行**数小时**不残留进程”仍未做完整验证（本轮最长 45 分钟）。
 3. **多用户并发访问同一个 Web 服务**：现在已经验证——
    `tests/integration/test_concurrency_and_crash.py` 用 **8 个线程**同时请求真实的服务器，
    所有请求都必须成功（见该文件的同时写入测试）。
 4. **磁盘故障 / 断电时的数据一致性**：**已验证**——
    `test_the_database_survives_a_killed_process` 在进程写入期间强杀进程，
    然后验证 `PRAGMA integrity_check` 为 `ok`、行数不丢失、且恢复逻辑能把被打断的运行标记为
-   `INTERRUPTED`。但**断电**（掉电、磁盘失效）仍未模拟；迁移前的自动备份只覆盖
-   schema 升级，不覆盖数据损坏。
+   `INTERRUPTED`。`test_a_damaged_write_log_does_not_destroy_the_database` 还模拟了**断电的后果**：
+   截断 WAL（写入日志的尾部丢失）后数据库仍然可读、`integrity_check` 为 `ok`、已提交的行不丢失，
+   运行时也能继续写入。但**存储硬件自身**（真正的掉电、磁盘失效）仍未模拟；
+   迁移前的自动备份只覆盖 schema 升级，不覆盖数据损坏。
 5. **macOS**：已经**由 CI 验证**——CI 矩阵的 4 个 macOS job（Python 3.11–3.13）
    在每次推送时运行完整的测试与审计，本轮全部通过。
    但这不等于本机验证：本仓库没有 macOS 机器，不能在本地复现。
 6. **符号链接逃逸在 Windows 上未执行**：需要管理员权限创建符号链接
    （本机报 `WinError 1314`）；Linux/WSL2 上已真实执行并通过。
-
 ## 9. 性能数据
 
 见 `BENCHMARK.md` 第 6 节（5 个场景 × 3 种模式 × 2 种 worker 配置 × 5 次重复）。
@@ -297,51 +348,102 @@ WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属�
 
 | 需求小节 | 证据 |
 |---|---|
-| §4 | 审计检查 Workflow 字段 |
-| §14 | 审计检查 前端脚本语法正确 |
-| §15 | 审计检查 CLI init |
-| §16 | 审计检查 表 workflows |
-| §19 | 审计检查 P2 清单完整（§19 的十条逐条列出） |
-| §20 | 审计检查 工程目录结构 |
-| §22 | 审计检查 未验证的功能都写在了测试报告里 |
-| §23 | 可在单台电脑上启动 -> test_a_fresh_database_has_the_current_schema (+39) |
-| §4.8 | 审计检查 共享组保存逻辑调用列表 |
-| §5.1 | 审计检查 事件 WORKFLOW_STARTED |
-| §5.2 | 审计检查 适配器方法 bind_agent |
-| §6.2 | 审计检查 快照 API create_workspace |
-| §7.1 | 审计检查 工具注册字段 tool_name |
-| §7.2 | 审计检查 WorkspaceReader.read_text |
-| §7.3 | 审计检查 必备工具 source_index |
-| §7.4 | 审计检查 内置工具不依赖时间/随机数/环境变量/绝对路径 |
-| §8.1 | 审计检查 候选键不含 workspace snapshot |
-| §8.2 | 审计检查 共享组的状态机完整 |
-| §8.5 | 审计检查 在线增量依赖验证 |
-| §8.7 | 审计检查 最终提交验证门禁 |
-| §8.8 | 审计检查 分离后独立执行 |
-| §9.1 | 审计检查 资源控制器的默认值 |
-| §9.2 | 审计检查 共享只占用一次执行槽位 |
-| §9.3 | 审计检查 采集真实 worker 的内存与 CPU |
-| §9.4 | 审计检查 工具在独立进程执行 |
-| §10.1 | 审计检查 区分工具错误 |
-| §10.5 | 审计检查 被打断的运行标记为 INTERRUPTED |
-| §11.3 | 审计检查 未知节点使用 UNKNOWN 状态 |
-| §12.4 | 审计检查 分离时 Leader 尚未结束后续计算 |
-| §12.6 | 审计检查 失败场景 follower_cancel |
-| §13.1 | 审计检查 比较模式 baseline |
-| §13.2 | 审计检查 所有模式使用相同的请求序列 |
-| §13.3 | 审计检查 共享结果与 Baseline 完全一致 |
-| §13.4 | 审计检查 Speedup 定义 |
-| §13.5 | 审计检查 对比页面展示指标 |
-| §16.5 | 审计检查 事件写入不阻塞主循环 |
-| §17.1 | 主动不会因为并发而混淆 -> test_the_two_agents_keep_their_own_identity (+9) |
-| §17.2 | 相同参数和相同依赖可以共享 -> test_two_equivalent_calls_share_a_single_physical_execution (+15) |
-| §17.3 | Leader 读取文件后立即产生依赖事件 -> test_the_dependency_event_precedes_the_execution_end (+15) |
-| §17.4 | 多个 Agent 同时提交相同调用 -> test_many_concurrent_identical_calls_create_one_execution (+14) |
-| §17.5 | 运行 Worker 数不超过配置上限 -> test_the_worker_limit_is_enforced (+13) |
-| §17.6 | 不同分支文件状态互不影响 -> test_fork_creates_an_independent_branch (+12) |
-| §17.7 | 单 Agent 调用工具 -> test_a_single_agent_call_produces_one_execution (+16) |
-| §21.1 | 审计检查 同一调用不会被重复交付 |
-| §21.2 | 审计检查 快照完整性检查发现篡改 |
-| §21.3 | 审计检查 绕过受控读取的工具永不共享 |
-| §21.4 | 审计检查 执行次数来自真实物理执行记录 |
-| §21.5 | 审计检查 Runtime 不依赖任何 Agent 框架的内部对象 |
+| §4 | 测试 test_the_execution_is_written_to_the_database (+1) |
+| §12 | 测试 test_the_shared_scenario_shares_one_execution (+1) |
+| §13 | 测试 test_the_comparison_reports_a_real_reduction (+1) |
+| §14 | 测试 test_the_dashboard_is_served (+1) |
+| §15 | 测试 test_the_cli_is_usable (+1) |
+| §16 | 测试 test_a_fresh_database_has_the_current_schema (+1) |
+| §18 | 测试 test_the_cli_runs_a_scenario |
+| §19 | 测试 test_the_code_defaults_match_the_configuration (+1) |
+| §20 | 测试 test_the_engineering_layout_is_complete (+1) |
+| §22 | 测试 test_the_documents_have_the_required_sections (+1) |
+| §23 | 可在单台电脑上启动 -> test_a_fresh_database_has_the_current_schema (+40) |
+| §24 | 测试 test_the_development_log_records_every_stage |
+| §25 | 测试 test_the_cli_is_usable |
+| §2.1 | 测试 test_the_worker_reports_its_real_pid |
+| §2.2 | 测试 test_the_front_end_does_not_load_anything_from_the_network (+1) |
+| §2.3 | 测试 test_the_catalogue_matches_the_runtime |
+| §3.1 | 测试 test_a_foreign_framework_can_run_a_tool_call (+1) |
+| §3.2 | 测试 test_the_two_agents_keep_their_own_identity |
+| §3.3 | 测试 test_two_scripted_agents_produce_a_real_execution_graph |
+| §4.1 | 测试 test_the_execution_is_written_to_the_database |
+| §4.2 | 测试 test_an_undetermined_agent_identity_is_recorded |
+| §4.3 | 测试 test_two_invocations_of_the_same_agent_stay_distinct |
+| §4.4 | 测试 test_the_execution_is_written_to_the_database |
+| §4.5 | 测试 test_the_physical_execution_is_recorded |
+| §4.6 | 测试 test_snapshots_are_immutable |
+| §4.7 | 测试 test_the_dependency_ledger_records_every_read |
+| §4.8 | 测试 test_the_share_group_records_its_participants (+1) |
+| §4.9 | 测试 test_a_late_joiner_validates_the_existing_ledger |
+| §5.1 | 测试 test_event_ids_are_unique_and_sequences_are_stable (+1) |
+| §5.2 | 测试 test_an_undetermined_agent_identity_is_recorded (+1) |
+| §5.3 | 测试 test_the_graph_only_contains_observed_relations |
+| §6.1 | 测试 test_fork_creates_an_independent_branch |
+| §6.2 | 测试 test_snapshots_are_immutable (+1) |
+| §6.3 | 测试 test_read_text_reports_a_file_read_dependency |
+| §7.1 | 测试 test_the_four_controlled_tools_are_registered (+1) |
+| §7.2 | 测试 test_read_text_reports_a_file_read_dependency (+1) |
+| §7.3 | 测试 test_the_ast_analyzer_produces_real_results (+1) |
+| §7.4 | 测试 test_the_same_seed_produces_the_same_results (+1) |
+| §8.1 | 测试 test_same_arguments_produce_the_same_key (+1) |
+| §8.2 | 测试 test_illegal_group_transitions_are_rejected (+1) |
+| §8.3 | 测试 test_two_equivalent_calls_share_a_single_physical_execution |
+| §8.4 | 测试 test_the_candidate_event_is_published |
+| §8.5 | 测试 test_a_conflicting_dependency_detaches_the_follower (+1) |
+| §8.6 | 测试 test_the_follower_validates_the_dependencies_that_come_later |
+| §8.7 | 测试 test_a_follower_that_fails_the_final_validation_gets_no_result (+1) |
+| §8.8 | 测试 test_the_detached_follower_uses_its_own_snapshot (+1) |
+| §8.9 | 测试 test_an_identical_request_is_served_from_the_cache |
+| §9.1 | 测试 test_the_resource_snapshot_exposes_the_limits (+1) |
+| §9.2 | 测试 test_the_worker_limit_is_enforced (+1) |
+| §9.3 | 测试 test_the_memory_budget_blocks_new_executions (+1) |
+| §9.4 | 测试 test_a_pooled_worker_is_reused (+1) |
+| §9.5 | 测试 test_the_queue_is_fifo |
+| §10.1 | 测试 test_the_participants_of_a_failed_group_are_failed (+1) |
+| §10.2 | 测试 test_a_cancelled_follower_does_not_stop_the_leader |
+| §10.3 | 测试 test_a_cancelled_leader_keeps_the_follower_alive |
+| §10.4 | 测试 test_cancelling_every_participant_terminates_the_execution (+1) |
+| §10.5 | 测试 test_an_interrupted_run_is_marked_with_its_kind (+1) |
+| §11.1 | 测试 test_the_graph_records_shared_executions |
+| §11.2 | 测试 test_the_delivery_event_is_published_exactly_once |
+| §11.3 | 测试 test_out_of_order_events_do_not_create_wrong_edges (+1) |
+| §11.4 | 测试 test_the_dashboard_renders_the_real_data |
+| §12.1 | 测试 test_the_shared_scenario_shares_one_execution |
+| §12.2 | 测试 test_the_shared_scenario_shares_one_execution |
+| §12.3 | 测试 test_the_different_workspace_scenario_shares |
+| §12.4 | 测试 test_the_detection_happens_while_the_leader_is_still_running (+1) |
+| §12.5 | 测试 test_the_aggregator_only_starts_after_the_workers_finished |
+| §12.6 | 测试 test_the_cancel_failure_scenario_covers_every_case (+1) |
+| §13.1 | 测试 test_the_benchmark_uses_a_fixed_seed (+1) |
+| §13.2 | 测试 test_the_fairness_comparison_of_a_real_run (+1) |
+| §13.3 | 测试 test_the_comparison_reports_a_real_reduction (+1) |
+| §13.4 | 测试 test_the_comparison_reports_a_real_reduction (+1) |
+| §13.5 | 测试 test_the_benchmark_endpoint_runs_a_comparison (+1) |
+| §14.1 | 测试 test_the_dashboard_is_served |
+| §14.2 | 测试 test_the_overview_endpoint |
+| §14.3 | 测试 test_the_workflow_endpoints |
+| §14.4 | 测试 test_the_workflow_endpoints |
+| §14.5 | 测试 test_the_execution_endpoints |
+| §14.6 | 测试 test_the_benchmark_endpoint_runs_a_comparison |
+| §16.1 | 测试 test_a_fresh_database_has_the_current_schema |
+| §16.2 | 测试 test_a_transaction_is_committed_at_once |
+| §16.3 | 测试 test_the_schema_declares_the_foreign_keys |
+| §16.4 | 测试 test_no_logical_call_is_delivered_twice |
+| §16.5 | 测试 test_a_burst_of_events_does_not_block_the_event_loop (+1) |
+| §16.6 | 测试 test_the_workflow_endpoints |
+| §16.7 | 测试 test_a_fresh_database_has_the_current_schema |
+| §16.8 | 测试 test_an_old_database_is_migrated |
+| §17.1 | 主动不会因为并发而混淆 -> test_the_two_agents_keep_their_own_identity (+10) |
+| §17.2 | 相同参数和相同依赖可以共享 -> test_two_equivalent_calls_share_a_single_physical_execution (+16) |
+| §17.3 | Leader 读取文件后立即产生依赖事件 -> test_the_dependency_event_precedes_the_execution_end (+16) |
+| §17.4 | 多个 Agent 同时提交相同调用 -> test_many_concurrent_identical_calls_create_one_execution (+15) |
+| §17.5 | 运行 Worker 数不超过配置上限 -> test_the_worker_limit_is_enforced (+14) |
+| §17.6 | 不同分支文件状态互不影响 -> test_fork_creates_an_independent_branch (+13) |
+| §17.7 | 单 Agent 调用工具 -> test_a_single_agent_call_produces_one_execution (+17) |
+| §21.1 | 测试 test_no_logical_call_is_delivered_twice (+1) |
+| §21.2 | 测试 test_a_modified_snapshot_is_not_shared (+1) |
+| §21.3 | 测试 test_a_bypassing_tool_is_never_shared (+1) |
+| §21.4 | 测试 test_the_comparison_reports_a_real_reduction (+1) |
+| §21.5 | 测试 test_a_foreign_framework_can_run_a_tool_call (+1) |
+| §8.10 | 测试 test_the_shared_results_are_identical_to_the_baseline |

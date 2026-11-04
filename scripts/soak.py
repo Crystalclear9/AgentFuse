@@ -33,23 +33,39 @@ from agentfuse.scenarios import run_scenario  # noqa: E402
 from agentfuse.settings import load_settings  # noqa: E402
 
 ME = os.getpid()
+_OWNED_WORKERS: dict[int, float] = {}
 
 
 def worker_processes() -> list[int]:
     """The pids of the processes that really run a tool worker."""
 
     found: list[int] = []
-    for pid in psutil.pids():
+    for process in psutil.process_iter(["pid", "name"]):
+        pid = process.pid
         if pid == ME:
             continue
+        if "python" not in (process.info["name"] or "").lower():
+            continue
         try:
-            cmdline = psutil.Process(pid).cmdline()
+            cmdline = process.cmdline()
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
         if len(cmdline) >= 2 and "python" in cmdline[0].lower() and cmdline[-1].endswith(
             "worker_child"
         ):
-            found.append(pid)
+            try:
+                created = process.create_time()
+                owned = _OWNED_WORKERS.get(pid) == created
+                if not owned:
+                    owned = any(parent.pid == ME for parent in process.parents())
+                if owned:
+                    _OWNED_WORKERS[pid] = created
+                    found.append(pid)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+    for pid in list(_OWNED_WORKERS):
+        if pid not in found:
+            _OWNED_WORKERS.pop(pid)
     return found
 
 
@@ -72,16 +88,16 @@ def sample(label: str) -> dict:
 
 
 async def main_async(args: argparse.Namespace) -> int:
-    settings = load_settings(home=str(ROOT / ".agentfuse" / "soak"))
-    app = AgentFuseApp(settings=settings, mode=RuntimeMode.ONLINE)
-    app.coordinator.worker_pool_size = args.workers
-    samples: list[dict] = []
+    settings = load_settings(home=str(ROOT / ".agentfuse" / "soak" / f"{sys.platform}-{os.getpid()}"))
+    # Baseline before prewarming, otherwise initial warm workers could mask a
+    # smaller leak after close. Foreign runtimes never count toward this run.
+    samples: list[dict] = [sample("start")]
+    app = AgentFuseApp(settings=settings.with_overrides(worker_pool_size=args.workers), mode=RuntimeMode.ONLINE)
     executions = 0
     errors = 0
     started = time.time()
     deadline = started + args.minutes * 60
     try:
-        samples.append(sample("start"))
         iteration = 0
         while time.time() < deadline:
             iteration += 1

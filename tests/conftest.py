@@ -34,13 +34,16 @@ async def app(settings: RuntimeSettings):
     matrix run the whole suite with different pool sizes and worker limits.
     """
 
-    application = AgentFuseApp(settings=settings, mode=RuntimeMode.ONLINE)
     pool_size = os.environ.get("AGENTFUSE_TEST_POOL_SIZE")
     workers = os.environ.get("AGENTFUSE_TEST_WORKERS")
+    overrides = {}
     if pool_size is not None:
-        application.coordinator.worker_pool_size = int(pool_size)
+        overrides["worker_pool_size"] = int(pool_size)
     if workers is not None:
-        application.scheduler.max_workers = int(workers)
+        overrides["max_workers"] = int(workers)
+    # Apply the tested configuration before App starts the warm worker pool.
+    # Changing coordinator fields afterwards would test a different startup.
+    application = AgentFuseApp(settings=settings.with_overrides(**overrides), mode=RuntimeMode.ONLINE)
     try:
         yield application
     finally:

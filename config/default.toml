@@ -40,6 +40,11 @@ exclude = [
     ".svn",
     "__pycache__",
     ".venv",
+    ".venv-local",
+    ".venv-wsl",
+    ".tools",
+    ".agentfuse",
+    "_manual_delete",
     "venv",
     "node_modules",
     ".pytest_cache",
@@ -60,3 +65,11 @@ log_level = "info"
 [database]
 # Path is relative to the AgentFuse home directory.
 filename = "db/agentfuse.sqlite3"
+
+# Optional P2 numerical inference backend. The default weights are untrained.
+[inference]
+max_cache_bytes = 8388608
+# weights_path = "C:/models/attention.json"
+
+# Remote worker configuration examples: docs/P2_EXTENSIONS.md.
+# No remote workers are enabled by default.

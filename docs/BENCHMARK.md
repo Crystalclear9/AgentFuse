@@ -1,3 +1,6 @@
+> 2026-11-04 本轮验证说明：下文既有数值为历史测量，当前门禁结果见 TEST_REPORT.md 与 verification/current/performance.txt。
+> 当前全部场景在原基线、原容差、5 次重复设置下通过；取消场景历史失败与修复说明见 KNOWN_LIMITATIONS.md §8。
+
 # Benchmark
 
 本文档描述 AgentFuse 的对比实验方法与**实际测量结果**。

@@ -1,0 +1,3 @@
+# Keep the user's original plan and raw test evidence byte-for-byte.
+docs/REQUIREMENTS.zh-CN.md -text -whitespace
+docs/verification/** -text -whitespace

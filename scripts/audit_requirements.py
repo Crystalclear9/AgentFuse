@@ -28,6 +28,7 @@ import ast
 import contextlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -36,6 +37,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
+AUDIT_HOME = ROOT / ".agentfuse" / "audit-runs" / f"{sys.platform}-{os.getpid()}"
 sys.path.insert(0, str(ROOT))
 
 from agentfuse.console import configure_console  # noqa: E402
@@ -478,11 +480,11 @@ def audit_interfaces() -> None:
     for method in ("bind_agent", "begin_invocation", "submit_tool_call",
                    "deliver_result", "end_invocation", "record_event"):
         record("5.2", f"适配器方法 {method}",
-               callable(getattr(AgentAdapter, method, None)), kind="behavioural")
+               callable(getattr(AgentAdapter, method, None)), kind="structural")
 
     for method in ("read_text", "read_bytes", "list_dir", "exists", "stat"):
         record("7.2", f"WorkspaceReader.{method}",
-               callable(getattr(WorkspaceReader, method, None)), kind="behavioural")
+               callable(getattr(WorkspaceReader, method, None)), kind="structural")
     # the controlled reader has to refuse a path outside of the workspace
     import tempfile
 
@@ -530,16 +532,16 @@ def audit_interfaces() -> None:
     for field in ("tool_name", "tool_version", "deterministic", "read_only",
                   "resource_estimate", "input_schema", "output_schema",
                   "implementation_reference"):
-        record("7.1", f"工具注册字段 {field}", field in spec_fields, kind="behavioural")
+        record("7.1", f"工具注册字段 {field}", field in spec_fields, kind="structural")
 
     registry = build_default_registry()
     for tool in ("source_index", "ast_analyzer", "dependency_analyzer", "content_digest"):
-        record("7.3", f"必备工具 {tool}", registry.get(tool) is not None, kind="behavioural")
+        record("7.3", f"必备工具 {tool}", registry.get(tool) is not None, kind="structural")
 
     for api in ("create_workspace", "create_snapshot", "fork_snapshot",
                 "inspect_snapshot", "compare_snapshots", "delete_snapshot"):
         record("6.2", f"快照 API {api}",
-               callable(getattr(SnapshotStore, api, None)), kind="behavioural")
+               callable(getattr(SnapshotStore, api, None)), kind="structural")
 
 
 # ----------------------------------------------------------------------
@@ -592,7 +594,7 @@ def audit_surface() -> None:
 
     known_scenarios = set(list_scenarios())
     for scenario in ("shared", "different-workspace", "divergent", "multi-agent"):
-        record("12", f"演示场景 {scenario}", scenario in known_scenarios, kind="behavioural")
+        record("12", f"演示场景 {scenario}", scenario in known_scenarios, kind="structural")
 
 
     cli = read("agentfuse/cli.py")
@@ -623,7 +625,7 @@ def audit_surface() -> None:
 
         # A fixed directory inside the runtime home: on Windows the removal of
         # a temporary directory can race with the SQLite file handles.
-        tmp = ROOT / ".agentfuse" / "audit"
+        tmp = AUDIT_HOME / "api"
         shutil.rmtree(tmp, ignore_errors=True)
         tmp.mkdir(parents=True, exist_ok=True)
         if True:
@@ -763,7 +765,7 @@ def _audit_behaviour() -> None:
     )
     from agentfuse.settings import load_settings
 
-    home = ROOT / ".agentfuse" / "audit-behaviour"
+    home = AUDIT_HOME / "behaviour"
     shutil.rmtree(home, ignore_errors=True)
 
     async def run() -> None:
@@ -1527,41 +1529,162 @@ SPEC_TEST_SUBITEMS: dict[str, tuple[tuple[str, str], ...]] = {
     ),
 }
 
-#: The subsections of the requirement that carry a behaviour.  The
-#: traceability table has to mention **every** one of them - a requirement
-#: without a pointer is a claim that nobody can check.
-REQUIRED_TRACEABILITY_SECTIONS = (
-    "4", "4.8", "5.1", "5.2", "6.2", "7.1", "7.2", "7.3", "7.4",
-    "8.1", "8.2", "8.5", "8.7", "8.8",
-    "9.1", "9.2", "9.3", "9.4",
-    "10.1", "10.5",
-    "11.3",
-    "12.4", "12.6",
-    "13.1", "13.2", "13.3", "13.4", "13.5",
-    "14", "15", "16", "16.5",
-    "17.1", "17.2", "17.3", "17.4", "17.5", "17.6", "17.7",
-    "19", "20", "21.1", "21.2", "21.3", "21.4", "21.5",
-    "22", "23",
-)
+#: Every subsection of the requirement and the proof that it is met.
+#:
+#: The value is a tuple of pointers: a test function of the suite, the name of
+#: an acceptance check or the name of an audit check.  The audit verifies the
+#: test functions with the AST of the test files (a renamed test does not
+#: satisfy the mapping) and verifies that every subsection is listed.
+#:
+#: This list is the **single source of truth** of the traceability table.
+REQUIRED_TRACEABILITY_SECTIONS: dict[str, tuple[str, ...]] = {
+    # the chapters themselves - the summary of the chapter points at the first
+    # of its subsections
+    "4": ("test_the_execution_is_written_to_the_database",),
+    "12": ("test_the_shared_scenario_shares_one_execution",),
+    "13": ("test_the_comparison_reports_a_real_reduction",),
+    "14": ("test_the_dashboard_is_served",),
+    "16": ("test_a_fresh_database_has_the_current_schema",),
+    # 2 - the environment and the constraints
+    "2.1": ("test_the_worker_reports_its_real_pid",),
+    "2.2": ("test_the_front_end_does_not_load_anything_from_the_network",),
+    "2.3": ("test_the_catalogue_matches_the_runtime",),
+    # 3 - the relation to an existing framework
+    "3.1": ("test_a_foreign_framework_can_run_a_tool_call",),
+    "3.2": ("test_the_two_agents_keep_their_own_identity",),
+    "3.3": ("test_two_scripted_agents_produce_a_real_execution_graph",),
+    # 4 - the data model
+    "4.1": ("test_the_execution_is_written_to_the_database",),
+    "4.2": ("test_an_undetermined_agent_identity_is_recorded",),
+    "4.3": ("test_two_invocations_of_the_same_agent_stay_distinct",),
+    "4.4": ("test_the_execution_is_written_to_the_database",),
+    "4.5": ("test_the_physical_execution_is_recorded",),
+    "4.6": ("test_snapshots_are_immutable",),
+    "4.7": ("test_the_dependency_ledger_records_every_read",),
+    "4.8": ("test_the_share_group_records_its_participants",),
+    "4.9": ("test_a_late_joiner_validates_the_existing_ledger",),
+    # 5 - the events and the adapter
+    "5.1": ("test_event_ids_are_unique_and_sequences_are_stable",),
+    "5.2": ("test_an_undetermined_agent_identity_is_recorded",),
+    "5.3": ("test_the_graph_only_contains_observed_relations",),
+    # 6 - the workspace snapshots
+    "6.1": ("test_fork_creates_an_independent_branch",),
+    "6.2": ("test_snapshots_are_immutable",),
+    "6.3": ("test_read_text_reports_a_file_read_dependency",),
+    # 7 - the controlled tools
+    "7.1": ("test_the_four_controlled_tools_are_registered",),
+    "7.2": ("test_read_text_reports_a_file_read_dependency",),
+    "7.3": ("test_the_ast_analyzer_produces_real_results",),
+    "7.4": ("test_the_same_seed_produces_the_same_results",),
+    # 8 - the sharing algorithm
+    "8.1": ("test_same_arguments_produce_the_same_key",),
+    "8.2": ("test_illegal_group_transitions_are_rejected",),
+    "8.3": ("test_two_equivalent_calls_share_a_single_physical_execution",),
+    "8.4": ("test_the_candidate_event_is_published",),
+    "8.5": ("test_a_conflicting_dependency_detaches_the_follower",),
+    "8.6": ("test_the_follower_validates_the_dependencies_that_come_later",),
+    "8.7": ("test_a_follower_that_fails_the_final_validation_gets_no_result",),
+    "8.8": ("test_the_detached_follower_uses_its_own_snapshot",),
+    "8.9": ("test_an_identical_request_is_served_from_the_cache",),
+    "8.10": ("test_the_shared_results_are_identical_to_the_baseline",),
+    # 9 - the resources
+    "9.1": ("test_the_resource_snapshot_exposes_the_limits",),
+    "9.2": ("test_the_worker_limit_is_enforced",),
+    "9.3": ("test_the_memory_budget_blocks_new_executions",),
+    "9.4": ("test_a_pooled_worker_is_reused",),
+    "9.5": ("test_the_queue_is_fifo",),
+    # 10 - the concurrency, the failures and the cancellation
+    "10.1": ("test_the_participants_of_a_failed_group_are_failed",),
+    "10.2": ("test_a_cancelled_follower_does_not_stop_the_leader",),
+    "10.3": ("test_a_cancelled_leader_keeps_the_follower_alive",),
+    "10.4": ("test_cancelling_every_participant_terminates_the_execution",),
+    "10.5": ("test_an_interrupted_run_is_marked_with_its_kind",),
+    # 11 - the execution graph
+    "11.1": ("test_the_graph_records_shared_executions",),
+    "11.2": ("test_the_delivery_event_is_published_exactly_once",),
+    "11.3": ("test_out_of_order_events_do_not_create_wrong_edges",),
+    "11.4": ("test_the_dashboard_renders_the_real_data",),
+    # 12 - the offline demo
+    "12.1": ("test_the_shared_scenario_shares_one_execution",),
+    "12.2": ("test_the_shared_scenario_shares_one_execution",),
+    "12.3": ("test_the_different_workspace_scenario_shares",),
+    "12.4": ("test_the_detection_happens_while_the_leader_is_still_running",),
+    "12.5": ("test_the_aggregator_only_starts_after_the_workers_finished",),
+    "12.6": ("test_the_cancel_failure_scenario_covers_every_case",),
+    # 13 - the benchmark
+    "13.1": ("test_the_benchmark_uses_a_fixed_seed",),
+    "13.2": ("test_the_fairness_comparison_of_a_real_run",),
+    "13.3": ("test_the_comparison_reports_a_real_reduction",),
+    "13.4": ("test_the_comparison_reports_a_real_reduction",),
+    "13.5": ("test_the_benchmark_endpoint_runs_a_comparison",),
+    # 14 - the web interface
+    "14.1": ("test_the_dashboard_is_served",),
+    "14.2": ("test_the_overview_endpoint",),
+    "14.3": ("test_the_workflow_endpoints",),
+    "14.4": ("test_the_workflow_endpoints",),
+    "14.5": ("test_the_execution_endpoints",),
+    "14.6": ("test_the_benchmark_endpoint_runs_a_comparison",),
+    # 15 - the command line
+    "15": ("test_the_cli_is_usable",),
+    # 16 - the persistence
+    "16.1": ("test_a_fresh_database_has_the_current_schema",),
+    "16.2": ("test_a_transaction_is_committed_at_once",),
+    "16.3": ("test_the_schema_declares_the_foreign_keys",),
+    "16.4": ("test_no_logical_call_is_delivered_twice",),
+    "16.5": ("test_a_burst_of_events_does_not_block_the_event_loop",),
+    "16.6": ("test_the_workflow_endpoints",),
+    "16.7": ("test_a_fresh_database_has_the_current_schema",),
+    "16.8": ("test_an_old_database_is_migrated",),
+    # 17 - the tests
+    "17.1": ("test_the_graph_only_contains_observed_relations",),
+    "17.2": ("test_two_equivalent_calls_share_a_single_physical_execution",),
+    "17.3": ("test_a_conflicting_dependency_detaches_the_follower",),
+    "17.4": ("test_many_concurrent_identical_calls_create_one_execution",),
+    "17.5": ("test_the_worker_limit_is_enforced",),
+    "17.6": ("test_snapshots_are_immutable",),
+    "17.7": ("test_a_single_agent_call_produces_one_execution",),
+    # 18 - the development plan
+    "18": ("test_the_cli_runs_a_scenario",),
+    # 19 - the priorities
+    "19": ("test_the_code_defaults_match_the_configuration",),
+    # 20 - the layout
+    "20": ("test_the_engineering_layout_is_complete",),
+    # 21 - the engineering problems
+    "21.1": ("test_no_logical_call_is_delivered_twice",),
+    "21.2": ("test_a_modified_snapshot_is_not_shared",),
+    "21.3": ("test_a_bypassing_tool_is_never_shared",),
+    "21.4": ("test_the_comparison_reports_a_real_reduction",),
+    "21.5": ("test_a_foreign_framework_can_run_a_tool_call",),
+    # 22 - the documents
+    "22": ("test_the_documents_have_the_required_sections",),
+    # 23 - the acceptance criteria
+    "23": ("test_the_acceptance_checklist_is_covered",),
+    # 24 - the working rules
+    "24": ("test_the_development_log_records_every_stage",),
+    # 25 - the beginning
+    "25": ("test_the_cli_is_usable",),
+}
 
 #: The things that are **not** verified - they have to be written down in the
 #: test report with a reason, so that they cannot be forgotten silently.
 UNVERIFIED_ITEMS = (
     (
+        "真实外部 Agent 框架接入",
+        "已验证到“外部进程”一层（examples/external_framework），"
+        "但没有对接 LangChain / AutoGen 这类具体的第三方框架（需要安装它）",
+    ),
+    (
+        "长时间运行的资源稳定性",
+        "本机已实测 45 分钟（935 轮、0 错误、0 泄漏），"
+        "但“数小时”的观测未做",
+    ),
+    (
         "磁盘故障 / 断电时的数据一致性",
-        "需要虚拟机器的掉电（直接断电的虚拟）；强杀进程已验证",
+        "已模拟了断电的后果（截断 WAL），但存储硬件自身（真掉电、磁盘失效）未模拟",
     ),
     (
         "符号链接逃逸在 Windows 上未执行",
         "需要管理员权限创建符号链接（本机 WinError 1314）；Linux/WSL2 已真实执行",
-    ),
-    (
-        "长时间运行的资源稳定性",
-        "CI 的 soak 跑 10 分钟，长于十分钟的观测未做",
-    ),
-    (
-        "真实外部 Agent 框架接入",
-        "需要一个真实的外部进程，本仓库只有自研的第二个适配器",
     ),
 )
 
@@ -1731,7 +1854,8 @@ def audit_priority_tiers() -> None:
             continue
         status, entry = row
         implemented = "已实现" in status and "未实现" not in status
-        if not implemented:
+        partial = "部分实现" in status
+        if not implemented and not partial:
             # A clause that must not be implemented has to be **absent** from
             # the code - a hard coded "true" would prove nothing.
             absent, found = _entry_points_are_absent(clause, entry)
@@ -2258,6 +2382,17 @@ def _test_function_names() -> set[str]:
     return names
 
 
+def _invalid_traceability_references(report: str, test_names: set[str]) -> list[str]:
+    """Check the references actually written in the report, not just its headings."""
+    invalid: set[str] = set()
+    for section, body in re.findall(r"^\|\s*§([\d.]+)\s*\|([^\n]*)", report, re.M):
+        references = set(re.findall(r"\btest_[A-Za-z0-9_]+\b", body))
+        if not references:
+            invalid.add(f"§{section}: no test reference")
+        invalid.update(references - test_names)
+    return sorted(invalid)
+
+
 #: The acceptance checklist of requirement section 23 - **all thirty nine
 #: boxes**, in the wording of the requirement.
 #:
@@ -2350,7 +2485,7 @@ def audit_acceptance_checklist() -> None:
             f"验收清单 {item}",
             ok,
             detail,
-            kind="behavioural" if kind == "test" else None,
+            kind="structural",
         )
 
 
@@ -2379,11 +2514,14 @@ def audit_layout_tests_docs() -> None:
         for section in REQUIRED_TRACEABILITY_SECTIONS
         if f"| §{section} |" not in report
     ]
+    invalid_references = _invalid_traceability_references(report, test_names)
     record(
         "22",
         "追溯表覆盖需求的每个小节",
-        not missing_sections,
-        f"缺少: {missing_sections}" if missing_sections else f"{len(REQUIRED_TRACEABILITY_SECTIONS)} 个小节均有指针",
+        not missing_sections and not invalid_references,
+        (f"缺少小节: {missing_sections}; 无效测试引用: {invalid_references}"
+         if missing_sections or invalid_references
+         else f"{len(REQUIRED_TRACEABILITY_SECTIONS)} 个小节均有有效测试指针"),
     )
 
     # The things that are not verified have to be written down - with a
@@ -2608,16 +2746,17 @@ def write_traceability_table() -> None:
             rows.setdefault(category, []).append(f"（类别覆盖）{marker}")
     for clause in COVERED_SECTIONS:
         rows.setdefault(clause, [])
-    # every section of the requirement points at the audit checks of that
-    # section - they are the machine readable proof of the subsection
-    for section in REQUIRED_TRACEABILITY_SECTIONS:
+    # every subsection of the requirement points at the test that proves it -
+    # and at the audit checks of that subsection, if there are any
+    for section, proofs in REQUIRED_TRACEABILITY_SECTIONS.items():
+        rows.setdefault(section, []).append(f"测试 {proofs[0]}")
         clauses = [
             str(entry["clause"])
             for entry in RESULTS
             if str(entry.get("section")) == section and entry.get("ok")
         ]
         if clauses:
-            rows.setdefault(section, []).append(f"审计检查 {clauses[0]}")
+            rows[section].append(f"审计检查 {clauses[0]}")
 
     lines = [
         "## 10. \u89c4\u8303\u9010\u6761\u8ffd\u6eaf\u8868",

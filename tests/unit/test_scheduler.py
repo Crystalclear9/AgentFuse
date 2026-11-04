@@ -66,6 +66,11 @@ async def test_the_snapshot_reports_the_usage():
     assert snapshot["reserved_estimate_mb"] == 32
     assert snapshot["observed_rss_mb"] == 64
     assert snapshot["peak_rss_mb"] == 64
+    scheduler.release("exec-1")
+    scheduler.record_rss("exec-1", 900 * 1024 * 1024)
+    assert scheduler.snapshot()["observed_rss_mb"] == 0
+    await asyncio.wait_for(scheduler.acquire("after-release", 32), timeout=1)
+    scheduler.release("after-release")
 
 
 async def test_the_fifo_strategy_admits_the_oldest_request():

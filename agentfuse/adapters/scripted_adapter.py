@@ -53,6 +53,7 @@ class ScriptedAdapter(AgentAdapter):
         tool_name: str,
         arguments: dict[str, Any],
         snapshot_id: str | None = None,
+        timeout_seconds: float | None = None,
     ) -> Any:
         invocation = self.workflow.invocations.get(invocation_id)
         agent_id = invocation.agent_id if invocation else None
@@ -67,6 +68,7 @@ class ScriptedAdapter(AgentAdapter):
             tool_name=tool_name,
             arguments=arguments,
             snapshot_id=resolved_snapshot,
+            timeout_seconds=timeout_seconds,
         )
 
     async def deliver_result(self, invocation_id: str, logical_call_id: str, result: Any) -> None:

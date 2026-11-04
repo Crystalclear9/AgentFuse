@@ -1,0 +1,219 @@
+{
+  "date": "2026-11-04",
+  "windows": {
+    "total": 310,
+    "passed": 308,
+    "skipped": 2,
+    "skip_reasons": [
+      "set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image",
+      "symlinks are not supported on this platform"
+    ]
+  },
+  "wsl": {
+    "total": 310,
+    "passed": 308,
+    "skipped": 2,
+    "skip_reasons": [
+      "the browser test only runs where a browser is requested",
+      "set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image"
+    ]
+  },
+  "docker": {
+    "total": 16,
+    "passed": 16,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "matrix": {
+    "0/1": {
+      "total": 60,
+      "passed": 60,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "0/2": {
+      "total": 60,
+      "passed": 60,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "1/1": {
+      "total": 60,
+      "passed": 60,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "1/2": {
+      "total": 60,
+      "passed": 60,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "2/1": {
+      "total": 60,
+      "passed": 60,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "2/2": {
+      "total": 60,
+      "passed": 60,
+      "skipped": 0,
+      "skip_reasons": []
+    }
+  },
+  "resource_recheck": {
+    "total": 17,
+    "passed": 17,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "external_framework_recheck": {
+    "total": 8,
+    "passed": 8,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "review_regressions": {
+    "total": 19,
+    "passed": 19,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "wsl_final_recheck": {
+    "total": 26,
+    "passed": 26,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "audit_recheck": {
+    "total": 21,
+    "passed": 21,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "wsl_audit_recheck": {
+    "total": 21,
+    "passed": 21,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "mutation_isolation": {
+    "files": 211,
+    "isolated_copy": true,
+    "main_source_unchanged": true,
+    "isolated_source_restored": true
+  },
+  "installed_wheel": {
+    "installed_from": "agentfuse\\__init__.py",
+    "shared_baseline_executions": 2,
+    "shared_online_executions": 1,
+    "offline_api_docs": true
+  },
+  "soak": {
+    "minutes": 10.0,
+    "iterations": 851,
+    "errors": 0,
+    "worker_growth": 0,
+    "rss_growth_mb": 0.0
+  },
+  "audit": {
+    "total": 325,
+    "failed": 0,
+    "behavioural": 110,
+    "structural": 215
+  },
+  "mutations": 58,
+  "acceptance": "44/44",
+  "performance_passed": true,
+  "requirement_subsections": 78,
+  "requirements_sha256": "6c73f8ab0e680ac5eabda6d11f0dec7ba41659f66d5fc46c07f680d45b1acbe5",
+  "performance_baseline_sha256": "b48ece7375d73c1ba43b5c97dc11d333d58006c1a9141393ba4420350ee30eef",
+  "source_sha256": "057f82651ca072d9d2fb3dfb2eddb927135ad4dc3b13a5dfbfaa7e80b8d77411",
+  "full_p2_completed": false,
+  "toolchain": {
+    "platform": "Windows-10-10.0.26100-SP0",
+    "python_version": "3.11.18",
+    "tools": {
+      "python": {
+        "path": ".venv-local\\Scripts\\python.exe",
+        "sha256": "eeeb05b5f4f3373e087cda22b4d2ec5fdb65ba456eced3e5d891177ff2455a9a"
+      },
+      "base_python": {
+        "path": ".tools\\python\\cpython-3.11-windows-x86_64-none\\python.exe",
+        "sha256": "710181976fa9adb11f87b58126f39e38734cf96ae45b3d9a49b32322fe70ceb9"
+      },
+      "uv": {
+        "path": ".tools\\uv\\uv.exe",
+        "sha256": "1791d7a9ed5b6df13ccf80f102e025c333010d96326b4ff0262aa3b578835c5a"
+      },
+      "git": {
+        "path": ".tools\\git\\cmd\\git.exe",
+        "sha256": "20d0dde30a65afb6e5810a883700a94dcd77fbf3b44b32868d45bf7c9b30137c"
+      },
+      "node": {
+        "path": ".venv-local\\Lib\\site-packages\\playwright\\driver\\node.exe",
+        "sha256": "d702daa815eabbff763c7d3808e235cf031cf2ca70211b56847bc72f51e240e5"
+      },
+      "chromium": {
+        "path": ".tools\\browsers\\chromium-1248\\chrome-win64\\chrome.exe",
+        "sha256": "7f08161bbeb2853ffe1780a9ded4985087f52efb9725d7d8207aabdd42f7cfb9"
+      },
+      "docker_client": {
+        "path": ".tools\\docker\\docker.exe",
+        "sha256": "d1b82bf37e53d156493fcd95f8c5acb1fe9b845342e6ef24733a45bdac7393cf"
+      },
+      "ripgrep": {
+        "path": ".tools/ripgrep/rg.exe",
+        "sha256": "098027275423e375dca64f25accbd3c165e275c8220db0208ff3f1e3064392e1"
+      }
+    },
+    "versions": {
+      "fastapi": "0.162.0",
+      "uvicorn": "0.54.0",
+      "psutil": "7.2.2",
+      "pytest": "9.2.0",
+      "pytest-asyncio": "1.4.1.post1",
+      "httpx": "0.28.1",
+      "playwright": "1.64.1",
+      "cryptography": "50.0.2",
+      "pip": "26.3",
+      "setuptools": "84.2.1"
+    },
+    "system_prerequisites": [
+      "Windows / WSL2 Linux",
+      "Docker Linux Engine for optional sandbox only"
+    ],
+    "no_global_path_changes": true
+  },
+  "linux_toolchain": {
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+    "python_version": "3.11.18",
+    "node_version": "v24.22.1",
+    "tools": {
+      "python": {
+        "path": ".venv-wsl/bin/python",
+        "sha256": "6145fea0259d56765987ab1c5a3bd82de22bacade83d34f356261376c4a5430e"
+      },
+      "base_python": {
+        "path": ".tools/python-linux/cpython-3.11.18-linux-x86_64-gnu/bin/python3.11",
+        "sha256": "6145fea0259d56765987ab1c5a3bd82de22bacade83d34f356261376c4a5430e"
+      },
+      "uv": {
+        "path": ".tools/uv-linux/uv-x86_64-unknown-linux-gnu/uv",
+        "sha256": "4b5e59bc557ff2cd70934beb59d0eaa92820702853d49f0066b50aa11a8f0c52"
+      },
+      "node": {
+        "path": ".venv-wsl/lib/python3.11/site-packages/playwright/driver/node",
+        "sha256": "e32e2d16081cf644f88392934288086e7662529d0d43277c34f7aad2207cfafb"
+      }
+    },
+    "packages": {
+      "pytest": "9.2.0",
+      "pytest-asyncio": "1.4.1.post1",
+      "psutil": "7.2.2",
+      "fastapi": "0.162.0",
+      "playwright": "1.64.1"
+    }
+  }
+}

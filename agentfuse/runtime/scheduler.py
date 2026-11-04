@@ -265,6 +265,10 @@ class LocalResourceController:
     def record_rss(self, execution_id: str, rss_bytes: int) -> None:
         rss_mb = rss_bytes / (1024 * 1024)
         with self._lock:
+            # A monitor thread can finish a sample after release(). It must
+            # not resurrect an execution's memory reservation and stall FIFO.
+            if execution_id not in self._running:
+                return
             self._observed_rss_mb[execution_id] = rss_mb
             if rss_mb > self._peak_rss_mb:
                 self._peak_rss_mb = rss_mb

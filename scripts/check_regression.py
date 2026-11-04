@@ -97,12 +97,32 @@ def merge_baseline(baseline: dict[str, Any], updated: dict[str, Any]) -> dict[st
 
 
 async def run(scenario: str, repeat: int, modes: tuple[str, ...], workers: int | None) -> dict[str, Any]:
-    settings = load_settings(home=str(ROOT / ".agentfuse" / "regression"))
-    app = AgentFuseApp(settings=settings, mode=RuntimeMode.ONLINE)
-    try:
-        return await compare(app, scenario, repeats=repeat, modes=modes, workers=workers)
-    finally:
-        await app.close()
+    # A performance guard must not inherit thousands of earlier benchmark
+    # workflows. Historical SQLite growth otherwise changes the workload
+    # between runs (the previous fixed home grew beyond 80 MiB).
+    import tempfile
+    parent = ROOT / ".agentfuse" / "regression"
+    parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="measurement-", dir=parent) as home:
+        # Each scenario owns an interpreter as well as a database: leftover
+        # threads, cyclic garbage and process-global state of earlier scenarios
+        # must not change the next measurement. Use the same public CLI path.
+        import asyncio
+        import subprocess
+        from agentfuse.runtime.pool import build_environment
+        source = Path(__file__).resolve().parents[1]
+        bootstrap = "import sys; sys.path.insert(0,sys.argv[1]); from agentfuse.cli import main; raise SystemExit(main(sys.argv[2:]))"
+        command = [sys.executable, "-c", bootstrap, str(source), "--home", home,
+                   "compare", "--scenario", scenario, "--repeat", str(repeat),
+                   "--json", "--modes", *modes]
+        if workers is not None:
+            command.extend(["--workers", str(workers)])
+        process = await asyncio.to_thread(subprocess.run, command, cwd=source,
+                                         env=build_environment(), capture_output=True,
+                                         text=True, encoding="utf-8", timeout=600,
+                                         check=True)
+        return json.loads(process.stdout)
+
 
 
 def summarise(report: dict[str, Any]) -> dict[str, dict[str, float]]:

@@ -979,3 +979,97 @@ Follower 拿不到共享结果 · 交付途中取消的 Follower 只收到一次
 4. 对接一个真实的第三方 Agent 框架，验证适配器契约的通用性。
 5. 在 macOS 上执行一次完整验证（CI 矩阵已包含）。
 6. 长时间（数小时）运行稳定性与内存增长观测。
+
+
+## 阶段 32：修复验收证据并扩展 P2（2026-11-04）
+
+用户授权：修复全部复核问题，并将 P2 纳入实际实现范围。
+
+完成内容与具体文件：
+
+- scripts/audit_requirements.py：接口、字段、目录、场景及测试函数存在性改为 structural，验收测试引用不再冒充已执行。
+- docs/KNOWN_LIMITATIONS.md / README.md / TEST_REPORT.md：移除缓存、GPU 与浏览器能力的相互矛盾陈述；历史与当前验证分开。
+- agentfuse/runtime/remote.py / pool.py / worker_child.py / coordinator.py / app.py：认证、TLS 强制边界、快照传输与限额、流式依赖、节点轮询、超时与断线回收。
+- agentfuse/runtime/inference.py / adapters/inference_agent.py：真实因果注意力、自回归解码、模型隔离 KV 前缀缓存及数值策略 Agent 的真实工具接入。
+- agentfuse/runtime/prediction.py：有界工具转移与显式调用边驱动的 Agent 多步概率预测。
+- agentfuse/runtime/sandbox.py / extensions.py：固定镜像摘要、禁网与只读的 Docker 隔离命令；环境不可用时拒绝执行，输出与资源限额。
+- agentfuse/api/routes/extensions.py：同一个本地服务中的扩展入口。
+- tests/integration/test_extensions.py / tests/unit/test_audit_evidence.py：本阶段新增验证；docs/P2_EXTENSIONS.md：部署与边界。
+
+已验证：新增 15 项测试通过，包含两个独立服务端实际执行、流式依赖、共享、认证失败、超时后继续服务、策略 Agent 结果一致、KV 缓存限额与隔离、显式 Agent 路径、真实 Docker 只读/禁网以及证据分类。
+实际 inference-demo：相同输出，计算 token 步数从 72 降至 8；单次耗时属于示例，不能用作稳定性能结论。
+
+遇到的问题与解决方案：
+
+- 在预热之后改远程配置会混入本地 Worker：改为在 App 预热前接线，测试从配置建立 App 并断言节点。
+- Windows asyncio 进程管道未关闭：服务停止先关闭连接，走正常断线清理，kill 后 communicate 回收全部管道。
+- 当前 venv 没有 wheel 构建工具：使用 PEP 517 隔离构建，不修改被测环境依赖。
+
+下一阶段：记录本轮完整测试/验收/回归结果并生成交付包。生产 LLM/GPU KV、多台物理机/TLS 实测、任意程序完备动态追踪和绝对通用沙箱尚未完成，不能用本阶段有限实现替代这些声明。
+
+
+### 阶段 32 的完整验证修复
+
+首次完整运行真实结果：300 passed、1 failed、1 skipped。失败项为 test_a_late_joiner_validates_the_early_dependencies；固定 rounds 只提供速度相关的窗口，Follower 恢复时组可能已完成。改成明确的结果处理屏障，仍验证同一个真实计算、至少两条前缀依赖和结果一致；物理计算期间分离由独立用例覆盖。修复后定向验证通过。
+
+性能守卫发现另一个独立问题：固定 .agentfuse/regression 已累计 3642 个 Workflow、6030 个快照，SQLite 88.2 MiB，测量输入不再与旧基线一致。scripts/check_regression.py 改为每场景使用独立临时 home，不删除旧历史、不改基线、不扩大容差。关闭该临时目录的日志 FileHandler，解决 Windows 无法清理文件的问题；test_measurements_are_isolated_without_deleting_previous_history 通过真实共享对比验证隔离与历史保留。
+
+用户确认本轮先交付已验证扩展，明确保留生产 LLM / GPU KV 缺口，不下载模型。
+
+
+### 阶段 32 的后续复测
+
+第二次完整运行：299 passed、2 failed、2 skipped。失败分别来自取消演示固定 50ms 等待（Follower 已完成而非取消）以及测试假设 Windows 250ms 内必能枚举到子进程。
+取消演示改为等待对应 Invocation 的 TOOL_CALL_REQUESTED，Leader 不再匹配前一个子场景的旧事件。终止测试主动让早期发现返回空，依靠 hello 的权威 PID，校验真实父子关系，并按 PID + 创建时间验证原进程已退出。定向生命周期/场景/日志检查 16 passed。
+
+反复创建 App 时还发现日志 FileHandler 缺少释放：增加所有权计数，最后一个使用者关闭时回收文件；重复 close 不会多次释放。新增两个真实日志生命周期测试。当前机器约 1285 个系统进程，监测先筛 Python 名称再读取命令行，保持原 Worker 判定条件并降低观测开销。
+
+
+### 阶段 32 的最终全量结果
+
+第三次完整运行：303 passed、2 skipped、0 failed（1237.60s），命令启用真实浏览器；两个跳过项为 Docker 重复验证未开启与 Windows 符号链接权限。Docker 后端此前已独立实测。
+修复后的同一代码再次通过 44/44 交付验收与 325/325 需求审计。最终性能测量采用与原基线一致的 5 次重复；此前 3 次样本中取消场景 Baseline 比容差上限高约 5ms（标准差约 274ms），保留负面记录，不修改基线或容差。
+
+
+### 阶段 32 的最终交付状态
+
+- 功能全量：303 passed、2 skipped；验收 44/44；审计 325/325（110 behavioural / 215 structural）。
+- 全量之后仅将性能守卫进一步隔离到独立解释器，全部 9 项守卫单元复测通过；Runtime 未再改动。
+- HEAD 与当前 CLI 的独立 multi-agent 对照中位数分别为 0.288658/0.209512s 和 0.260906/0.210147s（baseline/online），原始 JSON 保留。
+- 最终独立解释器 5 次重复：多 Agent 等场景满足原门禁，cancel-failure 三模式仍告警（6.2810/4.7045/4.7661s）。未修改原性能基线或容差，告警未解决，未将失败标为通过。
+- 用户选择先交付已验证扩展、保留生产 LLM / GPU KV 缺口；其余明确支持边界见 KNOWN_LIMITATIONS 与 P2_EXTENSIONS。
+- TEST_REPORT 当前区块由真实 JUnit、审计、验收、性能结果生成，核对完整测试列表，失败尝试也保留。
+
+### 阶段 33：按原计划重新复核与项目内交付
+
+原始需求原文收入 `docs/REQUIREMENTS.zh-CN.md`。复核将 78 个编号小节关联到实际执行通过的测试，
+不将测试函数存在性当成行为证据；由 `scripts/report_review.py` 读取本轮真实产物生成报告。
+
+本轮修复：
+
+- 取消与最终回收共用同一个异步终止任务；WorkerHandle 串行终止，成功回收后不重复杀同一个 PID。
+- 超时任务不再取消自身；回收等待进程真正退出后再释放调度资源。
+- Windows Worker 直接启动项目内基础解释器，并显式继承项目依赖路径，避免 venv 启动器多出一层进程。
+- 空闲预热 Worker 不再反复扫描进程树；运行中的采样频率不变。本地进程树 RSS 从取最大值改为父子求和。
+- 迟到的 RSS 样本不能重新占用已释放的执行预算。
+- API 文档改为本地 HTML/JS 渲染 OpenAPI，不再通过默认 Swagger/ReDoc 加载 CDN。
+- 远端真实 RSS 流式回传且与桥接进程分开计量；实际 TLS 测试验证不信任 CA 被拒绝、显式可信 CA 成功。
+- 外部框架示例以关闭 stdin 正常结束 Runtime；stdio、Workflow.finish 和 App.close 在同一事件循环内完成，防止强杀造成 SQLite 未刷盘。
+- 快照默认排除项目内工具、两个活动虚拟环境、运行数据和待删目录；代码默认值与 TOML 同步，wheel 采用同样默认值。
+- 长跑只统计当前脚本创建的 Worker，并在预热前采集初值，既避免其它运行造成误报，也避免初始预热数量掩盖泄漏。
+- 生命周期测试同样限定进程归属，核对 PID 创建时间，不通过忽略真实存活进程消除失败。
+- 完整变异自检首次 57/58 检出，发现报告审计未验证表中实际引用的测试名；补上 AST 名称核验与空引用拒绝，再执行完整变异自检，首轮失败记录保留。
+- wheel 排除样例目录内生成的字节码，独立安装后实际验证 Baseline 2 次 / Online 1 次执行和本地 API 文档。
+
+工具安装在 `.tools`、`.venv-local`、`.venv-wsl`，包括独立 Windows/Linux Python、依赖、uv、
+Portable Git、Node、Chromium、ripgrep、Docker CLI 和离线镜像。系统 PATH 和用户配置未修改；
+Docker Engine 与 WSL2 明确属于系统前提。环境入口、安装脚本、锁定依赖与工具哈希一并交付。
+
+本轮失败与中断记录保留：性能门禁首次取消场景超标；并行测试暴露全局 Worker 统计误报；
+运行中更新默认配置导致一个旧进程读取新配置时不一致，因此随后冻结配置重跑。
+WSL 中间运行主动中断后重新开始完整测试，中断日志不计作全量通过。
+最终结果以 `TEST_REPORT.md` 和 `verification/current/summary.json` 为准。
+
+清理只执行已校验的显式路径清单，保护源码、已安装工具和真实工作数据；失败残留尝试集中到
+`_manual_delete`，所有结果记录在 `verification/cleanup.json`。
+生产 LLM / GPU KV 按用户此前选择继续保留缺口；通用适配、任意程序完备追踪与绝对沙箱的边界仍明确披露。

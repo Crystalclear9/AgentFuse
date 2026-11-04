@@ -55,6 +55,8 @@ class WorkerHandle:
     worker_pid: int | None = None
     #: the pids of the processes the launcher started (the real worker)
     child_pids: list[int] = field(default_factory=list)
+    endpoint: dict | None = None
+    termination_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     # ------------------------------------------------------------------
     def assign(self, execution_id: str) -> None:
@@ -94,6 +96,10 @@ class WorkerHandle:
         worker process is gone.
         """
 
+        with self.termination_lock:
+            return self._terminate_locked()
+
+    def _terminate_locked(self) -> bool:
         from .cancellation import terminate_worker
 
         if self.process is None:
@@ -118,14 +124,20 @@ class WorkerHandle:
 def build_command() -> list[str]:
     """The command that starts a tool worker."""
 
-    return [sys.executable, "-u", "-m", "agentfuse.runtime.worker_child"]
+    # Windows venv redirectors spawn another interpreter. Start that base
+    # interpreter directly, with the parent's dependency paths explicitly
+    # passed below, so one physical worker owns one process and one kill.
+    executable = getattr(sys, "_base_executable", None) or sys.executable
+    return [executable, "-s", "-u", "-m", "agentfuse.runtime.worker_child"]
 
 
 def build_environment() -> dict[str, str]:
     """The environment of a worker (including the parent's import path)."""
 
     environment = dict(os.environ)
-    python_path = [entry for entry in sys.path if entry]
+    environment["PYTHONIOENCODING"] = "utf-8"
+    environment["PYTHONUTF8"] = "1"
+    python_path = [str(Path(__file__).resolve().parents[2]), *[entry for entry in sys.path if entry]]
     if python_path:
         existing = environment.get("PYTHONPATH")
         environment["PYTHONPATH"] = (
@@ -147,7 +159,7 @@ def may_have_launcher() -> bool:
     """
 
     try:
-        executable = Path(sys.executable).resolve()
+        executable = Path(build_command()[0]).resolve()
         base = Path(sys.base_prefix).resolve()
     except (OSError, ValueError):  # pragma: no cover - defensive
         return True
@@ -193,20 +205,25 @@ def discover_children(pid: int | None, timeout: float = 0.25) -> list[int]:
     return []
 
 
-def start_worker() -> WorkerHandle:
+def start_worker(endpoint: dict | None = None) -> WorkerHandle:
     """Start one worker process."""
 
+    environment = build_environment()
+    if endpoint is not None:
+        environment["AGENTFUSE_REMOTE_ENDPOINT"] = json.dumps(endpoint)
+    else:
+        environment.pop("AGENTFUSE_REMOTE_ENDPOINT", None)
     process = subprocess.Popen(  # noqa: S603 - fixed command, no shell
         build_command(),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        env=build_environment(),
+        env=environment,
         cwd=os.getcwd(),
         text=True,
         encoding="utf-8",
         bufsize=1,
     )
-    handle = WorkerHandle(process=process)
+    handle = WorkerHandle(process=process, endpoint=endpoint)
     handle.child_pids = discover_children(process.pid)
     return handle

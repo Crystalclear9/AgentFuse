@@ -1,0 +1,1 @@
+{"installed_from": "agentfuse\\__init__.py", "shared_baseline_executions": 2, "shared_online_executions": 1, "offline_api_docs": true}

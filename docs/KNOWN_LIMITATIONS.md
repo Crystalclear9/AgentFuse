@@ -7,27 +7,27 @@
 
 ## 0. 需求 §19 的 P2 条款完成情况
 
-需求把能力分成 P0（必须）、P1（应当）、P2（可选）三级。§19 的 P2 清单**恰好是下面
+需求把能力分成 P0（必须）、P1（尽量完成）、P2（可选）三级。§19 的 P2 清单**恰好是下面
 这 10 条**，本表逐条给出实现状态 —— 已实现的给出入口，**未实现的明确写出**，
 不把没做的事说成做了。
 
 > **这张表与审计的关系**：条款清单只存在于**一个地方** —— `scripts/audit_requirements.py`
 > 的 `P2_CLAUSES` 常量里。本表的状态由审计**对照代码核验**：写了"已实现"就必须有
-> 存在的入口文件；写了"未实现"就必须在代码里**找不到**对应实现。
+> 存在的入口文件；部分实现必须明确支持边界。入口存在只证明结构，实际行为由测试验证。
 > 少写一条、多写一条、状态与代码不符，审计都会报红。
 
 | P2 条款（§19 原文） | 状态 | 入口 / 说明 |
 |---|---|---|
 | 跨会话持久化结果缓存 | ✅ 已实现 | `agentfuse/sharing/persistent_cache.py`：结果进 SQLite，**跨重启生效**；命中前必须用**调用方的快照**逐项复验依赖（与在途分享同一套校验）；**默认关闭**（`persistent_cache_entries = 0`） |
-| GPU 资源调度 | ✅ 已实现 | `agentfuse/runtime/scheduler.py`：工具可以声明需要加速器（`requires_gpu`），调度器为它保留机器的加速器槽位（由 `nvidia-smi` 探测）；机器没有加速器时不阻塞（声明只是提示） |
-| KV Cache 管理 | ❌ **未实现** | KV Cache 只存在于模型推理运行时内部；本项目不实现推理引擎（§2.2），因此没有可管理的对象 |
-| 真正的 Agent 推理执行优化 | ❌ **未实现** | 与 §2.2「不调用任何模型 API、不实现推理引擎」直接冲突；本项目只提供调用边界，不提供推理 |
-| 多节点分布式执行 | ❌ **未实现** | 与 §2.1「单台 Windows 电脑」直接冲突；所有 worker 都在本机，快照与结果通过本地文件系统传递 |
+| GPU 资源调度 | ✅ 已实现 | `agentfuse/runtime/scheduler.py`：工具可以声明需要加速器（`requires_gpu`），调度器为它保留机器的加速器槽位（由 `nvidia-smi` 探测）；机器没有加速器时不阻塞（声明只是提示）；属于槽位准入，不分配 GPU 显存或管理生产模型张量 |
+| KV Cache 管理 | ⚠️ 部分实现 | `agentfuse/runtime/inference.py`：参考因果注意力后端的真实 K/V 前缀缓存，按模型指纹隔离、按实际对象大小限额、LRU 淘汰；未对接生产 LLM / GPU 张量缓存 |
+| 真正的 Agent 推理执行优化 | ⚠️ 部分实现 | `agentfuse/runtime/inference.py`：离线自回归数值推理复用真实前缀计算，输出与独立推理逐值比对；默认权重为未训练夹具，不宣称具备语言理解或真实 LLM 推理能力 |
+| 多节点分布式执行 | ✅ 已实现 | `agentfuse/runtime/remote.py`：可配置多个 Worker 地址，轮询分配物理执行，传输不可变快照，实时回传依赖与真实计算结果；令牌认证，非回环地址强制 TLS；本机多服务端验证不等同于多台物理机验证 |
 | 复杂的可抢占任务调度 | ✅ 已实现 | `agentfuse/runtime/strategy.py` 的 `preemptive` 策略：优先先靠高优先级的执行，并且可以抢占**低优先级**的运行中执行；被抢占的逻辑调用按超时重试一次，**结果不变**（只变顺序）；**默认关闭**（`runtime.scheduling_strategy = "fifo"`） |
-| 自动预测未来 Agent 路径 | ❌ **未实现** | 不预测 Agent 行为；候选共享完全由**已观察到**的请求与依赖决定（§2.2） |
-| 框架无关的高级自动适配 | ✅ 已实现 | `agentfuse/adapters/external_adapter.py`：外部框架**不需要知道内部 id**，第一次出现的未知身份由适配器自动绑定（`identity_status = UNDETERMINED`，绝不与其他 Agent 合并）；部分未确认的身份不得直接合并 |
-| 对任意第三方工具进行完备依赖追踪 | ❌ **未实现** | 原理上做不到：只能追踪经 `WorkspaceReader` 的受控读取与审计钩子可见的调用（§1.3） |
-| 具备安全隔离保证的通用沙箱 | ❌ **未实现** | 提供的是**进程级**约束与受控工具契约（§1.2），不是通用沙箱保证 |
+| 自动预测未来 Agent 路径 | ✅ 已实现 | `agentfuse/runtime/prediction.py`：依据明确 parent/child Invocation 边学习 Agent 标签转移并给出多步路径概率，另提供下一工具概率；预测只作建议，不推断身份或添加执行图因果边，不投机执行 |
+| 框架无关的高级自动适配 | ⚠️ 部分实现 | `agentfuse/adapters/external_adapter.py`：外部框架**不需要知道内部 id**，第一次出现的未知身份由适配器自动绑定（`identity_status = UNDETERMINED`，绝不与其他 Agent 合并）；部分未确认的身份不得直接合并；这是通用协议适配，尚无对所有第三方框架的自动发现与专用集成 |
+| 对任意第三方工具进行完备依赖追踪 | ⚠️ 部分实现 | `agentfuse/runtime/sandbox.py`：对第三方命令的完整声明输入树记录指纹并隔离执行；不声称完整动态追踪任意程序，返回 dependency_complete=False，禁止共享这类结果 |
+| 具备安全隔离保证的通用沙箱 | ⚠️ 部分实现 | `agentfuse/runtime/sandbox.py`：可选 Docker Linux 隔离后端，非 root、无网络、只读输入与根文件系统、撤销 capabilities、禁止提权、内存/CPU/PID 限额；环境不可用时拒绝执行，不提供跨内核漏洞的绝对安全保证 |
 
 ### 0.1 已交付但**不属于** §19 P2 清单的能力
 
@@ -41,7 +41,7 @@
 | Worker 预热池 | `agentfuse/runtime/pool.py`：worker 是多任务进程，Runtime 空闲时预启动，`runtime.worker_pool_size`（默认 2） |
 | 性能基线与回归守卫 | `benchmarks/baseline.json` + `scripts/check_regression.py` |
 | CI 工作流 | `.github/workflows/ci.yml`：Windows / Ubuntu / macOS × Python 3.11–3.13 |
-| 多用户权限与认证 | **未实现**：Web 界面只监听 `127.0.0.1`，是本地单用户工具（§6） |
+| 多用户权限与认证 | **未实现**：Web 界面默认只监听 `127.0.0.1`，是本地单用户工具（§6） |
 | 崩溃后的自动恢复执行 | **未实现**：崩溃后只把未完成的运行标记为 `INTERRUPTED`（§6），不自动重放 |
 
 > P2 条款**不影响** P0/P1 的验收：共享语义、依赖验证、资源控制、事件协议与
@@ -53,7 +53,7 @@
 
 ### 1.1 首版仅支持受控工具
 
-首版**仅支持受控工具**：共 **7 个内置工具**（6 个只读确定性工具 + 1 个故障注入测试夹具）。
+首版共享路径**仅支持受控工具**：共 **7 个内置工具**（6 个只读确定性工具 + 1 个故障注入测试夹具）。
 其它工具必须先在 `ToolRegistry` 中注册，才能被调用。
 
 ### 1.2 不提供通用安全沙箱保证
@@ -62,8 +62,8 @@
 执行契约**，**不是**操作系统级的安全沙箱。
 
 * 它不能阻止一个恶意工具直接调用 `open()` 绕过接口；
-* 它不能限制进程的系统调用、注册表访问、网络访问；
-* 它不提供容器 / microVM / seccomp 级别的隔离。
+* 默认本地 Worker 不能限制进程的系统调用、注册表访问、网络访问；
+* 默认本地 Worker 不提供容器隔离；第三方命令可显式使用 Docker 隔离后端（见 `P2_EXTENSIONS.md`）。
 
 ### 1.3 不支持任意程序的完整依赖追踪
 
@@ -97,7 +97,7 @@
 
 ### 2.1 首版核心是"正在执行中的调用合并"（In-flight Sharing）
 
-* 不提供跨进程重启、跨会话长期有效的通用结果缓存；
+* 提供可选的跨进程重启结果缓存，命中必须复验完整依赖；默认关闭；
 * **默认**下已完成的执行不会被后来的调用复用（后来的调用会自己执行一次）；
 * 会话内的有限结果复用**已经实现**（`agentfuse/sharing/result_cache.py`），但
   **默认关闭**（`result_cache_entries = 0`）：命中前必须重新验证候选键、快照
@@ -167,7 +167,7 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 | 策略 | 行为 |
 |---|---|
 | `fifo`（默认） | 先优先级，同优先级按到达顺序 |
-| `sjf` | 优先约贱 CPU 时间最小的执行 |
+| `sjf` | 优先预计 CPU 时间最小的执行 |
 | `preemptive` | 优先高优先级，并可以抢占低优先级的运行中执行 |
 
 不实现 SLO-Aware / Goodput-Aware：那些需要一个实际的负载模型和线性预测。
@@ -194,10 +194,10 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 
 ---
 
-### 4.6 Windows venv 使用 launcher 打手
+### 4.6 Windows venv 使用 launcher 启动器
 
-在 Windows 上，虚拟环境的 `python.exe` 是一个 **launcher**：它会再启动真正的解释器
-（子进程）。因此 `Popen.pid` 与真正执行工具的 pid 不同：
+在 Windows 上，若通过虚拟环境的 `python.exe` 启动 Worker，它可能使用 launcher 再启动真正的解释器。
+这种情况下 `Popen.pid` 与真正执行工具的 pid 不同（当前默认命令避开这一层，见 §4.7）：
 
 * `physical_executions.worker_pid` 保存的是 launcher pid（启动器）；
 * `physical_executions.worker_root_pid` 保存的是**真实** worker pid（worker 通过 `hello` 消息上报）。
@@ -206,21 +206,17 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 
 ### 4.7 进程终止的平台差异
 
-* **Windows**：虚拟环境使用 **launcher 打手**，`Popen.pid` 是 launcher，
-  真正执行工具的是它的子进程。杀掉 launcher 只会关闭管道，
-  正在计算的 worker 不会再读 stdin → 它会成为孤儿。
-  因此 worker 启动后的第一句话是 `hello`，它报告自己的**真实 pid**；
-  Runtime 同时用 `psutil` 发现 launcher 的子进程作为兜底。
-* **Linux / macOS**：虚拟环境的 `python` 就是真实解释器，**没有 launcher 打手**。
-  Runtime 会通过 `sys.base_prefix` 判定是否可能存在存根，在没有存根的平台上**不做等待**（启动开销从 1010 ms 降到 5 ms）。
-* 两种平台上的实际 worker pid 都会写入 `physical_executions.worker_root_pid`，
-  而 `worker_pid` 保留 launcher pid。
+* Windows venv 的启动器可能再创建真正的解释器进程，只杀启动器会留下仍在计算的 Worker。
+  当前默认命令直接使用 `sys._base_executable`，并显式传递项目依赖路径，从而避免这一层启动器。
+* 所有平台仍保留 `hello` 报告真实 PID 的协议；对可能存在启动器的自定义环境保留子进程发现兜底。
+  终止过程回收进程树，且不会因重复调用而重复终止已确认退出的进程。
+* `physical_executions.worker_root_pid` 记录真实 Worker，`worker_pid` 记录启动的进程；默认直接启动时二者一致。
 
 ## 5. Agent 与模型
 
 * **Scripted Agent 不是 LLM Agent。** 它是按照真实结果动态选择下一步的本地程序，
   不具备语言模型的推理能力，也不宣称具备。
-* AgentFuse **不实现** Agent Framework、**不训练**模型、**不实现**推理引擎。
+* AgentFuse 不训练模型、不提供完整 Agent Framework 或生产 LLM 推理引擎；扩展中的参考数值注意力后端使用未训练权重，能力与验证范围见 P2_EXTENSIONS.md。
 * AgentFuse **不依赖**任何特定框架的内部 Scheduler 或状态对象。
 * Agent 实体运行在宿主进程的 asyncio 事件循环中；**只有工具计算**运行在独立进程中。
   Agent 本身不做重 CPU 计算。
@@ -230,17 +226,16 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 ## 6. 其它
 
 * **快照不包含进程内存**（不保存进程内存、寄存器或正在运行的线程状态）。
-* **不实现** GPU KV Cache 管理、**不实现** GPU 调度、**不实现**分布式执行、
-  **不实现**多节点调度。
-* 本机实测通过的平台是 **Windows 11** 与 **WSL2 / Ubuntu-22.04**。**macOS 由 CI 矩阵验证**（每次推送跑 4 个 job），
-  但本仓库没有 macOS 机器，**无法在本地复现**：“CI 上绿”不等于“本机验证”。
+* GPU 槽位调度、跨会话缓存、远程 Worker 已提供；参考注意力后端支持 CPU KV 缓存，尚无生产 LLM 的 GPU KV 管理。
+* 本机实测通过的平台是 **Windows 11** 与 **WSL2 / Ubuntu-22.04**。CI 配置包含 macOS 矩阵，
+  远端状态以对应提交的 Actions 为准。本机没有 macOS，无法把远端 CI 结果称作本机验证。
 * **同一个 home 目录不能同时被两个 AgentFuse 实例使用**（例如一边跑 Web 服务、
   一边在 WSL2 里跑 CLI）：SQLite 的 WAL 锁在跨操作系统的挂载盘上无法共享，
   第二个实例会收到 `disk I/O error`。此时 Runtime 会给出明确提示，请停止另一个
   实例或用 `AGENTFUSE_HOME` / `--home` 指向不同目录。
 * WSL2 需要 Python 3.11+（Ubuntu-22.04 自带的是 3.10），推荐用 `uv` 在项目目录内
   创建虚拟环境（见 README §4）。
-* **不实现**跨会话持久化结果缓存（P2，详见 §0）。
+* 跨会话持久化结果缓存默认关闭，需在配置中显式开启（详见 §0）。
 * **不实现**复杂的多用户权限系统。
 * Web 界面默认只监听 `127.0.0.1`，**没有**内置认证 —— 它是本地单用户工具。
   监听非回环地址需要显式加上 `--allow-remote`，否则命令以错误退出（需求 2.2）。
@@ -248,9 +243,26 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 * 前端脚本**在 Node 里被真实执行**（`tests/frontend/dom_harness.mjs`）：它在一个最小的 DOM
   模拟里运行真实的 `app.js`，把**后端真实返回**（已录制的 API 响应）灌给它，然后验证页签、执行图、
   时间线、依赖检查器与基准表格里的值。一个 JavaScript 错误会让测试失败。
-  但**没有真浏览器**：没有真实的页面渲染、事件与样式。
+  另有 `tests/integration/test_browser_e2e.py` 驱动真实 Edge/Chrome 检查页面渲染；设置 `AGENTFUSE_BROWSER_TEST=1` 才执行，无浏览器时明确跳过。
 * Runtime 进程被强杀时，已经死亡的运行记录会被标记为 `INTERRUPTED`
   （通过缺失的 `end_time` 与 `status` 体现），不会误判为完成；
   首版**不提供**崩溃后的自动恢复执行。
 * Windows 上 CPU 时间的计量粒度、空闲时 RSS 读数偏低等平台差异，
   会让不同机器之间的绝对数值不可直接比较。
+
+## 7. 扩展后的验收边界
+
+2026-11-04 用户明确授权扩大到 P2 范围。新增可运行接口见 [P2_EXTENSIONS.md](P2_EXTENSIONS.md)。
+“部分实现”不计为全文完成；任意程序完备追踪与绝对通用隔离不能由有限测试证明。
+远程模式要求相同 Python、平台与工具/读取器实现指纹，跨平台异构节点被保守拒绝。
+
+
+## 8. 取消场景性能问题的历史与修复（2026-11-04）
+
+上一阶段完整功能测试 303 passed / 2 skipped、交付自检 44/44、需求审计 325/325 均通过。
+当时每场景独立解释器、独立数据库、5 次重复的性能守卫报告取消场景时延超过旧基线：
+Baseline 6.2810s（旧参考 3.2882s）、Online 4.7045s（3.0665s）、Deferred 4.7661s（3.0458s）。
+本轮定位并修复取消与最终回收重复终止同一进程、Windows venv 启动器多出一层进程，以及空闲预热 Worker 持续扫描进程树的问题。
+原基线、原 30% 容差、5 次重复的全部场景已通过；取消场景中位数为 Baseline 3.997953s、Online 3.514093s、Deferred 3.803968s。
+没有修改基线或扩大容差。性能结果受机器负载影响，不能把本机通过解释成任意机器上的固定时延保证。
+失败历史与最终测量保留在 docs/verification，当前结果见 current/performance.txt；生产 LLM / GPU KV 依用户选择保留缺口。

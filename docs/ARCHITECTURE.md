@@ -287,3 +287,11 @@ AgentFuse 不实现 Agent 身份绑定与工作流重建逻辑，它**消费**�
 对接点就是 `agentfuse/adapters/base.py` 的六个方法
 （`bind_agent` / `begin_invocation` / `submit_tool_call` / `deliver_result` /
 `end_invocation` / `record_event`）。详见 `ADAPTER_GUIDE.md`。
+
+## P2 扩展接线（2026-11-04）
+
+App.raw.distributed.workers → Coordinator 的预热与即时 Worker 工厂 → worker_child 桥接 → TLS/令牌远程服务 → 独立工具进程。
+依赖与结果沿原 IPC 协议返回，保留原共享状态机；开始事件记录 worker_node。
+App 订阅真实事件维护有界工具/Agent 路径统计。各 App 的 InferenceRuntime 维护独立模型前缀 K/V 缓存。
+新增 `/api/extensions` 暴露数值推理、清理缓存、能力状态与路径概率。
+第三方命令由显式 Docker 后端隔离执行，禁止加入共享路径。详见 P2_EXTENSIONS.md。

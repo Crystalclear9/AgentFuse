@@ -32,6 +32,16 @@ from .worker import execute_tool
 def _serve(payload: dict[str, Any]) -> None:
     """Run one tool and stream its messages to stdout."""
 
+    if os.environ.get("AGENTFUSE_REMOTE_ENDPOINT"):
+        from .remote import forward
+        def emit(message):
+            sys.stdout.write(json.dumps(message) + "\n")
+            sys.stdout.flush()
+        try:
+            forward(payload, json.loads(os.environ["AGENTFUSE_REMOTE_ENDPOINT"]), emit)
+        except Exception as exc:
+            emit(error_message(ERROR_INTERNAL, str(exc), "", 0.0))
+        return
     messages: "queue.Queue[dict[str, Any]]" = queue.Queue()
 
     def reporter(dependency_type: str, relative_path: str, fingerprint: str) -> None:

@@ -1,0 +1,548 @@
+[
+  {
+    "section": "2.1",
+    "title": "运行环境",
+    "tests": [
+      "test_the_worker_reports_its_real_pid"
+    ]
+  },
+  {
+    "section": "2.2",
+    "title": "完全本地运行",
+    "tests": [
+      "test_the_front_end_does_not_load_anything_from_the_network"
+    ]
+  },
+  {
+    "section": "2.3",
+    "title": "开发周期",
+    "tests": [
+      "test_the_catalogue_matches_the_runtime"
+    ]
+  },
+  {
+    "section": "3.1",
+    "title": "不重新实现已有系统",
+    "tests": [
+      "test_a_foreign_framework_can_run_a_tool_call"
+    ]
+  },
+  {
+    "section": "3.2",
+    "title": "职责划分",
+    "tests": [
+      "test_the_two_agents_keep_their_own_identity"
+    ]
+  },
+  {
+    "section": "3.3",
+    "title": "核心架构",
+    "tests": [
+      "test_two_scripted_agents_produce_a_real_execution_graph"
+    ]
+  },
+  {
+    "section": "4.1",
+    "title": "Workflow",
+    "tests": [
+      "test_the_execution_is_written_to_the_database"
+    ]
+  },
+  {
+    "section": "4.2",
+    "title": "Agent",
+    "tests": [
+      "test_an_undetermined_agent_identity_is_recorded"
+    ]
+  },
+  {
+    "section": "4.3",
+    "title": "AgentInvocation",
+    "tests": [
+      "test_two_invocations_of_the_same_agent_stay_distinct"
+    ]
+  },
+  {
+    "section": "4.4",
+    "title": "LogicalToolCall",
+    "tests": [
+      "test_the_execution_is_written_to_the_database"
+    ]
+  },
+  {
+    "section": "4.5",
+    "title": "PhysicalExecution",
+    "tests": [
+      "test_the_physical_execution_is_recorded"
+    ]
+  },
+  {
+    "section": "4.6",
+    "title": "WorkspaceSnapshot",
+    "tests": [
+      "test_snapshots_are_immutable"
+    ]
+  },
+  {
+    "section": "4.7",
+    "title": "DependencyRecord",
+    "tests": [
+      "test_the_dependency_ledger_records_every_read"
+    ]
+  },
+  {
+    "section": "4.8",
+    "title": "ShareGroup",
+    "tests": [
+      "test_the_share_group_records_its_participants"
+    ]
+  },
+  {
+    "section": "4.9",
+    "title": "ValidationRecord",
+    "tests": [
+      "test_a_late_joiner_validates_the_existing_ledger"
+    ]
+  },
+  {
+    "section": "5.1",
+    "title": "统一事件协议",
+    "tests": [
+      "test_event_ids_are_unique_and_sequences_are_stable"
+    ]
+  },
+  {
+    "section": "5.2",
+    "title": "身份绑定",
+    "tests": [
+      "test_an_undetermined_agent_identity_is_recorded"
+    ]
+  },
+  {
+    "section": "5.3",
+    "title": "因果关系",
+    "tests": [
+      "test_the_graph_only_contains_observed_relations"
+    ]
+  },
+  {
+    "section": "6.1",
+    "title": "基本目标",
+    "tests": [
+      "test_fork_creates_an_independent_branch"
+    ]
+  },
+  {
+    "section": "6.2",
+    "title": "实现方式",
+    "tests": [
+      "test_snapshots_are_immutable"
+    ]
+  },
+  {
+    "section": "6.3",
+    "title": "文件依赖表示",
+    "tests": [
+      "test_read_text_reports_a_file_read_dependency"
+    ]
+  },
+  {
+    "section": "7.1",
+    "title": "工具注册",
+    "tests": [
+      "test_the_four_controlled_tools_are_registered"
+    ]
+  },
+  {
+    "section": "7.2",
+    "title": "工具执行接口",
+    "tests": [
+      "test_read_text_reports_a_file_read_dependency"
+    ]
+  },
+  {
+    "section": "7.3",
+    "title": "必须实现的本地工具",
+    "tests": [
+      "test_the_ast_analyzer_produces_real_results"
+    ]
+  },
+  {
+    "section": "7.4",
+    "title": "确定性要求",
+    "tests": [
+      "test_the_same_seed_produces_the_same_results"
+    ]
+  },
+  {
+    "section": "8.1",
+    "title": "候选共享识别",
+    "tests": [
+      "test_same_arguments_produce_the_same_key"
+    ]
+  },
+  {
+    "section": "8.2",
+    "title": "共享执行状态机",
+    "tests": [
+      "test_illegal_group_transitions_are_rejected"
+    ]
+  },
+  {
+    "section": "8.3",
+    "title": "第一个调用到达",
+    "tests": [
+      "test_two_equivalent_calls_share_a_single_physical_execution"
+    ]
+  },
+  {
+    "section": "8.4",
+    "title": "后续调用到达",
+    "tests": [
+      "test_the_candidate_event_is_published"
+    ]
+  },
+  {
+    "section": "8.5",
+    "title": "在线动态依赖验证",
+    "tests": [
+      "test_a_conflicting_dependency_detaches_the_follower"
+    ]
+  },
+  {
+    "section": "8.6",
+    "title": "增量验证语义",
+    "tests": [
+      "test_the_follower_validates_the_dependencies_that_come_later"
+    ]
+  },
+  {
+    "section": "8.7",
+    "title": "最终提交验证",
+    "tests": [
+      "test_a_follower_that_fails_the_final_validation_gets_no_result"
+    ]
+  },
+  {
+    "section": "8.8",
+    "title": "分离机制",
+    "tests": [
+      "test_the_detached_follower_uses_its_own_snapshot"
+    ]
+  },
+  {
+    "section": "8.9",
+    "title": "结果缓存边界",
+    "tests": [
+      "test_an_identical_request_is_served_from_the_cache"
+    ]
+  },
+  {
+    "section": "8.10",
+    "title": "正确性原则",
+    "tests": [
+      "test_the_shared_results_are_identical_to_the_baseline"
+    ]
+  },
+  {
+    "section": "9.1",
+    "title": "资源控制器",
+    "tests": [
+      "test_the_resource_snapshot_exposes_the_limits"
+    ]
+  },
+  {
+    "section": "9.2",
+    "title": "CPU 并发控制",
+    "tests": [
+      "test_the_worker_limit_is_enforced"
+    ]
+  },
+  {
+    "section": "9.3",
+    "title": "内存控制",
+    "tests": [
+      "test_the_memory_budget_blocks_new_executions"
+    ]
+  },
+  {
+    "section": "9.4",
+    "title": "工具进程执行",
+    "tests": [
+      "test_a_pooled_worker_is_reused"
+    ]
+  },
+  {
+    "section": "9.5",
+    "title": "执行调度",
+    "tests": [
+      "test_the_queue_is_fifo"
+    ]
+  },
+  {
+    "section": "10.1",
+    "title": "Leader 执行失败",
+    "tests": [
+      "test_the_participants_of_a_failed_group_are_failed"
+    ]
+  },
+  {
+    "section": "10.2",
+    "title": "Follower 取消",
+    "tests": [
+      "test_a_cancelled_follower_does_not_stop_the_leader"
+    ]
+  },
+  {
+    "section": "10.3",
+    "title": "Leader 逻辑调用取消",
+    "tests": [
+      "test_a_cancelled_leader_keeps_the_follower_alive"
+    ]
+  },
+  {
+    "section": "10.4",
+    "title": "所有参与者取消",
+    "tests": [
+      "test_cancelling_every_participant_terminates_the_execution"
+    ]
+  },
+  {
+    "section": "10.5",
+    "title": "Runtime 进程中断",
+    "tests": [
+      "test_an_interrupted_run_is_marked_with_its_kind"
+    ]
+  },
+  {
+    "section": "11.1",
+    "title": "图节点",
+    "tests": [
+      "test_the_graph_records_shared_executions"
+    ]
+  },
+  {
+    "section": "11.2",
+    "title": "图边",
+    "tests": [
+      "test_the_delivery_event_is_published_exactly_once"
+    ]
+  },
+  {
+    "section": "11.3",
+    "title": "不完整图处理",
+    "tests": [
+      "test_out_of_order_events_do_not_create_wrong_edges"
+    ]
+  },
+  {
+    "section": "11.4",
+    "title": "可观察状态",
+    "tests": [
+      "test_the_dashboard_renders_the_real_data"
+    ]
+  },
+  {
+    "section": "12.1",
+    "title": "Scripted Agent",
+    "tests": [
+      "test_the_shared_scenario_shares_one_execution"
+    ]
+  },
+  {
+    "section": "12.2",
+    "title": "场景一：完全共享",
+    "tests": [
+      "test_the_shared_scenario_shares_one_execution"
+    ]
+  },
+  {
+    "section": "12.3",
+    "title": "场景二：不同工作区但仍能共享",
+    "tests": [
+      "test_the_different_workspace_scenario_shares"
+    ]
+  },
+  {
+    "section": "12.4",
+    "title": "场景三：动态依赖冲突",
+    "tests": [
+      "test_the_detection_happens_while_the_leader_is_still_running"
+    ]
+  },
+  {
+    "section": "12.5",
+    "title": "场景四：多个 Agent 并行与汇合",
+    "tests": [
+      "test_the_aggregator_only_starts_after_the_workers_finished"
+    ]
+  },
+  {
+    "section": "12.6",
+    "title": "场景五：取消和失败",
+    "tests": [
+      "test_the_cancel_failure_scenario_covers_every_case"
+    ]
+  },
+  {
+    "section": "13.1",
+    "title": "比较模式",
+    "tests": [
+      "test_the_benchmark_uses_a_fixed_seed"
+    ]
+  },
+  {
+    "section": "13.2",
+    "title": "实验公平性",
+    "tests": [
+      "test_the_fairness_comparison_of_a_real_run"
+    ]
+  },
+  {
+    "section": "13.3",
+    "title": "必须记录的指标",
+    "tests": [
+      "test_the_comparison_reports_a_real_reduction"
+    ]
+  },
+  {
+    "section": "13.4",
+    "title": "Speedup",
+    "tests": [
+      "test_the_comparison_reports_a_real_reduction"
+    ]
+  },
+  {
+    "section": "13.5",
+    "title": "对比结果",
+    "tests": [
+      "test_the_benchmark_endpoint_runs_a_comparison"
+    ]
+  },
+  {
+    "section": "14.1",
+    "title": "产品目标",
+    "tests": [
+      "test_the_dashboard_is_served"
+    ]
+  },
+  {
+    "section": "14.2",
+    "title": "Dashboard",
+    "tests": [
+      "test_the_overview_endpoint"
+    ]
+  },
+  {
+    "section": "14.3",
+    "title": "Workflow Detail",
+    "tests": [
+      "test_the_workflow_endpoints"
+    ]
+  },
+  {
+    "section": "14.4",
+    "title": "Execution Timeline",
+    "tests": [
+      "test_the_workflow_endpoints"
+    ]
+  },
+  {
+    "section": "14.5",
+    "title": "Dependency Inspector",
+    "tests": [
+      "test_the_execution_endpoints"
+    ]
+  },
+  {
+    "section": "14.6",
+    "title": "Benchmark 页面",
+    "tests": [
+      "test_the_benchmark_endpoint_runs_a_comparison"
+    ]
+  },
+  {
+    "section": "17.1",
+    "title": "图重建测试",
+    "tests": [
+      "test_the_graph_only_contains_observed_relations"
+    ]
+  },
+  {
+    "section": "17.2",
+    "title": "共享正确性测试",
+    "tests": [
+      "test_two_equivalent_calls_share_a_single_physical_execution"
+    ]
+  },
+  {
+    "section": "17.3",
+    "title": "动态验证测试",
+    "tests": [
+      "test_a_conflicting_dependency_detaches_the_follower"
+    ]
+  },
+  {
+    "section": "17.4",
+    "title": "并发测试",
+    "tests": [
+      "test_many_concurrent_identical_calls_create_one_execution"
+    ]
+  },
+  {
+    "section": "17.5",
+    "title": "资源测试",
+    "tests": [
+      "test_the_worker_limit_is_enforced"
+    ]
+  },
+  {
+    "section": "17.6",
+    "title": "快照测试",
+    "tests": [
+      "test_snapshots_are_immutable"
+    ]
+  },
+  {
+    "section": "17.7",
+    "title": "集成测试",
+    "tests": [
+      "test_a_single_agent_call_produces_one_execution"
+    ]
+  },
+  {
+    "section": "21.1",
+    "title": "共享正确性与运行并发的竞态",
+    "tests": [
+      "test_no_logical_call_is_delivered_twice"
+    ]
+  },
+  {
+    "section": "21.2",
+    "title": "快照不变性",
+    "tests": [
+      "test_a_modified_snapshot_is_not_shared"
+    ]
+  },
+  {
+    "section": "21.3",
+    "title": "依赖追踪完整性",
+    "tests": [
+      "test_a_bypassing_tool_is_never_shared"
+    ]
+  },
+  {
+    "section": "21.4",
+    "title": "实验真实性",
+    "tests": [
+      "test_the_comparison_reports_a_real_reduction"
+    ]
+  },
+  {
+    "section": "21.5",
+    "title": "Agent Framework 无关性",
+    "tests": [
+      "test_a_foreign_framework_can_run_a_tool_call"
+    ]
+  }
+]

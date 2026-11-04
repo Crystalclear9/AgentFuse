@@ -33,6 +33,15 @@ def test_snapshot_contains_the_files(store, source):
     info = store.create_workspace(source)
     assert set(info.manifest) == {"src/a.py", "src/b.py", "README.md"}
     assert ".git/config" not in info.manifest
+    # Installing local tools beside the source must not make importing this
+    # checkout exceed snapshot limits or copy runtime data recursively.
+    from agentfuse.settings import load_settings
+    defaults = load_settings(home=source.parent / "home")
+    for name in (".tools", ".venv-local", ".venv-wsl", ".agentfuse", "_manual_delete"):
+        (source / name).mkdir()
+        (source / name / "artifact.txt").write_text("generated", encoding="utf-8")
+    default_store = SnapshotStore(source.parent / "default-snapshots", exclude=defaults.snapshot_exclude)
+    assert set(default_store.create_workspace(source).manifest) == set(info.manifest)
 
 
 def test_snapshots_are_immutable(store, source):

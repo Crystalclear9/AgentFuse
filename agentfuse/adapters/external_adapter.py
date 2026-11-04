@@ -137,6 +137,7 @@ class ExternalAdapter(AgentAdapter):
         tool_name: str,
         arguments: dict[str, Any],
         snapshot_id: str | None = None,
+        timeout_seconds: float | None = None,
     ) -> Any:
         invocation = self.workflow.invocations.get(invocation_id)
         agent_id = invocation.agent_id if invocation else None
@@ -151,6 +152,7 @@ class ExternalAdapter(AgentAdapter):
             tool_name=tool_name,
             arguments=arguments,
             snapshot_id=resolved_snapshot,
+            timeout_seconds=timeout_seconds,
         )
 
     async def deliver_result(self, invocation_id: str, logical_call_id: str, result: Any) -> None:
@@ -210,6 +212,14 @@ class ExternalAdapter(AgentAdapter):
                 identity_confirmed=bool(message.get("identity_confirmed", True)),
             )
             return {"type": "bound", "agent_id": handle.agent_id}
+
+        if kind == "snapshot":
+            # the framework asks which workspace it may use - the runtime
+            # owns the snapshots, the framework only names them
+            snapshot_id = self.workflow.default_snapshot_id
+            if not snapshot_id:
+                raise ProtocolError("the workflow has no workspace snapshot")
+            return {"type": "snapshot", "snapshot_id": snapshot_id}
 
         if kind == "invoke":
             agent_id = await self._resolve_agent(message.get("agent_id"))
@@ -313,7 +323,7 @@ class ExternalAdapter(AgentAdapter):
             await writer.drain()
 
 
-def _serve_stdio(adapter: ExternalAdapter) -> None:
+async def _serve_stdio(adapter: ExternalAdapter) -> None:
     """Run the protocol on the standard input and output.
 
     The reader runs in a thread: the event loop of Windows cannot attach to
@@ -368,7 +378,7 @@ def _serve_stdio(adapter: ExternalAdapter) -> None:
             sys.stdout.write(json.dumps(answer, ensure_ascii=False) + "\n")
             sys.stdout.flush()
 
-    asyncio.run(main())
+    await main()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -403,11 +413,13 @@ def main(argv: list[str] | None = None) -> int:
     workflow.default_snapshot_id = base.snapshot_id
     workflow.start()
     adapter = ExternalAdapter(workflow)
-    try:
-        _serve_stdio(adapter)
-    finally:
-        workflow.finish()
-        app.close_sync()
+    async def run():
+        try:
+            await _serve_stdio(adapter)
+        finally:
+            workflow.finish()
+            await app.close()
+    asyncio.run(run())
     return 0
 
 
