@@ -118,7 +118,9 @@ def main():
     output = ROOT / "docs/verification/current"
     output.mkdir(parents=True, exist_ok=True)
     for source in reports.glob("*"):
-        if source.is_file() and source.name != "report-generation.json" and source.suffix in (".xml", ".json", ".txt", ".log"):
+        if (source.is_file() and source.name != "report-generation.json"
+                and not source.name.startswith("remote-ci")
+                and source.suffix in (".xml", ".json", ".txt", ".log")):
             shutil.copyfile(source, output / source.name)
     shutil.copytree(reports / "matrix", output / "matrix", dirs_exist_ok=True)
     (output / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")

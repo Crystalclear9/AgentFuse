@@ -26,7 +26,7 @@ WSL2 跳过：the browser test only runs where a browser is requested；set AGEN
 Windows 的符号链接边界由 WSL2 实际执行，Docker 与 Windows 浏览器分别独立实测；跳过不计作通过。
 Python 与全部 Python 依赖、Git、uv、Node、Chromium 已安装在项目的 `.tools` / `.venv-local` / `.venv-wsl`。
 Docker Engine、WSL2 和操作系统属于系统前提，未伪称可通过复制普通文件实现项目内安装。
-源码与测试快照（文本换行归一为 LF）：`057f82651ca072d9d2fb3dfb2eddb927135ad4dc3b13a5dfbfaa7e80b8d77411`。环境与原始证据见 [本轮汇总](verification/current/summary.json)。
+源码与测试快照（文本换行归一为 LF）：`9f0474fbe61d758127aed3adbd20b9fe72fd03faeb7b8d3dd955cf8f7c74b1aa`。环境与原始证据见 [本轮汇总](verification/current/summary.json)。
 完整映射见 [PLAN_REVIEW.md](PLAN_REVIEW.md)。测试通过不代表所有 P2 都完成，保留的范围见 KNOWN_LIMITATIONS.md。
 
 本轮解决取消/最终回收重复终止同一个进程、超时任务自取消、Windows 解释器启动器开销、API 文档 CDN 依赖和远程 RSS 未接入问题。
@@ -35,6 +35,10 @@ Docker Engine、WSL2 和操作系统属于系统前提，未伪称可通过复�
 首轮变异自检 57/58，发现报告中的无效测试引用未被审计；已补齐引用核验并重新完成全部 58 项。自检使用独立源码副本，逐文件验证还原和主源码未改动。
 前一轮失败记录留存于 verification 根目录，当前原始结果位于 verification/current；不覆盖失败历史、不修改性能基线或放宽容差。
 <!-- current-verification:end -->
+
+
+
+
 
 
 

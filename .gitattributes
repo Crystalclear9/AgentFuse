@@ -1,3 +1,4 @@
 # Keep the user's original plan and raw test evidence byte-for-byte.
+*.sh text eol=lf
 docs/REQUIREMENTS.zh-CN.md -text -whitespace
 docs/verification/** -text -whitespace
