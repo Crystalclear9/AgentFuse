@@ -187,7 +187,8 @@ class WorkspaceReader:
         strict_boundary: bool = True,
     ) -> None:
         self.root = Path(root)
-        self._root_real = os.path.realpath(self.root)
+        with controlled_access():
+            self._root_real = os.path.realpath(self.root)
         self._reporter = reporter
         self.snapshot_id = snapshot_id
         self.strict_boundary = strict_boundary
