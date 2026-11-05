@@ -9,6 +9,7 @@ class PathPredictor:
             raise ValueError("max_states must be positive")
         self.max_states = max_states
         self.transitions = OrderedDict()
+        self.agent_transitions = OrderedDict()
         self.previous = OrderedDict()
         self.invocations = OrderedDict()
         self.lock = RLock()
@@ -38,11 +39,14 @@ class PathPredictor:
         with self.lock:
             source = self.invocations.get((workflow, parent)) if parent else None
             if source is not None:
-                # Isolated stream makes each explicit edge one observation.
-                stream = f"edge:{workflow}:{invocation}"
-                self.observe(stream, source)
-                self.observe(stream, label)
-                self.finish(stream)
+                # Agent labels and tool names are independent namespaces.
+                counts = self.agent_transitions.pop(source, Counter())
+                counts[label] += 1
+                if len(counts) > self.max_states:
+                    del counts[min(counts, key=counts.get)]
+                self.agent_transitions[source] = counts
+                while len(self.agent_transitions) > self.max_states:
+                    self.agent_transitions.popitem(last=False)
             self.invocations[(workflow, invocation)] = label
             while len(self.invocations) > self.max_states:
                 self.invocations.popitem(last=False)
@@ -61,7 +65,7 @@ class PathPredictor:
             for _ in range(depth):
                 expanded = []
                 for item in paths:
-                    choices = self.predict(item["path"][-1], limit)
+                    choices = self._predict(item["path"][-1], limit, self.agent_transitions)
                     if not choices:
                         expanded.append(item)
                     for choice in choices:
@@ -72,7 +76,11 @@ class PathPredictor:
 
     def predict(self, tool: str, limit: int = 5) -> list[dict]:
         with self.lock:
-            counts = self.transitions.get(tool, {})
-            total = sum(counts.values())
-            return [dict(tool=name, probability=count / total, observations=count)
-                    for name, count in sorted(counts.items(), key=lambda x: (-x[1], x[0]))[:max(0, limit)]]
+            return self._predict(tool, limit, self.transitions)
+
+    @staticmethod
+    def _predict(tool, limit, transitions):
+        counts = transitions.get(tool, {})
+        total = sum(counts.values())
+        return [dict(tool=name, probability=count / total, observations=count)
+                for name, count in sorted(counts.items(), key=lambda x: (-x[1], x[0]))[:max(0, limit)]]

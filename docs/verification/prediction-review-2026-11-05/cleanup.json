@@ -1,0 +1,52 @@
+[
+  {
+    "path": ".agentfuse/prediction-wheel",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/audit-runs",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/acceptance",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/acceptance-api",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/frontend-capture",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/regression",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/soak",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/tmp",
+    "status": "empty_directory_retained",
+    "remaining_files": 0,
+    "error": "[WinError 32] 另一个程序正在使用此文件，进程无法访问。: 'C:\\\\Users\\\\70454\\\\Desktop\\\\AgentFuse\\\\.agentfuse\\\\tmp'"
+  },
+  {
+    "path": ".pytest_cache",
+    "status": "absent"
+  },
+  {
+    "path": ".tools/cache",
+    "status": "deleted"
+  },
+  {
+    "path": "build",
+    "status": "deleted"
+  },
+  {
+    "path": "agentfuse.egg-info",
+    "status": "deleted"
+  }
+]

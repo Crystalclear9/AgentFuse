@@ -1,0 +1,27 @@
+{
+  "full": {
+    "total": 347,
+    "passed": 345,
+    "skipped": 2,
+    "skip_reasons": [
+      "set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image",
+      "symlinks are not supported on this platform"
+    ]
+  },
+  "extensions": {
+    "total": 38,
+    "passed": 38,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "audit": {
+    "total": 325,
+    "failed": 0,
+    "behavioural": 110,
+    "structural": 215
+  },
+  "acceptance": "44/44",
+  "performance_passed": true,
+  "source_sha256": "d43d1c61df3bdefd35705933fec639a8552ba3d93939d99bd4ff790de36c632c",
+  "full_p2_completed": false
+}
