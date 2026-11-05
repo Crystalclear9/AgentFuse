@@ -1,35 +1,28 @@
 # 项目内工具与清理
 
-本轮验证使用的工具全部位于本项目内，没有修改系统 PATH 或用户 Shell 配置。
+Windows 新终端在仓库根目录运行 `. ./scripts/enter-local.ps1`，WSL Bash 运行 `source scripts/enter-local.sh`。两者在当前会话使用项目内环境。
 
-| 工具 | 项目内位置 |
+| 用途 | 项目内位置 |
 |---|---|
-| Python 3.11.18（Windows） | `.tools/python` |
-| Windows 项目和开发依赖 | `.venv-local` |
-| Python 3.12.16 / 3.13.18 兼容性验证 | 基础解释器在 `.tools/python`，独立依赖环境在 `.tools/envs/py312`、`.tools/envs/py313` |
-| Python 3.11.18（WSL）及依赖 | `.tools/python-linux`、`.venv-wsl` |
-| uv 0.13.7 | `.tools/uv`、`.tools/uv-linux` |
-| Portable Git 2.56.0.windows.4 | `.tools/git` |
-| ripgrep 15.2.0（源码检索） | `.tools/ripgrep/rg.exe` |
-| Node 24.22.1 | `.venv-local/Lib/site-packages/playwright/driver/node.exe`；Linux 同包的 driver 目录 |
-| Chromium 156 与浏览器辅助工具 | `.tools/browsers` |
-| Docker CLI 28.5.1 | `.tools/docker/docker.exe` |
-| 已验证的离线 Docker 镜像 | `.tools/images/python-3.11-alpine.tar` |
+| Windows Python 3.11 与开发依赖 | `.tools/python`、`.venv-local` |
+| WSL Python 3.11 与开发依赖 | `.tools/python-linux`、`.venv-wsl` |
+| 安装与锁文件同步 | `.tools/uv`、`.tools/uv-linux`、`requirements-dev.lock` |
+| Git 和源码检索 | `.tools/git`、`.tools/ripgrep` |
+| 浏览器端到端测试 | `.tools/browsers`，Node 随 Playwright 驱动安装在虚拟环境内 |
+| 可选 Docker 容器命令 | `.tools/docker` 提供客户端，Docker Engine 由系统提供 |
 
-Windows 新终端运行 `. ./scripts/enter-local.ps1`，WSL Bash 运行 `source scripts/enter-local.sh`。
-首次恢复 Python、开发依赖和浏览器可运行 `scripts/setup-local.ps1`，WSL 使用 `bash scripts/setup-local.sh`。
-完整 Windows Python 版本矩阵可运行 `scripts/setup-local.ps1 -AllPythonVersions`，所有解释器与依赖仍安装在项目内。
-Python 依赖版本和哈希锁定在 `requirements-dev.lock`；已验证可执行文件的 SHA-256 见 `verification/current/toolchain.json`。
-工具与虚拟环境较大，不提交 Git。远端源码提供安装脚本和依赖锁；本机交付目录保留已安装工具。
-虚拟环境包含绝对路径，移动整个项目后应重新运行安装脚本。
+首次安装或恢复默认环境使用 `scripts/setup-local.ps1`，WSL 使用 `bash scripts/setup-local.sh`。虚拟环境含绝对路径，迁移项目后需要重建。Python 3.12 和 3.13 的本地兼容性环境已清理，需要时运行 `scripts/setup-local.ps1 -AllPythonVersions` 恢复。远端 CI 继续运行完整版本矩阵。
 
-操作系统、PowerShell、WSL2 和 Docker Engine 是系统前提。Docker 客户端和镜像可放在项目内，
-Engine 的系统服务、内核能力与虚拟磁盘不能靠复制可执行文件在普通目录内安装。
-本轮 Docker 测试使用现有 Linux Engine；测试结束后已停止本次启动的 Docker Desktop。
-恢复镜像可用 `.tools/docker/docker.exe load -i .tools/images/python-3.11-alpine.tar`。
-本轮按用户要求补齐：`.tools/llama` 为固定版本 llama.cpp Vulkan 后端，`.tools/models` 为哈希固定的预训练 GGUF 模型，`requirements-p2.lock` 锁定 LangGraph 依赖。安装与验证见 P2_COMPLETION.md。
+本地模型、可选框架 SDK 和 Linux 验收镜像按需安装。复现 GPU、KV Cache 和容器专项时，按 [P2 验收说明](P2_COMPLETION.md) 运行 `scripts/setup_p2.py`。框架依赖锁定在 `requirements-p2.lock`。Windows、WSL2、Docker Engine 和 GPU 驱动由系统提供。
 
-清理通过 `scripts/clean_intermediates.py` 的显式路径清单执行；它先校验路径位于项目内，
-独立保护源码、Git、已安装工具、活动环境及工作区/数据库/备份/结果/日志。
-删除失败的残留尝试转入 `_manual_delete`；若 Windows 同时禁止删除和重命名，清单如实记录原路径。
-实际结果见 `verification/cleanup.json`。测试原始证据保留于 `verification/current`，不把失败历史当作无效文件删除。
+## 文件保留规则
+
+- 源码、测试、配置、依赖锁、原始需求、性能基线和关键验收摘要随 Git 保存。
+- 本地数据库、备份、工作区、运行结果和正式交付包由各自的目录管理。清理临时文件时保护这些路径。
+- 测试日志、临时工作区、缓存和新报告保存在被 Git 忽略的 `.agentfuse/` 或工具缓存目录。仓库中的关键结果见 [验收证据索引](verification/README.md)。
+
+`python scripts/acceptance_check.py` 每次使用独立的临时工作区，运行结束自动清理，保留 `.agentfuse/reports/acceptance.json` 结果。
+
+`python scripts/clean_intermediates.py --plan <清单>` 检查显式路径清单。添加 `--apply` 后执行并写入 `.agentfuse/verification/cleanup.json`。删除失败时尝试移入 `_manual_delete`，无法移动的锁定路径记录于该目录的清单。
+
+`python scripts/finalize_report.py --reports <原始证据目录>` 验证发布所需的测试证据，默认将汇总写到 `.agentfuse/verification/current`。原始文件留在输入目录。

@@ -1,384 +1,44 @@
 # Test Report
 
-## 在途准入与依赖观测复核
+## 清理后的复验
 
-Windows Python 3.11 全量 380 项，371 通过、9 跳过。启用了项目内 Chromium 和固定版本的 LangGraph、LangChain。跳过项涉及 Windows 符号链接权限和本机已清理的模型、容器镜像。Windows 定向回归 76 通过、1 跳过，WSL2 定向回归 13 通过。需求审计 325/325，交付验收 44/44。
+Windows Python 3.11 全量 379 项，368 通过、11 跳过，启用了项目内 Chromium。跳过项涉及按需安装的框架 SDK、模型、容器镜像及 Windows 符号链接权限。WSL2 共享执行 14 项通过，需求审计 325/325，交付验收 44/44。验收结束后确认临时工作区自动回收。
 
-新增 9 项回归验证跨工作流准入隔离、短超时调用、末位参与者取消竞态、协议取消回复、目录指纹的分隔符碰撞、stat 修改时间、变化的重复读取，以及远端时间戳回传和无效元数据拒绝。
+## 最近一次含可选框架的完整验证
 
-## 共享正确性与框架桥接加固
-
-Windows Python 3.11 全量运行 371 项，361 通过、10 跳过。加载了固定版本的 LangGraph 和 LangChain。默认跳过的浏览器用例单独在项目内 Chromium 上运行并通过。其余 9 项跳过来自 Windows 符号链接权限、已移除的本地 GGUF 模型和 Linux 审计镜像。
-
-新增回归覆盖结果对象隔离、未确认同名身份、空目录及旧快照、来源和接收方快照提交校验、依赖绕过缓存、损坏结果重算。真实 Python 与 Node.js 进程验证同一连接的两个 Agent 产生 2 条逻辑调用、1 次物理执行。需求审计 325/325，交付验收 44/44。三条受影响的变异守卫均检出了故意破坏，包括 stat 检测、目录枚举和最终快照校验。
-
-首轮远端 Linux 和 macOS 发现 POSIX realpath 在受控读取器初始化时调用 lstat，误记为绕过。初始化纳入受控访问范围后，WSL2 专项 26 项通过，Windows 专项 25 项通过、1 项因符号链接权限跳过，Windows 交付验收再次通过 44/44。
-
-上一轮框架接入复核覆盖 Python、Node.js、LangGraph 和 LangChain。11 项接入专项通过，本地全量 354 项通过、9 项跳过。 [接入指南](ADAPTER_GUIDE.md)
-
-此前 [P2 实现与验收](P2_COMPLETION.md) 保存了 GPU 模型与 Linux 容器实测记录。该次全量 358 通过、1 跳过，P2 十个领域 38 项全部通过。
-
-最新复核：[2026-11-05 远端快照一致性完整复核](SNAPSHOT_REVIEW_2026-11-05.md)。四套环境均完整执行最新 345 项用例，新增 22 项路径回归，修复非规范路径、冲突与部分写入。此前的[取消准入竞态复核](FINAL_REVIEW_2026-11-05.md)、[重试与报告隔离复核](RECHECK_2026-11-05.md)及下方 2026-11-04 结果保留为历史。
-
-<!-- current-verification:start -->
-## 原计划完整复核（2026-11-04）
-
-| 检查 | 本轮实际结果 |
+| 检查 | 环境与结果 |
 |---|---|
-| Windows 完整测试，项目内 Python/Node/Chromium | 318 passed / 2 skipped |
-| WSL2 完整测试，项目内独立 Python/Node | 318 passed / 2 skipped |
-| Windows Python 3.12 / 3.13 完整测试 | 318 / 318 passed，分别 2 / 2 skipped |
-| 取消确认与延迟后台回收定向复检 | 6 passed；旧行为确定性失败证据另存 |
-| 调用协程取消、排队撤销、关闭和共享参与者回归 | 43 passed |
-| 变异规则更新后的守卫、审计与取消复检 | 20 passed |
-| 数据库跨线程关闭、并发录制与本轮回归 | 29 passed |
-| Docker、TLS 与扩展独立验证 | 14 passed / 0 skipped |
-| 资源释放与迟到 RSS 定向复检 | 17 passed |
-| 外部框架与 CLI 定向复检 | 8 passed |
-| Windows / WSL 最终快照配置与本轮回归复检 | 19 / 26 passed |
-| Windows / WSL 审计、证据分类与追溯表最终复检 | 21 / 21 passed |
-| 十分钟持续运行 | 338 轮，0 错误，残留 Worker 增长 0 |
-| 独立安装的 wheel 真执行 | Baseline 2 次 / Online 1 次物理执行，离线 API 文档已打包 |
-| 预热池 0/1/2 × 并发 1/2 关键用例 | 六组全部通过（明细见 current/summary.json） |
-| 需求审计 | 325/325，110 行为 / 215 结构 |
-| 故意破坏实现的变异自检 | 58/58 检出 |
-| 交付验收 | 44/44 |
-| 性能守卫，原基线/原容差，重复 5 次 | 通过 |
-| 原始计划编号小节 | 78 项均有实际通过的测试映射 |
+| 全量测试 | Windows Python 3.11，380 项，371 通过、9 跳过。启用项目内 Chromium、LangGraph 和 LangChain |
+| 定向回归 | Windows 76 通过、1 跳过；WSL2 13 通过 |
+| 需求审计与交付验收 | 325/325 与 44/44 |
+| 远端 CI | 18/18，包括 Windows、Ubuntu、macOS、Worker 矩阵、变异守卫、浏览器及十分钟稳定性观察 |
 
-Windows 跳过：set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image；symlinks are not supported on this platform。
-WSL2 跳过：the browser test only runs where a browser is requested；set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image。
-Windows 的符号链接边界由 WSL2 实际执行，Docker 与 Windows 浏览器分别独立实测；跳过不计作通过。
-Python 与全部 Python 依赖、Git、uv、Node、Chromium 已安装在项目的 `.tools` / `.venv-local` / `.venv-wsl`。
-Docker Engine、WSL2 和操作系统属于系统前提，未伪称可通过复制普通文件实现项目内安装。
-源码与测试快照（文本换行归一为 LF）：`e0f8ef63d6123b63df0a9fbb20392f5c00fba833bff2fbc20faa835e386b1ac6`。环境与原始证据见 [本轮汇总](verification/current/summary.json)。
-完整映射见 [PLAN_REVIEW.md](PLAN_REVIEW.md)。测试通过不代表所有 P2 都完成，保留的范围见 KNOWN_LIMITATIONS.md。
+以上数量对应运行时代码验证提交 `d1e10a5`。Windows 跳过项涉及符号链接权限及未加载的本地 GGUF 模型和 Linux 审计镜像。机器可读结果见 [最近一次验证](verification/latest.json) 与 [CI 运行](https://github.com/Crystalclear9/AgentFuse/actions/runs/41992291019)。
 
-本轮解决取消/最终回收重复终止同一个进程、超时任务自取消、Windows 解释器启动器开销、API 文档 CDN 依赖和远程 RSS 未接入问题。
-再次复核补齐直接取消调用协程、排队撤销与关闭收尾；监控线程通过事件循环安全唤醒准入，实体 ID 保留完整 UUID。
-本次变异首轮 57/58，原因是取消路径扩展后旧定位字符串失效；更新规则后定向复检及全部 58 项重跑通过，失败原始证据保留。
-另外修复外部框架强杀导致 SQLite 未刷盘，以及已释放执行收到迟到 RSS 后重新占用预算的竞态；定向复检单独列出。
-空闲预热 Worker 不再扫描进程树；本地进程树 RSS 改为父子内存求和，真实父子进程验证通过。
-首轮变异自检 57/58，发现报告中的无效测试引用未被审计；已补齐引用核验并重新完成全部 58 项。自检使用独立源码副本，逐文件验证还原和主源码未改动。
-远端 Python 3.12/3.13 矩阵另发现取消确认早于终态落库；已让终止路径等待最终回收，并在协调锁下保证恰好一次，三个 Python 版本重新完整验证。
-前端录制每次使用独立临时 home，数据库关闭会回收 API 线程池中的所有读连接；两个并发录制及真实存活线程关闭用例已验证。
-前一轮失败记录留存于 verification 根目录，当前原始结果位于 verification/current；不覆盖失败历史、不修改性能基线或放宽容差。
-<!-- current-verification:end -->
+## 测试命令
 
+在仓库根目录执行。使用现成的项目内环境，或按 [工具安装说明](LOCAL_TOOLS.md) 恢复。
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## 本次修复状态（2026-11-04）
-
-本轮结果见上方自动生成区块。下列旧版本数字保留为历史记录，不代表当前版本。
-需求审计中的接口、字段、目录和测试函数存在性检查现归类为 structural；
-只有实际执行操作并断言结果的检查归类为 behavioural。325 项审计全绿不等于全文全部实现。
-
-## 1. 测试命令（历史）
-
-```bash
-# 全量
-pytest -q
-
-# 分目录
-pytest tests/unit -q
-pytest tests/integration -q
-pytest tests/stress -q
-
-# 交付验收自检
+```powershell
+. ./scripts/enter-local.ps1
+python -m pytest tests -q
+python scripts/audit_requirements.py
 python scripts/acceptance_check.py
 ```
 
-## 2. 测试环境（历史）
-
-| 项 | Windows | WSL2 |
-|---|---|---|
-| 操作系统 | Windows 11 (x64) | Ubuntu-22.04 (WSL2, kernel 6.18) |
-| Python | 3.11.5 (CPython) | 3.11.16 (CPython, uv 管理) |
-| 解释器 | `.venv`（项目目录内） | `.agentfuse/wsl/venv`（项目目录内） |
-| 依赖 | fastapi 0.162, uvicorn 0.54, psutil 7.2.2, pytest 9.2, pytest-asyncio 1.4.1, httpx 0.28.1 | 同左（uv 安装） |
-| 逻辑处理器 | 20 | 与宿主共享 |
-| 内存 | 31.6 GiB | 与宿主共享 |
-
-## 3. 测试结果（历史）
-
-### 3.1 Windows 11
-
-```text
-275 passed, 2 skipped
-```
-
-### 3.2 WSL2 / Ubuntu-22.04
-
-```text
-275 passed, 2 skipped
-```
-
-### 3.3 Worker pool / worker limit matrix
-
-The whole suite runs with every combination of the warm pool size and the
-worker limit (the values come from `AGENTFUSE_TEST_POOL_SIZE` and
-`AGENTFUSE_TEST_WORKERS`, the CI matrix uses them):
-
-| pool \ workers | 1 | 2 |
-|---|---|---|
-| 0 | 275 passed | 275 passed |
-| 1 | 275 passed | 275 passed |
-| 2 | 275 passed | 275 passed |
-
-**两个平台的差异只有那一个跳过项**：符号链接逃逸测试在 Windows 上需要管理员
-权限才能创建符号链接，因此被跳过；在 Linux 上它**真实执行并通过**。
-
-### 3.4 交付验收自检
-
-| 平台 | 结果 |
-|---|---|
-| Windows 11 | 42/42 项通过 |
-| WSL2 | 42/42 项通过 |
-
-### 3.5 用例分布
-
-| 目录 | 数量 | 结果 |
-|---|---|---|
-| `tests/unit` | 143 passed, 1 skipped（Windows）/ 123 passed（Linux） | 全部通过 |
-| `tests/integration` | 120 passed | 全部通过 |
-| `tests/stress` | 2 passed | 全部通过 |
-| `tests/frontend` | 4 passed | 全部通过（需要 node） |
-
-### 3.6 单元测试覆盖
-
-| 文件 | 覆盖内容 |
-|---|---|
-| `test_candidate.py` | 候选键稳定性、参数/版本/环境签名敏感性、候选键不含快照、canonical JSON |
-| `test_reader.py` | 受控读取、依赖上报类型、路径越界拒绝、符号链接越界拒绝、重复依赖去重 |
-| `test_snapshots.py` | 排除规则、快照不可变性、manifest 一致性、fork 隔离、compare、删除、文件/体积上限、可写副本 |
-| `test_share_group.py` | 参与者/共享组状态机、非法转换拒绝、等待时长计算 |
-| `test_events_and_graph.py` | event_id 唯一性、workflow 内序号、订阅分发、图只包含被观察到的边 |
-| `test_tools.py` | 工具注册、可共享性、6 个工具的真实输出、确定性、schema 校验 |
-| `test_scheduler.py` | Worker 上限、内存预算阻塞、死锁避免、FIFO、快照数据 |
-| `test_database.py` | 新建库 schema、v1→v6 迁移、迁移前备份、外键约束与违规拒绝、事务原子性、写入错误计数、孤儿 workflow 回收、已完成记录不被回收 |
-| `test_validator.py` | 依赖路径规范化、绝对路径/父目录/盘符越界拒绝、快照边界检查、前缀校验在首个不匹配处停止 |
-| `test_scheduler.py`（扩展） | FIFO 与 SJF 策略的准入顺序、未知策略回退、等待原因、资源快照 |
-
-### 3.7 集成测试覆盖
-
-| 文件 | 覆盖内容 |
-|---|---|
-| `test_shared_execution.py` | 等价调用共享一次执行、结果一致、逻辑调用身份独立、baseline 不共享、参数/工具不同不共享、不可共享工具不共享、无关文件变化仍可共享、脚本 Agent 产生真实执行图 |
-| `test_divergent.py` | 冲突依赖导致分离、分离发生时 Leader 仍在运行、分离后使用自己的快照、依赖账本完整、迟到加入者不得复用已完成的执行、场景级指标 |
-| `test_dependency_types.py` | 目录列表变化被检测、文件存在性变化被检测、单 Agent 显式流程、依赖事件早于执行结束 |
-| `test_events.py` | `SHARE_CANDIDATE_FOUND` 被发布、交付事件只出现一次、适配器边界不重复权威事件、重试用独立事件、乱序事件不产生错误边 |
-| `test_concurrency.py` | 10 个并发相同调用只产生 1 次执行、无重复交付、Follower 取消不影响 Leader、Leader 取消不影响 Follower、全部取消终止执行、共享失败释放所有参与者、崩溃检测、超时终止、无 worker 进程泄漏 |
-| `test_resources_and_integrity.py` | RSS 软限制阻止准入、等待队列给出等待原因、资源快照字段、被篡改的快照不参与共享、完整快照通过校验 |
-| `test_result_cache.py` | 相同输入命中缓存、不同输入状态不复用、缓存有上限、缓存不跨会话 |
-| `test_worker_lifecycle.py` | 关闭与启动重叠时的 worker 不泄漏、shutdown 幂等、terminate 重试、真实 worker 进程被终止、hello 报告真实 pid、运行时不变量 |
-| `test_worker_pool.py` | 预热 worker 被复用、**主动制造预热竞态**、并发下结果正确、失败的工具不污染池、shutdown 后零残留、空闲池不超过上限、默认启用、可显式关闭、0/1/2 三种配置 |
-| `test_scenarios.py` | 5 个演示场景的期望指标、聚合器必须在 worker 之后启动、失败/取消场景覆盖全部 5 种情况、场景的**最终结果**断言 |
-| `test_api.py` | 健康检查、静态资源、总览、工具列表、workflow/graph/timeline/events、execution/dependencies、404、基准测试端到端 |
-| `test_frontend.py`（`tests/frontend/`） | 前端脚本在最小 DOM 模拟中**真实执行**，食物是后端真实响应；页签、执行图、时间线、依赖检查器、基准表格的值均被断言 |
-| `test_benchmark.py` | 执行次数真实下降、结果与 baseline 一致、divergent 场景两侧结果正确、deferred 验证次数更少、跨运行哈希稳定、正确性检查能发现差异、**固定种子生效**、相同种子结果可复现、重复运行不增长资源、分离收益进入聚合 |
-| `test_dependency_tracking.py` | 每个工具都声明依赖追踪、不可共享工具、依赖账本不完整的工具不可共享、审计钩子发现绕过、绕过的工具绝不被共享 |
-
-### 3.8 压力测试覆盖
-
-| 文件 | 覆盖内容 |
-|---|---|
-| `test_concurrency_race.py` | 10 个 Agent 分属两个分支 → 每个结果与其分支一致、物理执行数收敛为 2、重复提交不产生重复执行 |
-
-## 4. CI 运行的失败与根因（run #40894231765）
-
-CI 的第一版运行有 **9 个 job 失败**：6 个 Windows 池矩阵、
-2 个 macOS 验收、2 个 Windows 测试。根因有两个，都已修复：
-
-| # | 根因 | 性质 | 修复 |
-|---|---|---|---|
-| A | 测试假设“Windows 必有 launcher 存根”，但 GitHub runner 用 `setup-python` 的**真实解释器**（无存根）→ 断言必败 | 测试错误 | 改为平台无关的**不变量**：真正执行工具的进程必须消失 |
-| B | `discover_children` 在找不到子进程时**阻塞满 1 秒**，而它在**事件循环线程**上同步调用 → 整个 Runtime 每次启动 worker 停顿 1 秒 | **性能缺陷** | 用 `sys.base_prefix` 判定是否可能有存根；无存根时不等待（**1010 ms → 5 ms**） |
-
-为了不再相依 CI，新增 `scripts/run_ci_like.py`：用基础解释器 + `PYTHONPATH` 本地仓库
-复现 runner 环境（无 launcher 存根），可在本地跑完整矩阵。
-
-```bash
-python scripts/run_ci_like.py --matrix
-```
-
-| 环境 | 结果 |
-|---|---|
-| venv（有 launcher 存根） | 275 passed, 2 skipped |
-| 基础解释器（= CI 环境，无存根） | 275 passed, 2 skipped（6 种池/并发组合全通过） |
-| WSL2 / Ubuntu-22.04 | 275 passed, 2 skipped（前端测试需要 node） |
-| **CI run #6（Windows / Ubuntu / macOS × Python 3.11-3.13）** | **17 / 17 job 全部成功** |
-
-### 4.1.1 需求复核后的验证（阶段 23）
-
-| 检查 | Windows | WSL2 / Ubuntu-22.04 |
-|---|---|---|
-| `pytest tests` | **275 passed, 2 skipped** | **275 passed, 2 skipped** |
-| `scripts/run_ci_like.py --matrix`（6 种池/并发组合） | **0 失败** | — |
-| `scripts/acceptance_check.py` | **44 / 44 通过** | **44 / 44 通过** |
-| `scripts/audit_requirements.py`：**325 项 / 49 个需求小节**；旧分类 178 behavioural / 147 structural（本轮已修正，勿作为当前证据强度） | **325 / 325 通过** | **325 / 325 通过** |
-| `scripts/check_regression.py --repeat 3` | **无性能回归** | — |
-| `scripts/guard_selftest.py`（守卫自检） | **56 / 56 个守卫证明了它们能发现问题** | — |
-
-> 验收自检新增了 4 项与 P0 语义直接相关的断言：**数据库写入零错误**、
-> **外键约束无违规**、**外键约束已声明**、**调用与执行原子落库**。
-
-## 4.2 CI 第二次运行的失败（run #4）
-
-第二次 CI 运行仍有 8 个 job 失败。本次已能通过 **git 凭据管理器的 token 读取 CI 日志** 取到确切失败点：
-
-| 失败 | 根因 | 修复 |
-|---|---|---|
-| 5 个 Windows job：`test_concurrency.py::test_no_worker_processes_are_leaked` 报「worker processes are still running」 | 旧的泄漏断言**只看 pid**；CI 上 pid 被操作系统重用 → 误报 | 改为**进程身份校验**（pid + `create_time`），只有身份一致的进程才算泄漏 |
-| 3 个 macOS job：`资源数据被采集` 报 `peak_rss=0` | `_finalize_execution` 中 **`_sample_final_rss()` 在 `_persist_execution()` 之后调用** → 最后一次 RSS 采样没落库。Windows 上工具大约足够慢（monitor 线程周期采样到了），macOS 上执行太快 → 采样值丢失 = 0 | 让 `_sample_final_rss()` **先执行**、再落库；采样失败时回退到 launcher/child pid |
-
-## 4.3 CI 的三次修复记录
-
-| 运行 | 失败 job | 根因 | 修复 |
-|---|---|---|---|
-| #3 | 9 / 16 | 测试假设“Windows 必有 launcher 存根”（CI 用 setup-python 的真实解释器，无存根）；`discover_children` 在无存根时阻塞满 1 秒 | 改为平台无关的不变量断言；用 `sys.base_prefix` 判定是否可能有存根（**1010 ms → 5 ms**） |
-| #4 | 8 / 16 | macOS：`_sample_final_rss()` 在 `_persist_execution()` **之后** 调用 → 最后一次 RSS 采样丢失 = 0；Windows：旧泄漏断言只看 pid → pid 被复用误报 | 采样先落库再写行；泄漏断言校验进程身份（pid + `create_time`） |
-| #5 | 3 / 16（Windows 验收） | runner 的 stdout 编码是 **cp1252** → 打印中文报告时 `UnicodeEncodeError` 崩溃；终止后立即校验进程是否消失产生误报 | 所有脚本强制 UTF-8 输出；CI 额外设置 `PYTHONIOENCODING`/`PYTHONUTF8`；终止校验改为重试直到进程真的消失 |
-| **#6** | **0 / 16** | 全部通过 | — |
-> 那时的工作流只有 16 个 job；现在是 **17 个**（多了守卫自检与长时间观察两个 job）。
-
-## 5. 跨平台验证发现并修复的真实缺陷
-
-WSL2 实测（而非仅修改文档）暴露了两个 **Linux / 跨系统专属问题**：
-
-### 5.1 未回收的 worker 进程（僵尸进程）
-
-* **症状**：`test_no_worker_processes_are_leaked` 在 Linux 上失败 —— 一个 worker
-  进程在调用完成后仍然存活。
-* **根因**：父进程用 `subprocess.Popen` 启动 worker 后**从未调用 `wait()`**。
-  在 POSIX 系统上，已退出但未被回收的子进程会变成**僵尸进程**，持续占用进程表
-  槽位，直到父进程退出。Windows 没有这个问题，所以 Windows 测试无法发现它。
-* **修复**：`runtime/coordinator.py::_reader_loop` 在读到 EOF 后调用
-  `process.wait(timeout=5)` 回收子进程。
-* **验证**：修复后 Windows 124 passed / WSL2 125 passed，两个平台都通过。
-
-### 5.2 worker 进程泄漏（两个独立缺陷）
-
-* **缺陷 A**：池外新建的 worker 与 `shutdown()` 的清扫竞态 → worker 注册得太晚，永远不被终止。
-  修复：引入 **pool epoch**，旧世代创建的 worker 在新世代注册时会被立即终止。
-* **缺陷 B**：Windows 的 venv 使用 launcher 打手，`Popen.pid` 是 launcher，真正执行工具的是其**子进程**；
-  杀掉 launcher 不会停止正在计算的 worker（它不再读 stdin）→ 孤儿进程泄漏。
-  修复：worker 通过 `hello` 消息报告自己的真实 pid，终止时按真实 pid → 子进程 → launcher 的顺序执行，并验证确实死了。
-* **幂等性修正**：`terminate()` 只在确认进程真的消失时才置位幂等标志，失败时允许后续重试。
-* **副作用**：峰值 RSS 之前采到的是 launcher（4.4 MiB），现在采到真实 worker（18.8 MiB）。
-
-### 5.3 跨操作系统的 SQLite WAL 锁
-
-* **症状**：在 WSL2 里运行 CLI 时报 `sqlite3.OperationalError: disk I/O error`。
-* **根因**：**同一个 home 目录被两个 AgentFuse 实例同时使用**（Windows 上运行着
-  Web 服务端，WSL2 里跑 CLI）。SQLite 的 WAL 需要 `-shm` 共享内存索引与字节范围锁，
-  这在跨操作系统的挂载盘上无法共享，第二个实例拿不到锁。
-* **修复**：
-  1. `Database._connect()` 在 WAL 失败时回退到回滚日志模式（`TRUNCATE`），
-     以适配本身不支持 WAL 的文件系统；
-  2. 两种模式都失败时抛出**明确的诊断信息**（指出可能是另一个实例占用了
-     同一 home 目录，并给出 `AGENTFUSE_HOME` / `--home` 的解决建议），
-     而不是把晦涩的 `disk I/O error` 直接抛给用户。
-* **验证**：停止并发实例后，WSL2 CLI 与验收自检均通过（18/18）。
-
-## 6. 验收项与对应测试
-
-| 验收项 | 验证方式 |
-|---|---|
-| 两个 Agent 真实并发运行 | `test_two_scripted_agents_produce_a_real_execution_graph` |
-| 区分 Agent 与 Invocation | `test_events_and_graph.py::test_the_graph_only_contains_observed_relations` |
-| 跟踪 LogicalToolCall / PhysicalExecution | `test_shared_execution.py` 全部 |
-| 执行图来自真实事件 | `test_events_and_graph.py` |
-| 等价调用可以共享 | `test_two_equivalent_calls_share_a_single_physical_execution` |
-| 共享后确实减少物理执行次数 | `test_the_comparison_reports_a_real_reduction` |
-| 共享结果与独立执行一致 | `test_the_shared_results_are_identical_to_the_baseline` |
-| 不相关文件变化不阻止共享 | `test_an_unrelated_file_change_does_not_prevent_sharing` |
-| 实际依赖冲突阻止错误共享 | `test_a_conflicting_dependency_detaches_the_follower` |
-| 目录列表变化被检测 | `test_a_changed_directory_listing_is_detected` |
-| 文件存在性变化被检测 | `test_a_changed_file_existence_is_detected` |
-| 在线验证在执行过程中发现冲突 | `test_the_detection_happens_while_the_leader_is_still_running` |
-| 冲突后 Follower 提前独立执行 | `detach_lead_ms_max` + `test_the_detection_happens_while_the_leader_is_still_running` |
-| 未完成验证的调用无法接收共享结果 | `test_a_late_joiner_validates_the_existing_ledger` |
-| 取消与失败不产生重复结果 | `test_no_logical_call_is_delivered_twice`、`test_concurrency.py` |
-| Worker 并发限制 | `test_scheduler.py::test_the_worker_limit_is_enforced` |
-| 记录 CPU 时间与内存 | `benchmark_runs.total_cpu_time` / `peak_rss` + `resource_samples` 表 |
-| 处理超时与取消 | `test_a_hanging_worker_is_terminated_by_the_timeout` 等 |
-| 正确释放资源 | `test_no_worker_processes_are_leaked`（两个平台） |
-| 崩溃后状态可识别 | `test_interrupted_workflows_are_recovered` |
-| 快照被篡改时拒绝共享 | `test_a_modified_snapshot_is_not_shared` |
-| 提供共享/冲突/并发/失败演示 | `test_scenarios.py`（5 个场景全部断言） |
-| Web UI 可查看运行图与依赖 | `test_api.py`（graph / timeline / dependencies 端点） |
-| 可运行 Benchmark 并对比 | `test_the_benchmark_endpoint_runs_a_comparison` |
-
-## 7. 长稳观察
-
-`scripts/soak.py` 连续运行工作流并观察 worker 进程数与 RSS：
-
-```text
-  iterations           : 18
-  physical executions  : 18
-  errors               : 0
-  worker growth        : 0
-  worker rss growth    : 0.0 MiB
-```
-
-## 7.1 自动化检查
-
-| 工具 | 命令 | 作用 |
-|---|---|---|
-| 交付验收自检 | `python scripts/acceptance_check.py` | **44 项**：目录结构、共享行为、CLI 全部命令、API 与真实字段、数据库与外键、离线依赖、场景目录一致、事件协议与原子落库 |
-| 需求条款审计 | `python scripts/audit_requirements.py` | **325 个检查 / 49 个需求小节**（包括 §23 验收清单的 39 项）逐条对照（25 章）；报告会说出每条检查的**性质**（真实运行了运行时 / 只读取源码） |
-| 守卫自检 | `python scripts/guard_selftest.py` | 故意改坏 56 处行为，断言对应的守卫**必须报红** |
-| 性能回归守卫 | `python scripts/check_regression.py` | 对比 `benchmarks/baseline.json`，超出容差即失败 |
-| CI | `.github/workflows/ci.yml` | Windows / Ubuntu / macOS × Python 3.11–3.13 矩阵 + 守卫自检 |
+需要真实浏览器时，在运行 pytest 前设置 `$env:AGENTFUSE_BROWSER_TEST = '1'`。框架和 P2 环境的准备方法见 [框架接入指南](ADAPTER_GUIDE.md) 和 [P2 验收](P2_COMPLETION.md)。WSL2 可使用 `source scripts/enter-local.sh`。
 
 ## 8. 尚未验证的功能
 
-以下内容**没有**被自动化测试覆盖，如实记录（每一项都写明了**为什么没法在本机验证**）：
-这份清单也被编码里的审计监督（`UNVERIFIED_ITEMS`）——项目丢了或写漂了都会报红。
+- **真实外部 Agent 框架接入**已实测 LangGraph、LangChain 以及 Python、Node.js 的通用进程桥接。AutoGen、CrewAI 等 SDK 尚未逐一验证。
+- **长时间运行的资源稳定性**有十分钟 CI 和历史 45 分钟本机记录。数小时或生产负载的持续运行尚未验证。
+- **磁盘故障 / 断电时的数据一致性**已覆盖强杀进程和截断 WAL，尚未测试实际存储设备断电或故障。
+- **符号链接逃逸在 Windows 上未执行**，本机创建符号链接需要额外权限。Linux/WSL2 已执行该检查。
+- 分布式 Worker 已验证同机多进程、TLS 和结果传输。多台物理机的部署尚未实测。
 
-1. **真实外部 Agent 框架接入**：**已验证到“外部进程”这一层**——
-   `examples/external_framework/agent_fwk.py` 是一个**完全在 AgentFuse 包之外**的程序：它不能被运行时 import，
-   不知道 `AgentAdapter`、`RuntimeCoordinator` 或内部事件，只说 NDJSON。它自己启动运行时子进程并驱动它
-   （`tests/integration/test_foreign_framework.py`）。但仍然**没有**对接 LangChain / AutoGen 这类**具体的第三方框架**：
-   那需要安装它并为它写专用的适配器，而裁判规则不允许运行时依赖外部框架（§2.2 离线运行），
-   因此本版不把它当作交付项。
-2. **长时间运行的资源稳定性**：CI 中的 soak 任务跑 **10 分钟**，
-   且现在是一个**真的**（`scripts/soak.py` 在 worker 增长、RSS 增长或执行失败时
-   返回非零退出码，见 `tests/unit/test_soak_gate.py`）。本机**已实测 45 分钟**：935 轮、0 错误、
-   worker 数增长 0、RSS 增长 0.0 MiB（报告：`.agentfuse/reports/soak-shared.json`）。
-   但“运行**数小时**不残留进程”仍未做完整验证（本轮最长 45 分钟）。
-3. **多用户并发访问同一个 Web 服务**：现在已经验证——
-   `tests/integration/test_concurrency_and_crash.py` 用 **8 个线程**同时请求真实的服务器，
-   所有请求都必须成功（见该文件的同时写入测试）。
-4. **磁盘故障 / 断电时的数据一致性**：**已验证**——
-   `test_the_database_survives_a_killed_process` 在进程写入期间强杀进程，
-   然后验证 `PRAGMA integrity_check` 为 `ok`、行数不丢失、且恢复逻辑能把被打断的运行标记为
-   `INTERRUPTED`。`test_a_damaged_write_log_does_not_destroy_the_database` 还模拟了**断电的后果**：
-   截断 WAL（写入日志的尾部丢失）后数据库仍然可读、`integrity_check` 为 `ok`、已提交的行不丢失，
-   运行时也能继续写入。但**存储硬件自身**（真正的掉电、磁盘失效）仍未模拟；
-   迁移前的自动备份只覆盖 schema 升级，不覆盖数据损坏。
-5. **macOS**：已经**由 CI 验证**——CI 矩阵的 4 个 macOS job（Python 3.11–3.13）
-   在每次推送时运行完整的测试与审计，本轮全部通过。
-   但这不等于本机验证：本仓库没有 macOS 机器，不能在本地复现。
-6. **符号链接逃逸在 Windows 上未执行**：需要管理员权限创建符号链接
-   （本机报 `WinError 1314`）；Linux/WSL2 上已真实执行并通过。
-## 9. 性能数据
+## 9. 性能与历史证据
 
-见 `BENCHMARK.md` 第 6 节（5 个场景 × 3 种模式 × 2 种 worker 配置 × 5 次重复）。
+[Benchmark](BENCHMARK.md) 记录工作负载、性能和正确性指标。[验收证据索引](verification/README.md) 提供性能基线、P2 专项证据及历史原始报告的 Git 路径。
 
 ## 10. 规范逐条追溯表
 

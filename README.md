@@ -273,6 +273,7 @@ python scripts/check_regression.py
 | [ADAPTER_GUIDE.md](docs/ADAPTER_GUIDE.md) | 如何把现有多智能体中间层接入 AgentFuse |
 | [BENCHMARK.md](docs/BENCHMARK.md) | 场景、方法、指标、公平性原则、**真实测量结果** |
 | [TEST_REPORT.md](docs/TEST_REPORT.md) | 测试命令、数量、结果、环境、尚未验证的功能 |
+| [LOCAL_TOOLS.md](docs/LOCAL_TOOLS.md) | 项目内工具、可选环境恢复和清理规则 |
 | [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | 首版边界与不保证的事情 |
 | [DEVELOPMENT_LOG.md](docs/DEVELOPMENT_LOG.md) | 分阶段开发记录 |
 

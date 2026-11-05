@@ -1684,8 +1684,8 @@ REQUIRED_TRACEABILITY_SECTIONS: dict[str, tuple[str, ...]] = {
 UNVERIFIED_ITEMS = (
     (
         "真实外部 Agent 框架接入",
-        "已验证到“外部进程”一层（examples/external_framework），"
-        "但没有对接 LangChain / AutoGen 这类具体的第三方框架（需要安装它）",
+        "已验证 LangGraph、LangChain 和通用进程桥接；"
+        "尚未逐一验证 AutoGen、CrewAI 等其他框架的 SDK",
     ),
     (
         "长时间运行的资源稳定性",

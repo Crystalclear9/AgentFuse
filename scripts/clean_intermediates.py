@@ -18,14 +18,18 @@ PROTECTED = (".git", "agentfuse", "tests", "scripts", "docs", "examples", "confi
              ".tools/ripgrep",
              ".venv-local", ".venv-wsl", ".agentfuse/db", ".agentfuse/workspaces",
              ".agentfuse/branches", ".agentfuse/results", ".agentfuse/backups", ".agentfuse/logs",
-             ".agentfuse/current-review", ".agentfuse/dist")
+             ".agentfuse/current-review", ".agentfuse/verification",
+             ".agentfuse/validation-review", ".agentfuse/dist")
 
 
 def checked(relative):
     if Path(relative).is_absolute() or ".." in Path(relative).parts:
         raise ValueError(f"cleanup path must be relative: {relative}")
-    target = (ROOT / relative).resolve()
+    requested = ROOT / relative
+    target = requested.resolve()
     target.relative_to(ROOT)
+    if target != requested:
+        raise ValueError(f"cleanup path traverses a link: {relative}")
     if target == ROOT:
         raise ValueError("cannot remove the workspace")
     parts = target.relative_to(ROOT).parts
@@ -90,7 +94,7 @@ def main():
                     # Preserve an accurate original-path list for manual work.
                     record.update(status="locked_at_original", error=str(exc), move_error=str(move_error))
         records.append(record)
-    output = ROOT / "docs/verification/cleanup.json"
+    output = ROOT / ".agentfuse/verification/cleanup.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
     pending = [record for record in records if record["status"] in ("moved", "locked_at_original")]

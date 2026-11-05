@@ -1,8 +1,0 @@
-[FAIL] cancel-failure       baseline  {"makespan": 4.300163, "makespan_mean": 4.385508, "makespan_stdev": 0.341502, "makespan_max": 4.839558, "total_cpu_time": 0.328125, "total_cpu_time_mean": 0.309375, "total_cpu_time_stdev": 0.022964, "total_cpu_time_max": 0.328125, "physical_executions": 10.0, "detach_count": 0.0, "validation_count": 0.0, "detach_lead_ms_max": 0.0, "online_detach_before_finish_rate": 0.0}
-[FAIL] cancel-failure       online    {"makespan": 4.064973, "makespan_mean": 3.994325, "makespan_stdev": 0.281234, "makespan_max": 4.319355, "total_cpu_time": 0.28125, "total_cpu_time_mean": 0.3, "total_cpu_time_stdev": 0.033366, "total_cpu_time_max": 0.359375, "physical_executions": 7.0, "detach_count": 0.0, "validation_count": 5.4, "detach_lead_ms_max": 0.0, "online_detach_before_finish_rate": 0.0}
-       [SKIP] cancel-failure/online/validation_count: the reference 7.200 is not a whole number - the metric depends on the scheduling
-[PASS] cancel-failure       deferred  {"makespan": 3.863142, "makespan_mean": 3.950143, "makespan_stdev": 0.329447, "makespan_max": 4.574084, "total_cpu_time": 0.28125, "total_cpu_time_mean": 0.2875, "total_cpu_time_stdev": 0.015934, "total_cpu_time_max": 0.3125, "physical_executions": 7.0, "detach_count": 0.0, "validation_count": 1.0, "detach_lead_ms_max": 0.0, "online_detach_before_finish_rate": 0.0}
-
-performance regressions detected:
-  - cancel-failure/baseline/makespan: 4.3002 is +30.8% vs baseline 3.2882 (allowed 30%)
-  - cancel-failure/online/makespan: 4.0650 is +32.6% vs baseline 3.0665 (allowed 30%)

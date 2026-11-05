@@ -1,7 +1,0 @@
-........................s............................................... [ 23%]
-..........................s............................................. [ 46%]
-..............................
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! KeyboardInterrupt !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-/mnt/c/Users/70454/Desktop/AgentFuse/.tools/python-linux/cpython-3.11.18-linux-x86_64-gnu/lib/python3.11/selectors.py:415: KeyboardInterrupt
-(to show a full traceback on KeyboardInterrupt use --full-trace)
-172 passed, 2 skipped in 627.78s (0:10:27)

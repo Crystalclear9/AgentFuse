@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
+import tempfile
 import time
 import sys
 from pathlib import Path
@@ -29,6 +30,14 @@ def check(name: str, condition: bool, detail: str = "") -> None:
 
 
 def main() -> int:
+    scratch = ROOT / ".agentfuse" / "tmp"
+    scratch.mkdir(parents=True, exist_ok=True)
+    RESULTS.clear()
+    with tempfile.TemporaryDirectory(prefix="acceptance-", dir=scratch) as directory:
+        return _run(Path(directory))
+
+
+def _run(scratch: Path) -> int:
     from agentfuse.app import AgentFuseApp
     from agentfuse.core.state import RuntimeMode
     from agentfuse.scenarios.definitions import scenario_multi_agent, scenario_shared
@@ -66,7 +75,7 @@ def main() -> int:
     check("工程目录结构完整", not missing, f"missing: {missing}")
 
     # --- runtime --------------------------------------------------------
-    home = ROOT / ".agentfuse" / "acceptance"
+    home = scratch / "runtime"
     #: the ids of the real run - the CLI commands below inspect them
     runtime_ids: dict[str, str] = {}
 
@@ -434,7 +443,7 @@ def main() -> int:
 
     from agentfuse.api.app import create_app
 
-    settings = load_settings(home=ROOT / ".agentfuse" / "acceptance-api")
+    settings = load_settings(home=scratch / "api")
     api_app = create_app(settings=settings)
 
     async def api_checks() -> None:

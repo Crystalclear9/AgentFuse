@@ -1,0 +1,27 @@
+{
+  "commit": "d1e10a5e73c07b00cb977244ed763e57f8ea83d1",
+  "source_sha256": "144354abca05cb4ba8e7042533f8a651044b2c72534dd3067164b8f6dc7e058a",
+  "windows_full": {
+    "passed": 371,
+    "skipped": 9,
+    "total": 380
+  },
+  "windows_focused": {
+    "passed": 76,
+    "skipped": 1
+  },
+  "wsl_focused": {
+    "passed": 13
+  },
+  "audit": "325/325",
+  "acceptance": "44/44",
+  "remote_ci": {
+    "id": 41992291019,
+    "head_sha": "d1e10a5e73c07b00cb977244ed763e57f8ea83d1",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/Crystalclear9/AgentFuse/actions/runs/41992291019",
+    "jobs_passed": 18,
+    "jobs_total": 18
+  }
+}
