@@ -1,5 +1,11 @@
 # Development Log
 
+### 阶段 42：开放框架接入
+
+外部适配器增加工具发现、版本选择、实际输出和结构化错误。Python 调用可以通过上下文管理 Invocation，工具结果按协调器返回的逻辑调用 ID 记录。JSON Lines v1 增加 Node.js 示例，保留旧客户端的结果元数据字段。
+
+LangGraph 节点复用通用调用生命周期，LangChain 可将注册工具导出为原生 StructuredTool。11 项专项、全量 354 通过与交付验收 44/44 已验证。框架依赖在独立临时目录安装，验收后清理。下一步新增框架可按接入指南映射其公开工具回调。
+
 ### 阶段 41：P2 真实后端与范围验收
 
 用户确认 LangGraph 和 Linux 容器命令范围。接入固定版本 llama.cpp Vulkan 后端与 SmolLM2 GGUF，验证真实 GPU/CPU KV 前缀复用、清空与本地 API，预训练模型经正常 Invocation 调用真实工具。Windows Job Object 解决主进程异常退出后的模型残留。LangGraph 从注册表生成节点，真实并行图两次逻辑调用共享一次物理执行。

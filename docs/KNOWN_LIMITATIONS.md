@@ -1,6 +1,6 @@
 # Known Limitations
 
-本轮已补齐用户确认支持范围内的 P2。框架实接选择 LangGraph；第三方工具追踪与隔离限定 Linux 容器命令。原始需求保留不变，本文件记录实现范围及验证边界。
+P2 专项验收的框架实接为 LangGraph。随后新增 LangChain 和通用框架接入接口。第三方工具追踪与隔离适用于 Linux 容器命令。原始需求保留不变，本文件记录实现范围及验证边界。
 这些是设计边界，不是隐藏的缺陷。
 
 ---
@@ -25,7 +25,7 @@
 | 多节点分布式执行 | ✅ 已实现 | `agentfuse/runtime/remote.py`：可配置多个 Worker 地址，轮询分配物理执行，传输不可变快照，实时回传依赖与真实计算结果；令牌认证，非回环地址强制 TLS；本机多服务端验证不等同于多台物理机验证 |
 | 复杂的可抢占任务调度 | ✅ 已实现 | `agentfuse/runtime/strategy.py` 的 `preemptive` 策略：优先先靠高优先级的执行，并且可以抢占**低优先级**的运行中执行；被抢占的逻辑调用按超时重试一次，**结果不变**（只变顺序）；**默认关闭**（`runtime.scheduling_strategy = "fifo"`） |
 | 自动预测未来 Agent 路径 | ✅ 已实现 | `agentfuse/runtime/prediction.py`：依据明确 parent/child Invocation 边学习 Agent 标签转移并给出多步路径概率，另提供下一工具概率；预测只作建议，不推断身份或添加执行图因果边，不投机执行 |
-| 框架无关的高级自动适配 | ✅ 已实现 | `agentfuse/adapters/external_adapter.py` 保留通用进程协议；`agentfuse/adapters/langgraph_adapter.py` 按用户指定实接 LangGraph，从注册表自动生成节点、读取真实节点元数据、绑定身份并提交工具调用。自动适配已注册工具，不自动解释任意框架内部函数。 |
+| 框架无关的高级自动适配 | ✅ 已实现 | `agentfuse/adapters/external_adapter.py` 提供 Python 调用接口及 JSON Lines v1 工具发现和调用协议。`agentfuse/adapters/langgraph_adapter.py` 导出 LangGraph 节点，`agentfuse/adapters/langchain_adapter.py` 导出 LangChain 原生工具。其他框架通过其公开工具回调映射到适配器。 |
 | 对任意第三方工具进行完备依赖追踪 | ✅ 已实现 | 按用户确认的 Linux 容器命令范围：`agentfuse/runtime/native_trace.py` 跟踪本地程序及其子进程的原生系统调用，记录全部声明输入树与固定镜像指纹；监视器与工具分 UID，记录不完整拒收。系统调用字符串上限 4096 字节、审计上限 4 MiB；任意命令的确定性仍不可证明，dependency_complete=False / shareable=False，禁止自动共享。 |
 | 具备安全隔离保证的通用沙箱 | ✅ 已实现 | 按用户确认的 Linux 容器命令范围：`agentfuse/runtime/sandbox.py` 限制网络、根文件系统与输入写入、CPU/内存/PID/运行时长及权限；原生审计工具以 nobody 运行，监视器仅保留跨 UID 跟踪必要能力。已验证越权及记录篡改被拒，不声称防御宿主内核漏洞或支持任意操作系统。 |
 

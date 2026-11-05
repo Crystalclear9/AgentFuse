@@ -583,7 +583,9 @@ def _framework_imports(root):
     import ast
     offenders = []
     for path in sorted((root / 'agentfuse').rglob('*.py')):
-        if path.relative_to(root).as_posix() == 'agentfuse/adapters/langgraph_adapter.py':
+        if path.relative_to(root).as_posix() in {
+            'agentfuse/adapters/langgraph_adapter.py', 'agentfuse/adapters/langchain_adapter.py',
+        }:
             continue
         for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
             names = ([node.module or ''] if isinstance(node, ast.ImportFrom) else

@@ -129,6 +129,7 @@ def test_a_foreign_framework_can_run_a_tool_call(tmp_path: Path):
         assert answer["logical_call_id"], "the call has to have an id"
         result = answer["result"]
         assert result, "the framework has to receive the real result"
+        assert answer["output"]["files"][0]["path"] == "src/alpha.py"
 
         ended = framework.send({"type": "end", "invocation_id": invocation_id})
         assert ended["type"] == "ended"
@@ -204,6 +205,24 @@ def test_the_external_framework_cannot_invent_relations(tmp_path: Path):
 
         answer = framework.send({"type": "nonsense"})
         assert answer["type"] == "error", answer
+
+        bad = framework.send(["not an object"])
+        assert bad["code"] == "invalid_request"
+        invoked = framework.send({"type": "invoke", "agent_id": "known"})
+        bad = framework.send({"type": "call", "tool": "missing-tool",
+                              "invocation_id": invoked["invocation_id"], "request_id": 7})
+        assert bad["code"] == "invalid_request" and bad["request_id"] == 7
+        for snapshot_id in ("missing-snapshot", "*"):
+            invalid_snapshot = framework.send({"type": "call", "tool": "source_index",
+                "invocation_id": invoked["invocation_id"], "snapshot_id": snapshot_id})
+            assert invalid_snapshot["code"] == "invalid_request"
+        failed = framework.send({"type": "call", "tool": "fault_injector",
+                                 "arguments": {"mode": "raise"},
+                                 "invocation_id": invoked["invocation_id"]})
+        assert failed["code"] == "tool_failed" and failed["execution_id"]
+        catalogue = framework.send({"type": "discover", "protocol_version": 1, "request_id": 8})
+        assert catalogue["type"] == "catalogue" and catalogue["request_id"] == 8
+        assert any(tool["name"] == "ast_analyzer" for tool in catalogue["tools"])
     finally:
         framework.close()
 

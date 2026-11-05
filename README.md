@@ -297,4 +297,4 @@ MIT，见 [LICENSE](LICENSE)。
 已提供远程 Worker、真实 GGUF 预训练模型 CPU/GPU 推理与原生 KV 管理、LangGraph 自动节点适配、Agent 路径预测和 Linux 容器原生系统调用审计。
 运行 `python -m agentfuse.extensions inference-demo` 可直接对比真实推理计算；其默认权重是未训练夹具。
 远程执行与隔离命令的配置、测试及支持边界见 [P2_EXTENSIONS.md](docs/P2_EXTENSIONS.md)。
-本轮 P2 按用户确认的支持范围交付：框架实接为 LangGraph，第三方工具为 Linux 容器命令；边界与实际验收见 [P2_COMPLETION.md](docs/P2_COMPLETION.md)。
+框架可通过 Python 接口或 UTF-8 JSON Lines v1 发现并调用注册工具。LangGraph 提供图节点导出，LangChain 提供原生 StructuredTool 导出。接入步骤和跨语言示例见 [ADAPTER_GUIDE.md](docs/ADAPTER_GUIDE.md)。P2 硬件及 Linux 容器验收记录见 [P2_COMPLETION.md](docs/P2_COMPLETION.md)。

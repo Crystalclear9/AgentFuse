@@ -25,8 +25,7 @@ The protocol is the one of ``agentfuse/adapters/external_adapter.py``:
 
 Run it against a runtime::
 
-    python -m agentfuse.adapters.external_adapter --home .agentfuse/example \
-        < examples/external_framework/agent_fwk.py
+    python examples/external_framework/agent_fwk.py
 """
 
 from __future__ import annotations
@@ -91,7 +90,7 @@ class Bridge:
                 "snapshot_id": self.snapshot_id,
             }
         )
-        return dict(answer.get("result") or {})
+        return dict(answer["output"])
 
     def end(self) -> None:
         self.send({"type": "end", "invocation_id": self.invocation_id, "status": "COMPLETED"})
@@ -153,7 +152,7 @@ def main() -> int:
     totals = result.get("totals") or {}
     print(
         f"  the framework received the result: "
-        f"{totals.get('functions', 0)} functions in {totals.get('files', 0)} files",
+        f"{totals.get('functions', 0)} functions in {result.get('file_count', 0)} files",
         file=sys.stderr,
     )
     return 0

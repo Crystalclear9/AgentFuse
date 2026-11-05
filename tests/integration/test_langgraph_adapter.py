@@ -1,7 +1,7 @@
 from typing import TypedDict
 import pytest
 
-pytest.importorskip('langgraph')
+pytest.importorskip('langgraph.graph')
 from langgraph.graph import StateGraph, START, END
 from agentfuse.adapters.langgraph_adapter import LangGraphAdapter
 

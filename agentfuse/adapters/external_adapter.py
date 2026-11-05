@@ -36,13 +36,18 @@ framework has to implement.
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
+from copy import deepcopy
 import json
-import os
+from pathlib import Path
 import sys
 from typing import Any
 
 from ..core.agent_context import AgentHandle, InvocationHandle
-from ..core.state import EventType
+from ..core.state import EventType, InvocationStatus
+from ..runtime.coordinator import ToolCallResult, ToolExecutionError
+from ..tools.base import ToolInputError
+from ..workspace.snapshots import SnapshotError
 from .base import AgentAdapter
 
 
@@ -50,14 +55,26 @@ class ProtocolError(RuntimeError):
     """The external framework sent something the adapter cannot use."""
 
 
-class ExternalAdapter(AgentAdapter):
-    """An adapter that is driven from **outside** the process.
+def _string(message, key, *, optional=False):
+    value = message.get(key)
+    if value is None and optional:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ProtocolError(f"{key} must be a nonempty string")
+    return value
 
-    The adapter does not run any agent itself: it exposes the boundary and
-    waits for the events of the external framework.  A test (or a real
-    framework) can therefore drive it either directly through the methods or
-    through :meth:`serve`, which reads the protocol from a stream.
-    """
+
+def _object(message, key):
+    value = message.get(key)
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ProtocolError(f"{key} must be an object")
+    return value
+
+
+class ExternalAdapter(AgentAdapter):
+    """Bridge framework-controlled activations and tools over Python or JSON Lines."""
 
     def __init__(self, workflow: Any, auto_bind: bool = True) -> None:
         super().__init__(workflow)
@@ -70,23 +87,52 @@ class ExternalAdapter(AgentAdapter):
         #: mapped here.  The key is the identity the framework uses.
         self._agents_by_external: dict[str, AgentHandle] = {}
         self._invocations: dict[str, InvocationHandle] = {}
-        self._calls: dict[str, str] = {}
-        #: the calls that were really observed - the events are the only
-        #: source of the relations between the framework and the runtime
-        self._observed_calls: list[dict[str, Any]] = []
-        self._unsubscribe = self.event_bus.subscribe(self._observe)
 
-    def _observe(self, event: Any) -> None:
-        """Remember the calls that the runtime really published."""
+    def catalogue(self) -> list[dict[str, Any]]:
+        """Return independent schema copies suitable for framework tool registration."""
+        return [dict(name=spec.tool_name, version=spec.tool_version,
+                     description=spec.description, input_schema=deepcopy(spec.input_schema),
+                     output_schema=deepcopy(spec.output_schema))
+                for spec in self.coordinator.registry.list_tools()]
 
-        if getattr(event, "event_type", None) == EventType.TOOL_CALL_REQUESTED:
-            self._observed_calls.append(
-                {
-                    "logical_call_id": getattr(event, "logical_call_id", None),
-                    "invocation_id": getattr(event, "invocation_id", None),
-                    "agent_id": getattr(event, "agent_id", None),
-                }
-            )
+    @asynccontextmanager
+    async def invocation(self, agent_id: str | None = None, *,
+                         parent_invocation_id: str | None = None,
+                         metadata: dict[str, Any] | None = None,
+                         registration_source: str = "external-framework"):
+        """Scope a framework activation and record its terminal status on exit."""
+        if agent_id is None:
+            handle = await self.bind_agent(registration_source=registration_source,
+                                           identity_confirmed=False)
+            agent_id = handle.agent_id
+        else:
+            agent_id = await self._resolve_agent(agent_id, registration_source)
+        handle = await self.begin_invocation(agent_id, parent_invocation_id, metadata)
+        try:
+            yield handle
+        except asyncio.CancelledError:
+            await self.end_invocation(handle.invocation_id, InvocationStatus.CANCELLED)
+            raise
+        except BaseException:
+            await self.end_invocation(handle.invocation_id, InvocationStatus.FAILED)
+            raise
+        else:
+            await self.end_invocation(handle.invocation_id)
+
+    async def call_tool(self, invocation_id: str, tool_name: str, arguments: dict[str, Any], *,
+                        snapshot_id: str | None = None, timeout_seconds: float | None = None,
+                        tool_version: str | None = None) -> ToolCallResult:
+        """Execute a registered tool and acknowledge its exact logical result."""
+        result = await self.submit_tool_call(invocation_id, tool_name, arguments, snapshot_id,
+                                             timeout_seconds, tool_version=tool_version)
+        await self.deliver_result(invocation_id, result.logical_call_id, result)
+        return result
+
+    def close(self) -> None:
+        """Record any abandoned activations after the client has stopped making calls."""
+        for invocation_id in tuple(self._invocations):
+            self.workflow.end_invocation(invocation_id, status=InvocationStatus.CANCELLED)
+            del self._invocations[invocation_id]
 
     # ------------------------------------------------------------------
     # the adapter contract
@@ -125,6 +171,10 @@ class ExternalAdapter(AgentAdapter):
         parent_invocation_id: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> InvocationHandle:
+        if agent_id not in self.workflow.agents:
+            raise ProtocolError(f"unknown agent: {agent_id}")
+        if parent_invocation_id is not None and parent_invocation_id not in self.workflow.invocations:
+            raise ProtocolError(f"unknown parent invocation: {parent_invocation_id}")
         handle = self.workflow.begin_invocation(
             agent_id, parent_invocation_id=parent_invocation_id, metadata=metadata
         )
@@ -138,18 +188,28 @@ class ExternalAdapter(AgentAdapter):
         arguments: dict[str, Any],
         snapshot_id: str | None = None,
         timeout_seconds: float | None = None,
-    ) -> Any:
-        invocation = self.workflow.invocations.get(invocation_id)
-        agent_id = invocation.agent_id if invocation else None
+        *,
+        tool_version: str | None = None,
+    ) -> ToolCallResult:
+        invocation = self._invocations.get(invocation_id)
+        if invocation is None:
+            raise ProtocolError(f"unknown invocation: {invocation_id}")
+        if timeout_seconds is not None and (type(timeout_seconds) not in (int, float)
+                                            or not 0 < timeout_seconds <= sys.float_info.max):
+            raise ProtocolError("timeout_seconds must be a finite positive number")
         workflow = self.workflow
         resolved_snapshot = snapshot_id or workflow.default_snapshot_id
         if resolved_snapshot is None:
             raise ValueError("no workspace snapshot available for the tool call")
+        if resolved_snapshot.endswith((".", " ")) or any(char in resolved_snapshot for char in "/\\:*?[]\x00"):
+            raise ProtocolError("snapshot_id must be a literal snapshot identifier")
+        self.coordinator.snapshots.get(resolved_snapshot)
         return await self.coordinator.submit_tool_call(
             workflow_id=workflow.workflow_id,
             invocation_id=invocation_id,
-            agent_id=agent_id,
+            agent_id=invocation.agent_id,
             tool_name=tool_name,
+            tool_version=tool_version,
             arguments=arguments,
             snapshot_id=resolved_snapshot,
             timeout_seconds=timeout_seconds,
@@ -176,6 +236,10 @@ class ExternalAdapter(AgentAdapter):
     async def end_invocation(
         self, invocation_id: str, status: str = "COMPLETED"
     ) -> None:
+        if status not in (InvocationStatus.COMPLETED, InvocationStatus.FAILED, InvocationStatus.CANCELLED):
+            raise ProtocolError(f"invalid terminal invocation status: {status}")
+        if invocation_id not in self._invocations:
+            raise ProtocolError(f"unknown invocation: {invocation_id}")
         self.workflow.end_invocation(invocation_id, status=status)
         self._invocations.pop(invocation_id, None)
 
@@ -202,14 +266,25 @@ class ExternalAdapter(AgentAdapter):
         Every message produces **observed** events - nothing is invented.
         """
 
-        kind = str(message.get("type", ""))
+        if not isinstance(message, dict):
+            raise ProtocolError("request must be a JSON object")
+        version = message.get("protocol_version", 1)
+        if type(version) is not int or version != 1:
+            raise ProtocolError("unsupported protocol_version; use 1")
+        kind = _string(message, "type")
+        if kind == "discover":
+            return {"type": "catalogue", "protocol_version": 1, "tools": self.catalogue()}
+
         if kind == "bind":
+            confirmed = message.get("identity_confirmed", True)
+            if type(confirmed) is not bool:
+                raise ProtocolError("identity_confirmed must be a boolean")
             handle = await self.bind_agent(
-                external_identity=message.get("external_identity"),
-                agent_description=message.get("description"),
-                registration_source=message.get("source", "external-framework"),
-                metadata=message.get("metadata"),
-                identity_confirmed=bool(message.get("identity_confirmed", True)),
+                external_identity=_string(message, "external_identity", optional=True),
+                agent_description=_string(message, "description", optional=True),
+                registration_source=_string(message, "source", optional=True) or "external-framework",
+                metadata=_object(message, "metadata"),
+                identity_confirmed=confirmed,
             )
             return {"type": "bound", "agent_id": handle.agent_id}
 
@@ -222,40 +297,37 @@ class ExternalAdapter(AgentAdapter):
             return {"type": "snapshot", "snapshot_id": snapshot_id}
 
         if kind == "invoke":
-            agent_id = await self._resolve_agent(message.get("agent_id"))
+            agent_id = await self._resolve_agent(_string(message, "agent_id"))
             invocation = await self.begin_invocation(
                 agent_id,
-                parent_invocation_id=message.get("parent_invocation_id"),
-                metadata=message.get("metadata"),
+                parent_invocation_id=_string(message, "parent_invocation_id", optional=True),
+                metadata=_object(message, "metadata"),
             )
             return {"type": "invoked", "invocation_id": invocation.invocation_id}
 
         if kind == "call":
-            invocation_id = str(message.get("invocation_id", ""))
-            if invocation_id not in self._invocations:
-                raise ProtocolError(f"unknown invocation: {invocation_id}")
-            result = await self.submit_tool_call(
-                invocation_id,
-                str(message.get("tool", "")),
-                dict(message.get("arguments") or {}),
-                message.get("snapshot_id"),
+            result = await self.call_tool(
+                _string(message, "invocation_id"), _string(message, "tool"),
+                _object(message, "arguments"),
+                snapshot_id=_string(message, "snapshot_id", optional=True),
+                tool_version=_string(message, "tool_version", optional=True),
+                timeout_seconds=message.get("timeout_seconds"),
             )
-            logical_call_id = self._last_logical_call_id(invocation_id)
-            await self.deliver_result(invocation_id, logical_call_id, result)
             return {
                 "type": "result",
-                "logical_call_id": logical_call_id,
-                "result": result.to_dict() if hasattr(result, "to_dict") else result,
+                "logical_call_id": result.logical_call_id,
+                "result": result.to_dict(),
+                "output": result.result,
             }
 
         if kind == "end":
-            invocation_id = str(message.get("invocation_id", ""))
-            await self.end_invocation(invocation_id, status=str(message.get("status", "COMPLETED")))
+            invocation_id = _string(message, "invocation_id")
+            await self.end_invocation(invocation_id, status=message.get("status", "COMPLETED"))
             return {"type": "ended", "invocation_id": invocation_id}
 
         raise ProtocolError(f"unknown message type: {kind!r}")
 
-    async def _resolve_agent(self, agent_id: str | None) -> str:
+    async def _resolve_agent(self, agent_id: str | None, registration_source="external-framework") -> str:
         """The internal agent id for an external one.
 
         The framework may use the external identity or the internal id - both
@@ -280,47 +352,44 @@ class ExternalAdapter(AgentAdapter):
         bound = await self.bind_agent(
             external_identity=agent_id,
             agent_description="bound automatically by the external adapter",
-            registration_source="external-framework",
+            registration_source=registration_source,
             identity_confirmed=False,
         )
         return bound.agent_id
 
-    def _last_logical_call_id(self, invocation_id: str) -> str:
-        """The id of the call that the runtime has just bound.
-
-        The adapter does not get the id from the coordinator - it reads it
-        from the **events**, because the events are the boundary that both
-        sides agree on (requirement 5.3: a relation is only real when it was
-        observed).
-        """
-
-        for event in reversed(self._observed_calls):
-            if event.get("invocation_id") == invocation_id:
-                return str(event.get("logical_call_id"))
-        raise ProtocolError(f"no call was recorded for the invocation {invocation_id}")
+    async def _reply(self, line: str | bytes) -> dict[str, Any]:
+        request_id = None
+        try:
+            message = json.loads(line)
+            if isinstance(message, dict):
+                request_id = message.get("request_id")
+                if request_id is not None and type(request_id) not in (str, int):
+                    request_id = None
+                    raise ProtocolError("request_id must be a string or integer")
+            answer = await self.handle(message)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            answer = {"type": "error", "code": "invalid_json", "message": "invalid UTF-8 JSON"}
+        except (ProtocolError, SnapshotError, ToolInputError, KeyError, ValueError) as exc:
+            answer = {"type": "error", "code": "invalid_request", "message": str(exc)}
+        except ToolExecutionError as exc:
+            answer = {"type": "error", "code": "tool_failed", "kind": exc.kind,
+                      "execution_id": exc.execution_id, "message": str(exc)}
+        if request_id is not None:
+            answer["request_id"] = request_id
+        return answer
 
     # ------------------------------------------------------------------
     async def serve(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """Serve the protocol until the framework closes the stream."""
 
-        while True:
-            line = await reader.readline()
-            if not line:
-                break
-            text = line.decode("utf-8", errors="replace").strip()
-            if not text:
-                continue
-            try:
-                message = json.loads(text)
-            except json.JSONDecodeError as exc:
-                answer = {"type": "error", "message": f"invalid json: {exc}"}
-            else:
-                try:
-                    answer = await self.handle(message)
-                except ProtocolError as exc:
-                    answer = {"type": "error", "message": str(exc)}
-            writer.write((json.dumps(answer, ensure_ascii=False) + "\n").encode("utf-8"))
-            await writer.drain()
+        try:
+            while line := await reader.readline():
+                if line.strip():
+                    answer = await self._reply(line)
+                    writer.write((json.dumps(answer, ensure_ascii=False) + "\n").encode("utf-8"))
+                    await writer.drain()
+        finally:
+            self.close()
 
 
 async def _serve_stdio(adapter: ExternalAdapter) -> None:
@@ -336,12 +405,12 @@ async def _serve_stdio(adapter: ExternalAdapter) -> None:
 
     async def main() -> None:
         loop = asyncio.get_running_loop()
-        incoming: "queue.Queue[str | None]" = queue.Queue()
+        incoming: "queue.Queue[bytes | None]" = queue.Queue()
         pending: asyncio.Queue = asyncio.Queue()
 
         def read_lines() -> None:
             try:
-                for line in sys.stdin:
+                for line in sys.stdin.buffer:
                     incoming.put(line)
             except Exception:  # pragma: no cover - defensive
                 pass
@@ -366,17 +435,9 @@ async def _serve_stdio(adapter: ExternalAdapter) -> None:
             text = line.strip()
             if not text:
                 continue
-            try:
-                message = json.loads(text)
-            except json.JSONDecodeError as exc:
-                answer = {"type": "error", "message": f"invalid json: {exc}"}
-            else:
-                try:
-                    answer = await adapter.handle(message)
-                except ProtocolError as exc:
-                    answer = {"type": "error", "message": str(exc)}
-            sys.stdout.write(json.dumps(answer, ensure_ascii=False) + "\n")
-            sys.stdout.flush()
+            answer = await adapter._reply(text)
+            sys.stdout.buffer.write((json.dumps(answer, ensure_ascii=False) + "\n").encode("utf-8"))
+            sys.stdout.buffer.flush()
 
     await main()
 
@@ -398,26 +459,33 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--home", default=None, help="the AgentFuse home directory")
     parser.add_argument("--workflow", default="external", help="the name of the workflow")
+    parser.add_argument("--workspace", help="directory to snapshot for the framework's tools")
     arguments = parser.parse_args(argv)
 
     settings = load_settings(home=arguments.home)
-    settings.ensure_directories()
+    source = Path(arguments.workspace).resolve() if arguments.workspace else None
+    if source is not None:
+        if not source.is_dir():
+            parser.error('--workspace must point to an existing directory')
+        if settings.home.resolve().is_relative_to(source):
+            parser.error('--home must be outside --workspace')
     app = AgentFuseApp(settings=settings, mode=RuntimeMode.ONLINE)
-    workflow = app.create_workflow(arguments.workflow)
-    # The external framework does not manage the workspace - the runtime
-    # offers it a snapshot of the current state.  Without it the framework
-    # could not call a tool at all.
-    from ..scenarios.common import prepare_base_snapshot
-
-    base = prepare_base_snapshot(app)
-    workflow.default_snapshot_id = base.snapshot_id
-    workflow.start()
-    adapter = ExternalAdapter(workflow)
     async def run():
         try:
-            await _serve_stdio(adapter)
+            if source is not None:
+                base = app.snapshots.create_workspace(source)
+            else:
+                from ..scenarios.common import prepare_base_snapshot
+                base = prepare_base_snapshot(app)
+            workflow = app.create_workflow(arguments.workflow, default_snapshot_id=base.snapshot_id)
+            workflow.start()
+            adapter = ExternalAdapter(workflow)
+            try:
+                await _serve_stdio(adapter)
+            finally:
+                adapter.close()
+                workflow.finish()
         finally:
-            workflow.finish()
             await app.close()
     asyncio.run(run())
     return 0

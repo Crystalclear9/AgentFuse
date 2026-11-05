@@ -8,6 +8,7 @@ AgentFuse，Runtime 中不存在 Demo 专用旁路。
 | `shared_execution/main.py` | 两个 Agent 请求同一份 AST 分析 → 只做一次真实计算 |
 | `divergent_execution/main.py` | 两个分支内容不同 → 在线检测冲突 → 分离 → 各自独立执行 |
 | `multi_agent_workflow/main.py` | Supervisor → 三个 Worker → Aggregator，并打印由事件重建的执行图 |
+| `external_framework/client.mjs` | Node.js 通过 JSON Lines v1 发现并运行 AgentFuse 工具 |
 
 运行方式：
 
