@@ -15,6 +15,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def test_concurrent_soaks_keep_independent_reports():
+    import concurrent.futures
+    import json
+    import re
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        runs = list(pool.map(_soak, [["--minutes", "0.02"], ["--minutes", "0.03"]]))
+    paths = []
+    for run, minutes in zip(runs, (0.02, 0.03)):
+        assert run.returncode == 0, run.stdout + run.stderr
+        match = re.search(r"report\s+:\s*(.+)", run.stdout)
+        assert match, run.stdout
+        path = Path(match.group(1).strip())
+        paths.append(path)
+        assert json.loads(path.read_text(encoding="utf-8"))["minutes"] == minutes
+    assert len(set(paths)) == 2
+
+
 def _soak(arguments: list[str]) -> subprocess.CompletedProcess:
     import os
 

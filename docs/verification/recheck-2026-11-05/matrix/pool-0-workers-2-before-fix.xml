@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="68" time="118.300" timestamp="2026-11-05T08:53:14.643699+08:00" hostname="Crystalclear9"><testcase classname="tests.unit.test_scheduler" name="test_the_worker_limit_is_enforced" time="0.126" /><testcase classname="tests.unit.test_scheduler" name="test_the_memory_budget_blocks_new_executions" time="0.120" /><testcase classname="tests.unit.test_scheduler" name="test_a_single_oversized_execution_is_allowed" time="0.083" /><testcase classname="tests.unit.test_scheduler" name="test_the_queue_is_fifo" time="0.132" /><testcase classname="tests.unit.test_scheduler" name="test_the_snapshot_reports_the_usage" time="0.085" /><testcase classname="tests.unit.test_scheduler" name="test_the_fifo_strategy_admits_the_oldest_request" time="0.130" /><testcase classname="tests.unit.test_scheduler" name="test_the_sjf_strategy_admits_the_shortest_job_first" time="0.187" /><testcase classname="tests.unit.test_scheduler" name="test_an_unknown_strategy_falls_back_to_fifo" time="0.003" /><testcase classname="tests.unit.test_scheduler" name="test_the_controller_keeps_its_specification_name" time="0.078" /><testcase classname="tests.integration.test_worker_pool" name="test_a_pooled_worker_is_reused" time="0.708" /><testcase classname="tests.integration.test_worker_pool" name="test_the_first_execution_waits_for_the_warm_up" time="0.711" /><testcase classname="tests.integration.test_worker_pool" name="test_the_pool_keeps_the_results_correct_under_concurrency" time="0.760" /><testcase classname="tests.integration.test_worker_pool" name="test_the_idle_pool_never_exceeds_its_size" time="0.742" /><testcase classname="tests.integration.test_worker_pool" name="test_a_failing_tool_does_not_poison_the_pool" time="0.661" /><testcase classname="tests.integration.test_worker_pool" name="test_the_shutdown_leaves_no_worker_behind" time="0.760" /><testcase classname="tests.integration.test_worker_pool" name="test_the_pool_is_enabled_by_default" time="1.234" /><testcase classname="tests.integration.test_worker_pool" name="test_the_pool_can_be_disabled" time="1.411" /><testcase classname="tests.integration.test_worker_pool" name="test_every_pool_size_produces_correct_results[0]" time="0.861" /><testcase classname="tests.integration.test_worker_pool" name="test_every_pool_size_produces_correct_results[1]" time="0.803" /><testcase classname="tests.integration.test_worker_pool" name="test_every_pool_size_produces_correct_results[2]" time="0.786" /><testcase classname="tests.integration.test_worker_lifecycle" name="test_a_worker_created_during_the_shutdown_does_not_leak" time="7.397" /><testcase classname="tests.integration.test_worker_lifecycle" name="test_the_shutdown_is_idempotent" time="0.222" /><testcase classname="tests.integration.test_worker_lifecycle" name="test_terminate_retries_until_the_process_is_gone" time="0.277" /><testcase classname="tests.integration.test_worker_lifecycle" name="test_the_real_worker_process_is_terminated" time="0.606" /><testcase classname="tests.integration.test_worker_lifecycle" name="test_no_worker_survives_the_runtime_lifetime" time="0.907" /><testcase classname="tests.integration.test_worker_lifecycle" name="test_the_worker_reports_its_real_pid" time="0.558" /><testcase classname="tests.integration.test_worker_lifecycle" name="test_the_runtime_owns_exactly_its_workers" time="0.830" /><testcase classname="tests.integration.test_concurrency" name="test_many_concurrent_identical_calls_create_one_execution" time="0.908" /><testcase classname="tests.integration.test_concurrency" name="test_no_logical_call_is_delivered_twice" time="0.830" /><testcase classname="tests.integration.test_concurrency" name="test_a_cancelled_follower_does_not_stop_the_leader" time="0.847" /><testcase classname="tests.integration.test_concurrency" name="test_a_cancelled_leader_keeps_the_follower_alive" time="0.957" /><testcase classname="tests.integration.test_concurrency" name="test_cancelling_every_participant_terminates_the_execution" time="0.240" /><testcase classname="tests.integration.test_concurrency" name="test_a_follower_that_joins_while_the_leader_ends_gets_no_shared_result" time="2.024" /><testcase classname="tests.integration.test_concurrency" name="test_a_follower_that_cancels_during_the_delivery_gets_one_result" time="0.732" /><testcase classname="tests.integration.test_concurrency" name="test_a_failing_execution_releases_the_participants" time="0.629" /><testcase classname="tests.integration.test_concurrency" name="test_the_participants_of_a_failed_group_are_failed" time="0.692" /><testcase classname="tests.integration.test_concurrency" name="test_a_crashing_worker_is_detected" time="1.136" /><testcase classname="tests.integration.test_concurrency" name="test_a_hanging_worker_is_terminated_by_the_timeout" time="2.342" /><testcase classname="tests.integration.test_concurrency" name="test_no_worker_processes_are_leaked" time="0.898" /><testcase classname="tests.integration.test_concurrency" name="test_a_detached_follower_never_gets_a_second_execution" time="5.413" /><testcase classname="tests.integration.test_concurrency" name="test_every_call_owns_at_most_one_running_execution" time="0.855" /><testcase classname="tests.integration.test_concurrency" name="test_a_runtime_failure_is_not_reported_as_a_worker_crash" time="0.206" /><testcase classname="tests.integration.test_concurrency" name="test_a_retried_participant_is_not_recorded_as_failed" time="30.206"><failure message="TimeoutError">fut = &lt;Future cancelled&gt;, timeout = 30.0
+
+    async def wait_for(fut, timeout):
+        """Wait for the single Future or coroutine to complete, with timeout.
+    
+        Coroutine will be wrapped in Task.
+    
+        Returns result of the Future or coroutine.  When a timeout occurs,
+        it cancels the task and raises TimeoutError.  To avoid the task
+        cancellation, wrap it in shield().
+    
+        If the wait is cancelled, the task is also cancelled.
+    
+        This function is a coroutine.
+        """
+        loop = events.get_running_loop()
+    
+        if timeout is None:
+            return await fut
+    
+        if timeout &lt;= 0:
+            fut = ensure_future(fut, loop=loop)
+    
+            if fut.done():
+                return fut.result()
+    
+            await _cancel_and_wait(fut, loop=loop)
+            try:
+                return fut.result()
+            except exceptions.CancelledError as exc:
+                raise exceptions.TimeoutError() from exc
+    
+        waiter = loop.create_future()
+        timeout_handle = loop.call_later(timeout, _release_waiter, waiter)
+        cb = functools.partial(_release_waiter, waiter)
+    
+        fut = ensure_future(fut, loop=loop)
+        fut.add_done_callback(cb)
+    
+        try:
+            # wait until the future completes or the timeout
+            try:
+                await waiter
+            except exceptions.CancelledError:
+                if fut.done():
+                    return fut.result()
+                else:
+                    fut.remove_done_callback(cb)
+                    # We must ensure that the task is not running
+                    # after wait_for() returns.
+                    # See https://bugs.python.org/issue32751
+                    await _cancel_and_wait(fut, loop=loop)
+                    raise
+    
+            if fut.done():
+                return fut.result()
+            else:
+                fut.remove_done_callback(cb)
+                # We must ensure that the task is not running
+                # after wait_for() returns.
+                # See https://bugs.python.org/issue32751
+                await _cancel_and_wait(fut, loop=loop)
+                # In case task cancellation failed with some
+                # exception, we should re-raise it
+                # See https://bugs.python.org/issue40607
+                try:
+&gt;                   return fut.result()
+                           ^^^^^^^^^^^^
+E                   asyncio.exceptions.CancelledError
+
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\asyncio\tasks.py:500: CancelledError
+
+The above exception was the direct cause of the following exception:
+
+app = &lt;agentfuse.app.AgentFuseApp object at 0x00000237A9D20E10&gt;
+snapshot = SnapshotInfo(snapshot_id='snap-c2a0fe9210824c7e8d5e516e1d3af2c4', workspace_id='ws-fffcac15801843709cb91194b07c7431', ...: 532}}, source_reference='C:\\Users\\70454\\Desktop\\AgentFuse\\agentfuse\\resources\\sample_repository', metadata={})
+
+    async def test_a_retried_participant_is_not_recorded_as_failed(app, snapshot):
+        """§10.1 - the participant row and the call row must agree.
+    
+        A shared execution that fails with a **retryable** error (a crash or a
+        timeout) releases its participants into an independent retry.  Such a
+        participant is not failed - it runs on its own and delivers a result.
+        """
+    
+        workflow = app.create_workflow("test-retry-participant")
+        workflow.default_snapshot_id = snapshot.snapshot_id
+        workflow.start()
+    
+        # the leader times out (a retryable error) while the follower waits for
+        # its result
+        # the workload is longer than the timeout of the leader, so the leader
+        # really fails - and the follower has time to join
+        arguments = {"files": list(DEMO_FILES), "rounds": 5000}
+        leader = asyncio.create_task(
+            app.coordinator.submit_tool_call(
+                workflow_id=workflow.workflow_id,
+                tool_name="content_digest",
+                arguments=arguments,
+                snapshot_id=snapshot.snapshot_id,
+                timeout_seconds=0.3,
+            )
+        )
+&gt;       await wait_for_first_dependency(app.event_bus, workflow.workflow_id)
+
+tests\integration\test_concurrency.py:693: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+agentfuse\scenarios\common.py:179: in wait_for_first_dependency
+    return await wait_for_event(
+agentfuse\scenarios\common.py:152: in wait_for_event
+    return await event_bus.wait_for(matcher, timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+agentfuse\core\events.py:203: in wait_for
+    return await asyncio.wait_for(future, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+fut = &lt;Future cancelled&gt;, timeout = 30.0
+
+    async def wait_for(fut, timeout):
+        """Wait for the single Future or coroutine to complete, with timeout.
+    
+        Coroutine will be wrapped in Task.
+    
+        Returns result of the Future or coroutine.  When a timeout occurs,
+        it cancels the task and raises TimeoutError.  To avoid the task
+        cancellation, wrap it in shield().
+    
+        If the wait is cancelled, the task is also cancelled.
+    
+        This function is a coroutine.
+        """
+        loop = events.get_running_loop()
+    
+        if timeout is None:
+            return await fut
+    
+        if timeout &lt;= 0:
+            fut = ensure_future(fut, loop=loop)
+    
+            if fut.done():
+                return fut.result()
+    
+            await _cancel_and_wait(fut, loop=loop)
+            try:
+                return fut.result()
+            except exceptions.CancelledError as exc:
+                raise exceptions.TimeoutError() from exc
+    
+        waiter = loop.create_future()
+        timeout_handle = loop.call_later(timeout, _release_waiter, waiter)
+        cb = functools.partial(_release_waiter, waiter)
+    
+        fut = ensure_future(fut, loop=loop)
+        fut.add_done_callback(cb)
+    
+        try:
+            # wait until the future completes or the timeout
+            try:
+                await waiter
+            except exceptions.CancelledError:
+                if fut.done():
+                    return fut.result()
+                else:
+                    fut.remove_done_callback(cb)
+                    # We must ensure that the task is not running
+                    # after wait_for() returns.
+                    # See https://bugs.python.org/issue32751
+                    await _cancel_and_wait(fut, loop=loop)
+                    raise
+    
+            if fut.done():
+                return fut.result()
+            else:
+                fut.remove_done_callback(cb)
+                # We must ensure that the task is not running
+                # after wait_for() returns.
+                # See https://bugs.python.org/issue32751
+                await _cancel_and_wait(fut, loop=loop)
+                # In case task cancellation failed with some
+                # exception, we should re-raise it
+                # See https://bugs.python.org/issue40607
+                try:
+                    return fut.result()
+                except exceptions.CancelledError as exc:
+&gt;                   raise exceptions.TimeoutError() from exc
+E                   TimeoutError
+
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\asyncio\tasks.py:502: TimeoutError</failure></testcase><testcase classname="tests.integration.test_concurrency" name="test_a_participant_that_left_is_not_failed_by_the_group_it_left" time="0.383" /><testcase classname="tests.integration.test_concurrency" name="test_a_separated_call_is_not_shared_anymore" time="0.301" /><testcase classname="tests.integration.test_concurrency" name="test_every_failure_kind_is_persisted" time="1.004" /><testcase classname="tests.integration.test_concurrency" name="test_an_interrupted_run_is_marked_with_its_kind" time="0.242" /><testcase classname="tests.integration.test_concurrency" name="test_a_cancelled_independent_call_stops_its_worker" time="0.249" /><testcase classname="tests.integration.test_divergent" name="test_a_conflicting_dependency_detaches_the_follower" time="2.346" /><testcase classname="tests.integration.test_divergent" name="test_the_detection_happens_while_the_leader_is_still_running" time="2.486" /><testcase classname="tests.integration.test_divergent" name="test_the_detached_follower_uses_its_own_snapshot" time="1.817" /><testcase classname="tests.integration.test_divergent" name="test_the_divergent_scenario_reports_the_expected_numbers" time="1.878" /><testcase classname="tests.integration.test_divergent" name="test_a_late_joiner_validates_the_existing_ledger" time="1.575" /><testcase classname="tests.integration.test_divergent" name="test_a_late_joiner_validates_the_early_dependencies" time="1.311" /><testcase classname="tests.integration.test_divergent" name="test_a_rejected_candidate_is_not_a_member_of_the_group" time="2.580" /><testcase classname="tests.integration.test_divergent" name="test_a_rejected_candidate_is_recorded_as_detached" time="2.605" /><testcase classname="tests.integration.test_divergent" name="test_the_dependency_ledger_records_every_read" time="0.832" /><testcase classname="tests.integration.test_divergent" name="test_a_follower_that_fails_the_final_validation_gets_no_result" time="2.198" /><testcase classname="tests.integration.test_divergent" name="test_the_separation_is_reliable" time="20.965" /><testcase classname="tests.integration.test_divergent" name="test_the_follower_validates_the_dependencies_that_come_later" time="1.962" /><testcase classname="tests.integration.test_cancellation_review" name="test_identifiers_preserve_full_uuid_entropy" time="0.001" /><testcase classname="tests.integration.test_cancellation_review" name="test_cancelled_admission_waiter_does_not_leave_a_reservation" time="0.024" /><testcase classname="tests.integration.test_cancellation_review" name="test_caller_task_cancellation_persists_and_stops_worker" time="0.285" /><testcase classname="tests.integration.test_cancellation_review" name="test_queued_cancellation_never_starts_a_worker[False]" time="0.290" /><testcase classname="tests.integration.test_cancellation_review" name="test_queued_cancellation_never_starts_a_worker[True]" time="0.275" /><testcase classname="tests.integration.test_cancellation_review" name="test_monitor_thread_can_wake_admission_under_asyncio_debug" time="0.089" /><testcase classname="tests.integration.test_cancellation_review" name="test_cancelling_one_shared_caller_keeps_the_other_alive[0]" time="0.808" /><testcase classname="tests.integration.test_cancellation_review" name="test_cancelling_one_shared_caller_keeps_the_other_alive[1]" time="0.827" /></testsuite></testsuites>

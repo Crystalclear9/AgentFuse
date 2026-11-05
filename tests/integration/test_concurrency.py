@@ -664,7 +664,7 @@ async def test_a_runtime_failure_is_not_reported_as_a_worker_crash(app, snapshot
     )
 
 
-async def test_a_retried_participant_is_not_recorded_as_failed(app, snapshot):
+async def test_a_retried_participant_is_not_recorded_as_failed(app, snapshot, monkeypatch):
     """§10.1 - the participant row and the call row must agree.
 
     A shared execution that fails with a **retryable** error (a crash or a
@@ -676,10 +676,23 @@ async def test_a_retried_participant_is_not_recorded_as_failed(app, snapshot):
     workflow.default_snapshot_id = snapshot.snapshot_id
     workflow.start()
 
-    # the leader times out (a retryable error) while the follower waits for
-    # its result
-    # the workload is longer than the timeout of the leader, so the leader
-    # really fails - and the follower has time to join
+    # Establish the shared cohort before starting the actual timeout timer.
+    # Hold the short-deadline execution's result so fast machines also exercise
+    # retry, while slow process startup cannot preempt the first dependency.
+    joined = asyncio.Event()
+    original_watch = app.coordinator._timeout_watch
+    original_result = app.coordinator._handle_result
+    async def watch(execution):
+        if execution.timeout_seconds == 0.3:
+            await joined.wait()
+        await original_watch(execution)
+    async def result(execution_id, message):
+        execution = app.coordinator.get_execution(execution_id)
+        if execution.timeout_seconds == 0.3:
+            await asyncio.shield(execution.outcome)
+        await original_result(execution_id, message)
+    monkeypatch.setattr(app.coordinator, "_timeout_watch", watch)
+    monkeypatch.setattr(app.coordinator, "_handle_result", result)
     arguments = {"files": list(DEMO_FILES), "rounds": 5000}
     leader = asyncio.create_task(
         app.coordinator.submit_tool_call(
@@ -691,13 +704,17 @@ async def test_a_retried_participant_is_not_recorded_as_failed(app, snapshot):
         )
     )
     await wait_for_first_dependency(app.event_bus, workflow.workflow_id)
-    follower = await app.coordinator.submit_tool_call(
+    follower_task = asyncio.create_task(app.coordinator.submit_tool_call(
         workflow_id=workflow.workflow_id,
         tool_name="content_digest",
         arguments=arguments,
         snapshot_id=snapshot.snapshot_id,
         timeout_seconds=10.0,
-    )
+    ))
+    await wait_for_event(app.event_bus, EventType.TOOL_CALL_WAITING,
+                         workflow_id=workflow.workflow_id)
+    joined.set()
+    follower = await follower_task
     # the leader fails (it is retried once before it gives up)
     with contextlib.suppress(Exception):
         await leader

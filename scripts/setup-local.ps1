@@ -36,7 +36,8 @@ if ($AllPythonVersions) {
         if ($LASTEXITCODE) { throw 'Compatibility project installation failed' }
     }
 }
-& .venv-local/Scripts/python.exe -m playwright install chromium
+# Tests launch the full Chromium executable explicitly; avoid a redundant shell.
+& .venv-local/Scripts/python.exe -m playwright install --no-shell chromium
 if ($LASTEXITCODE) { throw 'Local browser installation failed' }
 if (-not (Test-Path -LiteralPath '.tools/git/cmd/git.exe')) {
     Invoke-WebRequest 'https://github.com/git-for-windows/git/releases/download/v2.56.0.windows.4/PortableGit-2.56.0.4-64-bit.7z.exe' -OutFile (Join-Path $downloads 'portable-git.exe')

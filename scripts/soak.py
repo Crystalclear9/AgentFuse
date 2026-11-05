@@ -162,7 +162,7 @@ async def main_async(args: argparse.Namespace) -> int:
         problems.append("没有完成任何一轮执行")
     report["problems"] = problems
 
-    output = ROOT / ".agentfuse" / "reports" / f"soak-{args.scenario}.json"
+    output = ROOT / ".agentfuse" / "reports" / f"soak-{args.scenario}-{sys.platform}-{os.getpid()}.json"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
