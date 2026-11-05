@@ -99,14 +99,16 @@ class ExternalAdapter(AgentAdapter):
     async def invocation(self, agent_id: str | None = None, *,
                          parent_invocation_id: str | None = None,
                          metadata: dict[str, Any] | None = None,
-                         registration_source: str = "external-framework"):
+                         registration_source: str = "external-framework",
+                         identity_confirmed: bool = False):
         """Scope a framework activation and record its terminal status on exit."""
         if agent_id is None:
             handle = await self.bind_agent(registration_source=registration_source,
                                            identity_confirmed=False)
             agent_id = handle.agent_id
         else:
-            agent_id = await self._resolve_agent(agent_id, registration_source)
+            agent_id = await self._resolve_agent(agent_id, registration_source,
+                                                 identity_confirmed=identity_confirmed)
         handle = await self.begin_invocation(agent_id, parent_invocation_id, metadata)
         try:
             yield handle
@@ -161,7 +163,7 @@ class ExternalAdapter(AgentAdapter):
             metadata=metadata,
             identity_confirmed=identity_confirmed,
         )
-        if external_identity:
+        if external_identity and identity_confirmed:
             self._agents_by_external[external_identity] = handle
         return handle
 
@@ -303,7 +305,8 @@ class ExternalAdapter(AgentAdapter):
                 parent_invocation_id=_string(message, "parent_invocation_id", optional=True),
                 metadata=_object(message, "metadata"),
             )
-            return {"type": "invoked", "invocation_id": invocation.invocation_id}
+            return {"type": "invoked", "invocation_id": invocation.invocation_id,
+                    "agent_id": invocation.agent_id}
 
         if kind == "call":
             result = await self.call_tool(
@@ -327,48 +330,44 @@ class ExternalAdapter(AgentAdapter):
 
         raise ProtocolError(f"unknown message type: {kind!r}")
 
-    async def _resolve_agent(self, agent_id: str | None, registration_source="external-framework") -> str:
+    async def _resolve_agent(self, agent_id: str | None, registration_source="external-framework",
+                             *, identity_confirmed=False) -> str:
         """The internal agent id for an external one.
 
         The framework may use the external identity or the internal id - both
         have to work, because a framework that only learns the internal id
         later must not be rejected.
 
-        With ``auto_bind`` an identity that is not known yet is bound here.
-        The identity of such an agent is **not confirmed** - the runtime keeps
-        it in the ``UNDETERMINED`` state and never merges it with another
-        agent (requirement 5.2).
+        With ``auto_bind`` an unknown label establishes a new identity.
+        Only identities confirmed by the framework are indexed by label.
         """
 
         if not agent_id:
             raise ProtocolError("the message has no agent")
+        if agent_id in self.workflow.agents:
+            return agent_id
         handle = self._agents_by_external.get(agent_id)
         if handle is not None:
             return handle.agent_id
-        if agent_id in self.workflow.agents:
-            return agent_id
         if not self.auto_bind:
             raise ProtocolError(f"unknown agent: {agent_id}")
         bound = await self.bind_agent(
             external_identity=agent_id,
             agent_description="bound automatically by the external adapter",
             registration_source=registration_source,
-            identity_confirmed=False,
+            identity_confirmed=identity_confirmed,
         )
         return bound.agent_id
 
-    async def _reply(self, line: str | bytes) -> dict[str, Any]:
+    async def _reply(self, message: Any) -> dict[str, Any]:
         request_id = None
         try:
-            message = json.loads(line)
             if isinstance(message, dict):
                 request_id = message.get("request_id")
                 if request_id is not None and type(request_id) not in (str, int):
                     request_id = None
                     raise ProtocolError("request_id must be a string or integer")
             answer = await self.handle(message)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            answer = {"type": "error", "code": "invalid_json", "message": "invalid UTF-8 JSON"}
         except (ProtocolError, SnapshotError, ToolInputError, KeyError, ValueError) as exc:
             answer = {"type": "error", "code": "invalid_request", "message": str(exc)}
         except ToolExecutionError as exc:
@@ -378,16 +377,58 @@ class ExternalAdapter(AgentAdapter):
             answer["request_id"] = request_id
         return answer
 
+    async def _serve_requests(self, receive, send) -> None:
+        """Multiplex ID-bearing calls while keeping lifecycle and legacy requests ordered."""
+
+        pending: dict[str | int, asyncio.Task] = {}
+        write_lock = asyncio.Lock()
+
+        async def write(answer):
+            async with write_lock:
+                await send((json.dumps(answer, ensure_ascii=False) + "\n").encode("utf-8"))
+
+        async def run_call(request_id, message):
+            try:
+                await write(await self._reply(message))
+            finally:
+                pending.pop(request_id, None)
+
+        async with asyncio.TaskGroup() as tasks:
+            while line := await receive():
+                if not line.strip():
+                    continue
+                try:
+                    message = json.loads(line)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    await write({"type": "error", "code": "invalid_json", "message": "invalid UTF-8 JSON"})
+                    continue
+                request_id = message.get("request_id") if isinstance(message, dict) else None
+                if (isinstance(message, dict) and message.get("type") == "call"
+                        and type(request_id) in (str, int)):
+                    if request_id in pending:
+                        await write({"type": "error", "code": "duplicate_request_id",
+                                     "message": "request_id is already in flight"})
+                        continue
+                    if len(pending) >= 32:
+                        await asyncio.wait(tuple(pending.values()), return_when=asyncio.FIRST_COMPLETED)
+                    pending[request_id] = tasks.create_task(run_call(request_id, message))
+                else:
+                    # Calls submitted before an end (or an ID-less request)
+                    # finish first, even when all lines were sent together.
+                    if pending:
+                        await asyncio.wait(tuple(pending.values()))
+                    await write(await self._reply(message))
+
     # ------------------------------------------------------------------
     async def serve(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         """Serve the protocol until the framework closes the stream."""
 
+        async def send(data):
+            writer.write(data)
+            await writer.drain()
+
         try:
-            while line := await reader.readline():
-                if line.strip():
-                    answer = await self._reply(line)
-                    writer.write((json.dumps(answer, ensure_ascii=False) + "\n").encode("utf-8"))
-                    await writer.drain()
+            await self._serve_requests(reader.readline, send)
         finally:
             self.close()
 
@@ -400,46 +441,44 @@ async def _serve_stdio(adapter: ExternalAdapter) -> None:
     proactor loop), and the protocol has to work on every platform.
     """
 
-    import queue
     import threading
 
-    async def main() -> None:
-        loop = asyncio.get_running_loop()
-        incoming: "queue.Queue[bytes | None]" = queue.Queue()
-        pending: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+    lines: asyncio.Queue[bytes] = asyncio.Queue()
+    capacity = threading.BoundedSemaphore(32)
+    stopped = threading.Event()
 
-        def read_lines() -> None:
-            try:
-                for line in sys.stdin.buffer:
-                    incoming.put(line)
-            except Exception:  # pragma: no cover - defensive
-                pass
-            finally:
-                incoming.put(None)
-
-        threading.Thread(target=read_lines, daemon=True).start()
-
-        def pump() -> None:
-            while True:
-                line = incoming.get()
-                loop.call_soon_threadsafe(pending.put_nowait, line)
-                if line is None:
-                    return
-
-        threading.Thread(target=pump, daemon=True).start()
-
-        while True:
-            line = await pending.get()
-            if line is None:
-                break
-            text = line.strip()
-            if not text:
+    def read_lines() -> None:
+        while not stopped.is_set():
+            if not capacity.acquire(timeout=0.1):
                 continue
-            answer = await adapter._reply(text)
-            sys.stdout.buffer.write((json.dumps(answer, ensure_ascii=False) + "\n").encode("utf-8"))
-            sys.stdout.buffer.flush()
+            try:
+                line = sys.stdin.buffer.readline()
+            except OSError:
+                line = b""
+            if stopped.is_set():
+                return
+            loop.call_soon_threadsafe(lines.put_nowait, line)
+            if not line:
+                return
 
-    await main()
+    async def receive():
+        line = await lines.get()
+        capacity.release()
+        return line
+
+    def write(data):
+        sys.stdout.buffer.write(data)
+        sys.stdout.buffer.flush()
+
+    async def send(data):
+        await asyncio.to_thread(write, data)
+
+    threading.Thread(target=read_lines, daemon=True).start()
+    try:
+        await adapter._serve_requests(receive, send)
+    finally:
+        stopped.set()
 
 
 def main(argv: list[str] | None = None) -> int:

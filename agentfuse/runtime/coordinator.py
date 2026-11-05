@@ -24,6 +24,7 @@ import asyncio
 import json
 import threading
 import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -624,6 +625,8 @@ class RuntimeCoordinator:
     async def _serve_from_cache(self, call: LogicalCall) -> bool:
         """Serve a finished result from the session cache (fully validated)."""
 
+        if not (self.result_cache.enabled or self.persistent_cache.enabled):
+            return False
         snapshot_hash = self._snapshot_content_hash(call.snapshot_id)
         if snapshot_hash is None:
             return False
@@ -634,6 +637,8 @@ class RuntimeCoordinator:
             if entry is None:
                 entry = self._persistent_entry(call, snapshot_hash)
             if entry is None:
+                return False
+            if not self._snapshot_is_trustworthy(call.snapshot_id, force=True):
                 return False
             # The cached result is only served when every dependency of the
             # original execution still matches the caller's own snapshot.
@@ -663,7 +668,8 @@ class RuntimeCoordinator:
 
         if not self.persistent_cache.enabled:
             return None
-        durable = self.persistent_cache.get(call.candidate_key, snapshot_hash)
+        # Older entries did not require a complete dependency ledger at write time.
+        durable = self.persistent_cache.get(call.candidate_key, "verified-v2:" + snapshot_hash)
         if durable is None:
             return None
         entry = durable.to_cache_entry()
@@ -1609,9 +1615,7 @@ class RuntimeCoordinator:
                 result_hash=message.get("result_hash"),
                 cpu_time=float(message.get("cpu_time") or 0.0),
                 exit_status="0",
-                dependency_complete=not bypass and bool(
-                    message.get("dependency_complete", True)
-                ),
+                dependency_complete=not bypass and message.get("dependency_complete") is True,
                 dependency_bypass=bypass,
             )
         )
@@ -1807,6 +1811,13 @@ class RuntimeCoordinator:
         # an incomplete dependency ledger.  Its result must not be shared with
         # anybody - the participants run independently instead.
         incomplete_ledger = not outcome.dependency_complete
+        integrity: dict[str, bool] = {}
+
+        def trustworthy(snapshot_id: str) -> bool:
+            if snapshot_id not in integrity:
+                integrity[snapshot_id] = self._snapshot_is_trustworthy(snapshot_id, force=True)
+            return integrity[snapshot_id]
+
         for participant in list(group.participants.values()):
             if participant.status in (
                 ParticipantStatus.COMPLETED,
@@ -1835,6 +1846,9 @@ class RuntimeCoordinator:
                     participant,
                     "the tool read the workspace without the controlled reader",
                 )
+                continue
+            if not trustworthy(execution.snapshot_id):
+                self._detach_participant_locked(group, participant, "source snapshot integrity check failed")
                 continue
             if self.mode_for(group.workflow_id) is RuntimeMode.DEFERRED:
                 status, reason, matched = self.validator.validate_prefix(
@@ -1876,11 +1890,8 @@ class RuntimeCoordinator:
                         "dependency validation incomplete at commit time",
                     )
                     continue
-            # The **final** integrity check runs in every mode: a snapshot that
-            # was tampered with after the join must not receive a shared
-            # result - not even in the deferred mode (requirement 8.7 and the
-            # correctness checklist of the sharing protocol).
-            if not self._snapshot_is_trustworthy(participant.snapshot_id or "", force=True):
+            # Deferred and online followers both require a fresh integrity check.
+            if not trustworthy(participant.snapshot_id or ""):
                 self._detach_participant_locked(
                     group,
                     participant,
@@ -1906,10 +1917,12 @@ class RuntimeCoordinator:
         # the group has served its purpose - it is closed (requirement 4.8)
         group.close()
         self._persist_group(group)
-        self._cache_result(group, execution, outcome)
+        if (not incomplete_ledger and (self.result_cache.enabled or self.persistent_cache.enabled)
+                and trustworthy(execution.snapshot_id)):
+            self._cache_result(execution, outcome)
 
     def _cache_result(
-        self, group: ShareGroup, execution: PhysicalExecution, outcome: ExecutionOutcome
+        self, execution: PhysicalExecution, outcome: ExecutionOutcome
     ) -> None:
         """Remember a finished result for a later, identical request."""
 
@@ -1930,7 +1943,7 @@ class RuntimeCoordinator:
         # payload itself stays in the result store
         self.persistent_cache.put(
             candidate_key=execution.candidate_key,
-            snapshot_hash=snapshot_hash,
+            snapshot_hash="verified-v2:" + snapshot_hash,
             result_hash=outcome.result_hash or "",
             execution_id=execution.execution_id,
             dependencies=dependencies,
@@ -2266,7 +2279,7 @@ class RuntimeCoordinator:
                 ToolCallResult(
                     logical_call_id=call.logical_call_id,
                     physical_execution_id=execution_id,
-                    result=payload,
+                    result=deepcopy(payload),
                     result_hash=call.result_hash or stored.result_hash,
                     shared=call.shared,
                     request_time=call.request_time,

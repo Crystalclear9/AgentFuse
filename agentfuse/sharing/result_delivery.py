@@ -9,6 +9,9 @@ result is identical to an independently computed one.
 from __future__ import annotations
 
 import json
+import os
+import re
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -61,11 +64,17 @@ class ResultStore:
         directory = self.root / (workflow_id or "unassigned")
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"{result_hash}.json"
-        if not path.exists():
-            path.write_text(
-                json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True, default=str),
-                encoding="utf-8",
-            )
+        if not path.exists() or self._read_verified(path, result_hash) is None:
+            temporary = tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=directory,
+                                                     delete=False)
+            staged = Path(temporary.name)
+            try:
+                with temporary:
+                    json.dump(payload, temporary, ensure_ascii=False, indent=2,
+                              sort_keys=True, default=str)
+                os.replace(staged, path)
+            finally:
+                staged.unlink(missing_ok=True)
         stored = StoredResult(
             result_id=new_id("res"),
             result_hash=result_hash,
@@ -87,6 +96,20 @@ class ResultStore:
         return stored
 
     def load(self, result_hash: str) -> Any:
+        if re.fullmatch(r"[0-9a-f]{64}", result_hash) is None:
+            return None
         for path in self.root.glob(f"*/{result_hash}.json"):
-            return json.loads(path.read_text(encoding="utf-8"))
+            payload = self._read_verified(path, result_hash)
+            if payload is not None:
+                return payload
+        return None
+
+    @staticmethod
+    def _read_verified(path: Path, result_hash: str) -> Any:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if compute_result_hash(payload) == result_hash:
+                return payload
+        except (OSError, ValueError, RecursionError):
+            pass
         return None

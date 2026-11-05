@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from agentfuse.core.state import EventType
 from agentfuse.runtime.scheduler import LocalResourceController
 from agentfuse.scenarios.common import DEMO_FILES, create_branch
@@ -195,8 +197,9 @@ async def test_an_intact_snapshot_passes_the_integrity_check(app, snapshot):
     assert app.snapshots.check_integrity(branch.snapshot_id) is True
 
 
+@pytest.mark.parametrize("modified_side", ["source", "follower"])
 async def test_a_snapshot_tampered_after_the_join_is_not_shared_in_the_deferred_mode(
-    app, snapshot
+    app, snapshot, modified_side
 ):
     """The final commit check has to run in **every** mode.
 
@@ -242,12 +245,14 @@ async def test_a_snapshot_tampered_after_the_join_is_not_shared_in_the_deferred_
 
     # somebody modifies the snapshot **after** the join - and outside of the
     # files the tool reads, so that the dependency prefix stays valid
-    target = branch.tree_path / "README.md"
-    target.write_text("tampered = True\n", encoding="utf-8")
+    modified = snapshot if modified_side == "source" else branch
+    (modified.tree_path / "added-empty-directory").mkdir()
     # the check has to be forced - the result of the join is cached
-    assert app.snapshots.check_integrity(branch.snapshot_id, force=True) is False
+    assert app.snapshots.check_integrity(modified.snapshot_id, force=True) is False
 
-    await asyncio.gather(leader, follower, return_exceptions=True)
+    original, independent = await asyncio.gather(leader, follower)
+    assert original.result == independent.result
+    assert original.physical_execution_id != independent.physical_execution_id
 
     participants = app.repository.list_participants(workflow.workflow_id)
     followers = [

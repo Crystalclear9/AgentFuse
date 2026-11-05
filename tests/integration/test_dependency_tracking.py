@@ -23,7 +23,7 @@ import os
 from agentfuse.core.state import EventType
 from agentfuse.scenarios.common import DEMO_FILES
 from agentfuse.tools.registry import ToolRegistry, build_default_registry
-from agentfuse.workspace.reader import WorkspaceReader, install_access_audit_hook
+from agentfuse.workspace.reader import WorkspaceReader, audit_workspace_access
 
 
 def test_every_tool_declares_its_dependency_tracking():
@@ -66,16 +66,22 @@ def test_the_audit_hook_detects_a_bypass(tmp_path):
     root.mkdir()
     (root / "secret.py").write_text("VALUE = 1\n", encoding="utf-8")
 
-    violations = install_access_audit_hook(root)
-    # a controlled read is fine
-    reader = WorkspaceReader(root)
-    reader.read_text("secret.py")
-    assert violations == []
+    original_stat = os.stat
+    with audit_workspace_access(root) as violations:
+        reader = WorkspaceReader(root)
+        reader.read_text("secret.py")
+        reader.stat("secret.py")
+        reader.exists("secret.py")
+        assert violations == []
 
-    # a direct read bypasses the reader and is detected
-    (root / "secret.py").read_text(encoding="utf-8")
-    assert len(violations) == 1
-    assert "secret.py" in violations[0]
+        target = root / "secret.py"
+        target.read_text(encoding="utf-8")
+        os.stat(target)
+        os.lstat(target)
+        assert violations == [str(target)] * 3
+    assert os.stat is original_stat
+    target.stat()
+    assert len(violations) == 3
 
 
 async def test_a_bypassing_tool_is_never_shared(app, snapshot, monkeypatch):
@@ -124,6 +130,25 @@ async def test_a_bypassing_tool_is_never_shared(app, snapshot, monkeypatch):
     # both calls still got their own correct result
     assert len({result.result_hash for result in results}) == 1
     assert results[0].result["functions"] == results[1].result["functions"]
+
+
+async def test_a_bypassing_tool_cannot_seed_either_cache(app, snapshot, monkeypatch):
+    monkeypatch.setenv("AGENTFUSE_TEST_TOOLS", "1")
+    coordinator = app.coordinator
+    coordinator.registry = build_default_registry()
+    coordinator.worker_pool_size = 0
+    coordinator.result_cache.max_entries = 4
+    coordinator.persistent_cache.max_entries = 4
+    workflow = app.create_workflow("cache-bypass")
+    workflow.start()
+    request = dict(workflow_id=workflow.workflow_id, tool_name="raw_reader",
+                   arguments={}, snapshot_id=snapshot.snapshot_id)
+    first = await coordinator.submit_tool_call(**request)
+    second = await coordinator.submit_tool_call(**request)
+    call = coordinator.get_call(first.logical_call_id)
+    assert first.physical_execution_id != second.physical_execution_id
+    assert coordinator.persistent_cache.get(call.candidate_key,
+                                            "verified-v2:" + snapshot.manifest_hash) is None
 
 
 async def test_a_tool_that_only_lists_directories_is_detected(

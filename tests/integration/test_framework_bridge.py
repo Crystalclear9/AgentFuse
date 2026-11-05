@@ -8,6 +8,7 @@ import sys
 import pytest
 
 from agentfuse.adapters.external_adapter import ExternalAdapter, ProtocolError
+from agentfuse.sharing.result_delivery import compute_result_hash
 
 
 async def test_parallel_framework_calls_acknowledge_each_logical_result(app, snapshot):
@@ -25,6 +26,9 @@ async def test_parallel_framework_calls_acknowledge_each_logical_result(app, sna
         assert first.result == second.result
         assert first.physical_execution_id == second.physical_execution_id
         assert first.logical_call_id != second.logical_call_id
+        first.result["files"][0]["path"] = "modified.py"
+        assert second.result["files"][0]["path"] == "src/alpha.py"
+        assert compute_result_hash(second.result) == second.result_hash
     with pytest.raises(ProtocolError, match='unknown invocation'):
         await adapter.call_tool(invocation.invocation_id, tool['name'], {'files': ['src/alpha.py']})
     events = app.event_bus.history(workflow.workflow_id)
@@ -32,6 +36,19 @@ async def test_parallel_framework_calls_acknowledge_each_logical_result(app, sna
     assert sorted(received) == sorted([first.logical_call_id, second.logical_call_id])
     assert invocation.status == 'COMPLETED'
     workflow.finish()
+
+
+async def test_unconfirmed_labels_require_an_explicit_handle_for_reuse(app):
+    workflow = app.create_workflow("framework")
+    adapter = ExternalAdapter(workflow)
+    ambiguous = await adapter.bind_agent("same-label", identity_confirmed=False)
+    async with adapter.invocation("same-label") as first, adapter.invocation("same-label") as second:
+        assert len({ambiguous.agent_id, first.agent_id, second.agent_id}) == 3
+    async with adapter.invocation(ambiguous.agent_id) as explicit:
+        assert explicit.agent_id == ambiguous.agent_id
+    confirmed = await adapter.bind_agent("same-label")
+    async with adapter.invocation("same-label") as first, adapter.invocation("same-label") as second:
+        assert first.agent_id == second.agent_id == confirmed.agent_id
 
 
 async def test_framework_activation_records_failure_cancellation_and_explicit_parent(app):
@@ -78,3 +95,5 @@ def test_node_client_discovers_and_runs_tools_on_its_own_workspace(tmp_path):
     assert result['output']['file_count'] == 1
     assert result['output']['files'][0]['path'] == '分析.py'
     assert result['call']['logical_call_id']
+    assert result['call']['logical_call_id'] != result['second_call']['logical_call_id']
+    assert result['call']['physical_execution_id'] == result['second_call']['physical_execution_id']

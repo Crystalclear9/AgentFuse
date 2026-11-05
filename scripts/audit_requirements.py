@@ -507,23 +507,23 @@ def audit_interfaces() -> None:
         reader.read_text("inside.py")
         record("7.2", "读取立即上报依赖", bool(observed), kind="behavioural")
 
-        # The audit hook has to see the file system calls of a tool that
-        # bypasses the controlled reader - including the ones that only
-        # **stat** a file.  The documentation used to claim the opposite
-        # (that ``os.stat`` does not raise an audit event), which was wrong.
-        from agentfuse.workspace.reader import AUDITED_ACCESS_EVENTS
+        from agentfuse.workspace.reader import audit_workspace_access
 
-        audited = set(AUDITED_ACCESS_EVENTS)
-        missing_events = [
-            event
-            for event in ("open", "os.scandir", "os.listdir", "os.stat", "os.lstat")
-            if event not in audited
-        ]
+        target = root / "inside.py"
+        with audit_workspace_access(root) as bypasses:
+            target.read_bytes()
+            with os.scandir(root) as entries:
+                list(entries)
+            os.listdir(root)
+            os.stat(target)
+            os.lstat(target)
+        expected_bypasses = [str(target), str(root), str(root), str(target), str(target)]
         record(
             "7.2",
             "绕过检测覆盖文件、目录与 stat",
-            not missing_events,
-            f"缺少: {missing_events}" if missing_events else f"{len(audited)} 个事件",
+            bypasses == expected_bypasses,
+            f"实际记录 {len(bypasses)} / {len(expected_bypasses)}",
+            kind="behavioural",
         )
 
     import dataclasses

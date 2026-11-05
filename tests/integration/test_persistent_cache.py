@@ -13,6 +13,8 @@ import asyncio
 import shutil
 from pathlib import Path
 
+import pytest
+
 from agentfuse.app import AgentFuseApp
 from agentfuse.core.state import RuntimeMode
 from agentfuse.scenarios.common import DEMO_FILES, create_branch, prepare_base_snapshot
@@ -96,6 +98,22 @@ def test_a_result_survives_a_restart(tmp_path: Path):
         f"but it started {executions_again} executions"
     )
     assert hash_again == result_hash, "the cached result has to be the same result"
+
+
+@pytest.mark.parametrize("damaged", ['{"forged":true}', '{"unfinished":'])
+def test_damaged_payload_is_recomputed_then_reusable(tmp_path, damaged):
+    home = tmp_path / "home"
+    app = AgentFuseApp(settings=load_settings(home=home), mode=RuntimeMode.ONLINE)
+    try:
+        snapshot_id = _snapshot(app, home)
+    finally:
+        app.close_sync()
+    executions, result_hash = _run_once(home, snapshot_id)
+    assert executions == 1
+    result_path = next((home / "results").glob(f"*/{result_hash}.json"))
+    result_path.write_text(damaged, encoding="utf-8")
+    assert _run_once(home, snapshot_id) == (1, result_hash)
+    assert _run_once(home, snapshot_id) == (0, result_hash)
 
 
 def test_a_changed_workspace_is_not_served_from_the_cache(tmp_path: Path):

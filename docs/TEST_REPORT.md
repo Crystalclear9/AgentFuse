@@ -1,6 +1,12 @@
 # Test Report
 
-最新框架接入复核覆盖 Python、Node.js、LangGraph 和 LangChain。11 项接入专项通过，本地全量 354 项通过、9 项跳过。跳过项涉及 Windows 符号链接及本机已卸载的模型与审计镜像。需求审计零失败，交付验收 44/44。[接入指南](ADAPTER_GUIDE.md)
+## 共享正确性与框架桥接加固
+
+Windows Python 3.11 全量运行 371 项，361 通过、10 跳过。加载了固定版本的 LangGraph 和 LangChain。默认跳过的浏览器用例单独在项目内 Chromium 上运行并通过。其余 9 项跳过来自 Windows 符号链接权限、已移除的本地 GGUF 模型和 Linux 审计镜像。
+
+新增回归覆盖结果对象隔离、未确认同名身份、空目录及旧快照、来源和接收方快照提交校验、依赖绕过缓存、损坏结果重算。真实 Python 与 Node.js 进程验证同一连接的两个 Agent 产生 2 条逻辑调用、1 次物理执行。需求审计 325/325，交付验收 44/44。三条受影响的变异守卫均检出了故意破坏，包括 stat 检测、目录枚举和最终快照校验。
+
+上一轮框架接入复核覆盖 Python、Node.js、LangGraph 和 LangChain。11 项接入专项通过，本地全量 354 项通过、9 项跳过。 [接入指南](ADAPTER_GUIDE.md)
 
 此前 [P2 实现与验收](P2_COMPLETION.md) 保存了 GPU 模型与 Linux 容器实测记录。该次全量 358 通过、1 跳过，P2 十个领域 38 项全部通过。
 

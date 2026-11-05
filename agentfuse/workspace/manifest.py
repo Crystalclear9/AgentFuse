@@ -21,7 +21,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .fingerprint import fingerprint_file, hash_manifest
+from .fingerprint import fingerprint_file, hash_arguments, hash_manifest
 
 
 def build_manifest(tree: str | os.PathLike[str]) -> dict[str, dict[str, Any]]:
@@ -43,10 +43,12 @@ def build_manifest(tree: str | os.PathLike[str]) -> dict[str, dict[str, Any]]:
     return manifest
 
 
-def manifest_hash(manifest: dict[str, dict[str, Any]]) -> str:
+def manifest_hash(manifest: dict[str, dict[str, Any]], directories: tuple[str, ...] | None = None) -> str:
     """Return the canonical hash of a manifest."""
 
-    return hash_manifest(manifest)
+    if directories is None:
+        return hash_manifest(manifest)
+    return hash_arguments({"files": manifest, "directories": sorted(directories)})
 
 
 def write_manifest(
@@ -57,6 +59,7 @@ def write_manifest(
     parent_snapshot_id: str | None,
     creation_time: float,
     manifest: dict[str, dict[str, Any]],
+    directories: tuple[str, ...] | None = None,
     source_reference: str | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> str:
@@ -69,11 +72,13 @@ def write_manifest(
         "workspace_id": workspace_id,
         "parent_snapshot_id": parent_snapshot_id,
         "creation_time": creation_time,
-        "manifest_hash": manifest_hash(manifest),
+        "manifest_hash": manifest_hash(manifest, directories),
         "manifest": manifest,
         "source_reference": source_reference,
         "metadata": metadata or {},
     }
+    if directories is not None:
+        payload["directories"] = sorted(directories)
     target.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -98,7 +103,7 @@ def compare_manifests(
     modified = sorted(
         path
         for path in left_paths & right_paths
-        if left[path]["sha256"] != right[path]["sha256"]
+        if left[path] != right[path]
     )
     return {
         "added": added,

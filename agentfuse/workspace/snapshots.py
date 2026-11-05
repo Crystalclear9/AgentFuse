@@ -19,17 +19,17 @@ process level checkpointing, no file system level isolation.
 from __future__ import annotations
 
 import fnmatch
-import json
 import os
 import shutil
+import stat
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 from ..core.ids import new_id
-from .fingerprint import fingerprint_file, hash_manifest
-from .manifest import compare_manifests, read_manifest, write_manifest
+from .fingerprint import fingerprint_file
+from .manifest import compare_manifests, manifest_hash, read_manifest, write_manifest
 
 
 class SnapshotError(RuntimeError):
@@ -47,10 +47,18 @@ class SnapshotInfo:
     manifest: dict[str, dict[str, Any]] = field(default_factory=dict)
     source_reference: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    directories: tuple[str, ...] | None = None
 
     @property
     def tree_path(self) -> Path:
         return self.path / "tree"
+
+    def directory_paths(self) -> set[str]:
+        if self.directories is not None:
+            return set(self.directories)
+        # Legacy snapshots created directories only as parents of copied files.
+        return {str(parent) for path in self.manifest for parent in PurePosixPath(path).parents
+                if parent != PurePosixPath(".")}
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -96,7 +104,27 @@ class SnapshotStore:
         return False
 
     def snapshot_dir(self, workspace_id: str, snapshot_id: str) -> Path:
+        self._validate_identifier(workspace_id, "workspace")
+        self._validate_identifier(snapshot_id, "snapshot")
         return self.root / workspace_id / snapshot_id
+
+    @staticmethod
+    def _validate_identifier(value: str, label: str) -> None:
+        if not value or value.endswith((".", " ")) or any(char in value for char in "/\\:*?[]\x00"):
+            raise SnapshotError(f"invalid {label} identifier: {value!r}")
+
+    @staticmethod
+    def _entry_stat(path: Path, *, directory: bool) -> os.stat_result:
+        entry = path.lstat()
+        expected = stat.S_ISDIR if directory else stat.S_ISREG
+        if (not expected(entry.st_mode)
+                or getattr(entry, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT):
+            raise SnapshotError(f"unsupported snapshot entry: {path}")
+        return entry
+
+    @staticmethod
+    def _walk_error(error: OSError) -> None:
+        raise error
 
     def tree_path(self, snapshot_id: str) -> Path:
         info = self.get(snapshot_id)
@@ -134,22 +162,52 @@ class SnapshotStore:
         source_reference: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> SnapshotInfo:
-        source = Path(source_dir)
+        source = Path(source_dir).resolve()
         if not source.is_dir():
             raise SnapshotError(f"source directory does not exist: {source}")
 
         snapshot_id = snapshot_id or new_id("snap")
         target_dir = self.snapshot_dir(workspace_id, snapshot_id)
         tree = target_dir / "tree"
-        if target_dir.exists():
-            shutil.rmtree(target_dir)
-        tree.mkdir(parents=True, exist_ok=True)
+        destination = target_dir.resolve()
+        if destination.is_relative_to(source):
+            relative = destination.relative_to(source)
+            if not any(self._is_excluded(PurePosixPath(*relative.parts[:i + 1]).as_posix(), name)
+                       for i, name in enumerate(relative.parts)):
+                raise SnapshotError("snapshot destination must be outside the copied source tree")
+        if snapshot_id in self._cache or target_dir.exists():
+            raise SnapshotError(f"snapshot already exists: {snapshot_id}")
+        tree.mkdir(parents=True, exist_ok=False)
 
+        try:
+            manifest, directories = self._copy_source(source, tree)
+            info = SnapshotInfo(
+                snapshot_id=snapshot_id,
+                workspace_id=workspace_id,
+                parent_snapshot_id=parent_snapshot_id,
+                path=target_dir,
+                creation_time=time.time(),
+                manifest_hash=manifest_hash(manifest, directories),
+                manifest=manifest,
+                source_reference=source_reference or str(source_dir),
+                metadata=dict(metadata or {}),
+                directories=directories,
+            )
+            self._write_manifest(info)
+        except Exception:
+            shutil.rmtree(target_dir)
+            raise
+        self._cache[snapshot_id] = info
+        self._persist(info)
+        return info
+
+    def _copy_source(self, source: Path, tree: Path) -> tuple[dict[str, dict[str, Any]], tuple[str, ...]]:
         file_count = 0
         total_bytes = 0
         manifest: dict[str, dict[str, Any]] = {}
+        directories: list[str] = []
 
-        for root, dirs, files in os.walk(source):
+        for root, dirs, files in os.walk(source, onerror=self._walk_error):
             root_path = Path(root)
             rel_root = root_path.relative_to(source)
             rel_root_str = "." if str(rel_root) == "." else rel_root.as_posix()
@@ -159,6 +217,11 @@ class SnapshotStore:
                 rel = f"{rel_root_str}/{name}" if rel_root_str != "." else name
                 if self._is_excluded(rel, name):
                     continue
+                self._entry_stat(root_path / name, directory=True)
+                if len(directories) >= self.max_files:
+                    raise SnapshotError(f"snapshot exceeds the maximum number of directories ({self.max_files})")
+                directories.append(rel)
+                (tree / rel).mkdir()
                 kept_dirs.append(name)
             dirs[:] = kept_dirs
 
@@ -167,10 +230,7 @@ class SnapshotStore:
                 if self._is_excluded(rel, name):
                     continue
                 source_file = root_path / name
-                try:
-                    size = source_file.stat().st_size
-                except OSError:
-                    continue
+                size = self._entry_stat(source_file, directory=False).st_size
                 file_count += 1
                 total_bytes += size
                 if file_count > self.max_files:
@@ -182,26 +242,12 @@ class SnapshotStore:
                         f"snapshot exceeds the maximum total size ({self.max_total_bytes} bytes)"
                     )
                 destination = tree / rel
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source_file, destination)
+                shutil.copy2(source_file, destination, follow_symlinks=False)
+                copied_size = self._entry_stat(destination, directory=False).st_size
+                if copied_size != size:
+                    raise SnapshotError(f"source file changed size while being copied: {rel}")
                 manifest[rel] = {"sha256": fingerprint_file(destination), "size": size}
-
-        manifest_hash = hash_manifest(manifest)
-        info = SnapshotInfo(
-            snapshot_id=snapshot_id,
-            workspace_id=workspace_id,
-            parent_snapshot_id=parent_snapshot_id,
-            path=target_dir,
-            creation_time=time.time(),
-            manifest_hash=manifest_hash,
-            manifest=manifest,
-            source_reference=source_reference or str(source),
-            metadata=dict(metadata or {}),
-        )
-        self._write_manifest(info)
-        self._cache[snapshot_id] = info
-        self._persist(info)
-        return info
+        return manifest, tuple(sorted(directories))
 
     def fork_snapshot(
         self,
@@ -218,8 +264,10 @@ class SnapshotStore:
         workspace_id = workspace_id or parent.workspace_id
         target_dir = self.snapshot_dir(workspace_id, snapshot_id)
         tree = target_dir / "tree"
-        if target_dir.exists():
-            shutil.rmtree(target_dir)
+        if snapshot_id in self._cache or target_dir.exists():
+            raise SnapshotError(f"snapshot already exists: {snapshot_id}")
+        if not self.verify_integrity(parent_snapshot_id):
+            raise SnapshotError(f"cannot fork a modified snapshot: {parent_snapshot_id}")
         shutil.copytree(parent.tree_path, tree)
 
         manifest = {
@@ -231,10 +279,11 @@ class SnapshotStore:
             parent_snapshot_id=parent.snapshot_id,
             path=target_dir,
             creation_time=time.time(),
-            manifest_hash=hash_manifest(manifest),
+            manifest_hash=parent.manifest_hash,
             manifest=manifest,
             source_reference=source_reference or f"fork:{parent.snapshot_id}",
             metadata=dict(metadata or {}),
+            directories=parent.directories,
         )
         self._write_manifest(info)
         self._cache[snapshot_id] = info
@@ -258,6 +307,7 @@ class SnapshotStore:
     # inspection
     # ------------------------------------------------------------------
     def get(self, snapshot_id: str) -> SnapshotInfo:
+        self._validate_identifier(snapshot_id, "snapshot")
         cached = self._cache.get(snapshot_id)
         if cached is not None:
             return cached
@@ -277,6 +327,7 @@ class SnapshotStore:
             manifest=payload.get("manifest", {}),
             source_reference=payload.get("source_reference"),
             metadata=payload.get("metadata", {}),
+            directories=tuple(payload["directories"]) if "directories" in payload else None,
         )
         self._cache[snapshot_id] = info
         return info
@@ -302,7 +353,10 @@ class SnapshotStore:
 
         left = self.get(left_id)
         right = self.get(right_id)
-        comparison = compare_manifests(left.manifest, right.manifest)
+        comparison = compare_manifests(
+            {**left.manifest, **dict.fromkeys(left.directory_paths(), {"kind": "directory"})},
+            {**right.manifest, **dict.fromkeys(right.directory_paths(), {"kind": "directory"})},
+        )
         comparison["left"] = left_id
         comparison["right"] = right_id
         return comparison
@@ -312,16 +366,31 @@ class SnapshotStore:
 
         info = self.get(snapshot_id)
         manifest: dict[str, dict[str, Any]] = {}
-        for root, _dirs, files in os.walk(info.tree_path):
+        directories: set[str] = set()
+        try:
+            self._entry_stat(info.tree_path, directory=True)
+        except (OSError, SnapshotError):
+            return False
+        for root, dirs, files in os.walk(info.tree_path, onerror=self._walk_error):
             root_path = Path(root)
+            for name in dirs:
+                directory = root_path / name
+                try:
+                    self._entry_stat(directory, directory=True)
+                except SnapshotError:
+                    return False
+                directories.add(directory.relative_to(info.tree_path).as_posix())
             for name in files:
                 file_path = root_path / name
                 relative = file_path.relative_to(info.tree_path).as_posix()
-                manifest[relative] = {
-                    "sha256": fingerprint_file(file_path),
-                    "size": file_path.stat().st_size,
-                }
-        return hash_manifest(manifest) == info.manifest_hash
+                try:
+                    size = self._entry_stat(file_path, directory=False).st_size
+                except SnapshotError:
+                    return False
+                manifest[relative] = {"sha256": fingerprint_file(file_path), "size": size}
+        if directories != info.directory_paths():
+            return False
+        return manifest_hash(manifest, info.directories) == info.manifest_hash
 
     def check_integrity(self, snapshot_id: str, force: bool = False) -> bool:
         """Verify the integrity of a snapshot, caching the result.
@@ -345,6 +414,7 @@ class SnapshotStore:
         if info.path.exists():
             shutil.rmtree(info.path)
         self._cache.pop(snapshot_id, None)
+        self._integrity_cache.pop(snapshot_id, None)
 
     # ------------------------------------------------------------------
     # persistence helpers
@@ -357,6 +427,7 @@ class SnapshotStore:
             parent_snapshot_id=info.parent_snapshot_id,
             creation_time=info.creation_time,
             manifest=info.manifest,
+            directories=info.directories,
             source_reference=info.source_reference,
             metadata=info.metadata,
         )

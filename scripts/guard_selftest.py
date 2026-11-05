@@ -98,16 +98,8 @@ _NEW_MUTATIONS: list[dict[str, Any]] = [
         "name": "绕过检测不再覆盖 stat",
         "clause": "7.2",
         "file": "agentfuse/workspace/reader.py",
-        # os.stat is no longer audited - a tool that only stats a file would
-        # not be detected any more
-        "old": """    "os.scandir",
-    "os.listdir",
-    "os.stat",
-    "os.lstat",
-)""",
-        "new": """    "os.scandir",
-    "os.listdir",
-)""",
+        "old": "    os.stat, os.lstat = watch(original_stat), watch(original_lstat)",
+        "new": "    os.stat, os.lstat = original_stat, original_lstat",
         "expect_audit": "7.2",
         "guards": [
             [
@@ -985,11 +977,7 @@ _LEGACY_MUTATIONS: list[dict[str, Any]] = [
         "name": "deferred 模式不再校验快照完整性",
         "clause": "8.7",
         "file": "agentfuse/runtime/coordinator.py",
-        "old": """            # The **final** integrity check runs in every mode: a snapshot that
-            # was tampered with after the join must not receive a shared
-            # result - not even in the deferred mode (requirement 8.7 and the
-            # correctness checklist of the sharing protocol).
-            if not self._snapshot_is_trustworthy(participant.snapshot_id or "", force=True):
+        "old": """            if not trustworthy(participant.snapshot_id or ""):
                 self._detach_participant_locked(
                     group,
                     participant,
@@ -1013,18 +1001,14 @@ _LEGACY_MUTATIONS: list[dict[str, Any]] = [
         "name": "绕过检测不再覆盖目录列举",
         "clause": "21.3",
         "file": "agentfuse/workspace/reader.py",
-        "old": """    "os.scandir",
-    "os.listdir",
-""",
-        "new": "",
+        "old": 'AUDITED_ACCESS_EVENTS = {"open", "os.scandir", "os.listdir"}',
+        "new": 'AUDITED_ACCESS_EVENTS = {"open"}',
+        "expect_audit": "7.2",
         "guards": [
             [
                 sys.executable,
-                "-m",
-                "pytest",
-                "tests/integration/test_dependency_tracking.py::"
-                "test_a_tool_that_only_lists_directories_is_detected",
-                "-q",
+                "scripts/audit_requirements.py",
+                "--json",
             ],
         ],
     },

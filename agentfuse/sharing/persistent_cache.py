@@ -155,7 +155,7 @@ class PersistentResultCache:
                         snapshot_id=item.get("snapshot_id"),
                     )
                 )
-        except (TypeError, ValueError):
+        except (AttributeError, TypeError, ValueError):
             # a broken entry must not be served
             self.invalidate(candidate_key)
             return None

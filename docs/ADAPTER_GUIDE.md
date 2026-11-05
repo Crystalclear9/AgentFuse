@@ -27,7 +27,9 @@ async def run_framework_tool(home, workspace):
     adapter = ExternalAdapter(workflow)
     try:
         tool = next(item for item in adapter.catalogue() if item["name"] == "source_index")
-        async with adapter.invocation("planner:instance-1", registration_source="my-framework") as invocation:
+        async with adapter.invocation(
+            "planner:instance-1", registration_source="my-framework", identity_confirmed=True
+        ) as invocation:
             result = await adapter.call_tool(
                 invocation.invocation_id,
                 tool["name"],
@@ -42,7 +44,7 @@ async def run_framework_tool(home, workspace):
         await app.close()
 ```
 
-将框架的稳定实例 ID 传给 invocation。该标识在适配器会话内解析到同一 Agent。每次激活都创建独立 Invocation。身份无法确认时调用 invocation() 以建立独立的未确认身份。为多个框架共享同一适配器时，给实例 ID 加上框架命名空间。
+仅在框架能够确认稳定实例 ID 时，调用 bind_agent 或向 invocation 传入 identity_confirmed=True。已确认标签可解析到同一 Agent，每次激活仍创建独立 Invocation。只提供未知标签或不提供标签时，每次激活创建独立的未确认身份。保留内部 agent_id 可以显式引用此前观察到的实例，包括未确认实例。为多个框架共享同一适配器时，给实例 ID 加上框架命名空间。
 
 仅当框架观察到真实父子调用时传 parent_invocation_id。父 Invocation 必须属于同一工作流。一个 Invocation 可以并发等待多次 call_tool，各自返回自己的逻辑调用 ID。退出上下文时自动记录完成、失败或取消。退出前应等待已创建的子任务收尾。
 
@@ -86,14 +88,16 @@ async with adapter.invocation("analyst", registration_source="langchain") as inv
 python -m agentfuse.adapters.external_adapter --home .agentfuse/framework-demo --workspace agentfuse/resources/sample_repository
 ```
 
-每行发送一个 UTF-8 JSON 对象，读取一行回复。单条连接依次处理请求。protocol_version 缺省为 1，request_id 可传字符串或整数，回复会原样带回。使用标准输出传递协议消息，日志从标准错误读取。
+每行发送一个 UTF-8 JSON 对象，每条请求对应一行回复。protocol_version 缺省为 1，request_id 可传字符串或整数，回复会原样带回。使用标准输出传递协议消息，日志从标准错误读取。
+
+同一连接最多并发处理 32 条带 request_id 的 call。先完成各 Agent 的 bind 和 invoke，再连续发送调用，按 request_id 匹配可能乱序到达的回复。请求 ID 在等待回复期间必须唯一。重复的在途 ID 返回不带 ID 的 duplicate_request_id 错误，原请求继续执行。缺少 ID 的调用保持串行。bind、invoke、end 等请求会等待先前提交的调用完成，保持生命周期顺序。
 
 | 请求 type | 必要字段 | 回复 |
 |---|---|---|
 | discover | 无 | catalogue，包含 protocol_version 和 tools。每个条目包含名称、版本、描述、输入和输出 schema |
 | snapshot | 无 | snapshot，包含默认 snapshot_id |
 | bind | 无。可传 external_identity、description、source、metadata、identity_confirmed | bound，包含 agent_id |
-| invoke | agent_id。可传 parent_invocation_id、metadata | invoked，包含 invocation_id。未显式绑定的外部身份按未确认身份处理 |
+| invoke | agent_id。可传 parent_invocation_id、metadata | invoked，包含 invocation_id 和内部 agent_id。未知外部标签每次建立独立的未确认身份 |
 | call | invocation_id、tool。可传 arguments、tool_version、snapshot_id、timeout_seconds | result，包含 logical_call_id、result 元数据和 output 工具输出 |
 | end | invocation_id。可传 status，缺省 COMPLETED，也可用 FAILED 或 CANCELLED | ended，包含 invocation_id |
 
@@ -103,7 +107,7 @@ python -m agentfuse.adapters.external_adapter --home .agentfuse/framework-demo -
 node examples/external_framework/client.mjs python .agentfuse/framework-demo agentfuse/resources/sample_repository
 ```
 
-这份 Node.js 示例实际启动桥接进程，发现工具，使用选定版本在指定工作区运行，并读取工具输出。Python 外部客户端示例位于 examples/external_framework/agent_fwk.py。
+这份 Node.js 示例实际启动桥接进程，让两个 Agent 通过同一连接并发调用选定版本的工具，并打印两条逻辑调用及物理执行 ID。Python 外部客户端示例位于 examples/external_framework/agent_fwk.py。
 
 ## 维护与验收
 

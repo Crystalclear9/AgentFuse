@@ -67,12 +67,19 @@ class ExternalFramework:
         )
 
     def send(self, message: dict) -> dict:
+        return self.send_batch([message])[0]
+
+    def send_batch(self, messages: list[dict]) -> list[dict]:
         assert self.process.stdin is not None and self.process.stdout is not None
-        self.process.stdin.write(json.dumps(message, ensure_ascii=False) + "\n")
+        self.process.stdin.write("".join(json.dumps(message, ensure_ascii=False) + "\n"
+                                         for message in messages))
         self.process.stdin.flush()
-        line = self.process.stdout.readline()
-        assert line, "the framework did not answer"
-        return json.loads(line)
+        replies = []
+        for _ in messages:
+            line = self.process.stdout.readline()
+            assert line, "the framework did not answer"
+            replies.append(json.loads(line))
+        return replies
 
     def close(self) -> None:
         if self.process.stdin is not None:
@@ -176,6 +183,39 @@ def test_the_external_framework_is_recorded_in_the_database(tmp_path: Path):
         framework.close()
 
 
+def test_two_agents_share_a_physical_execution_on_one_connection(tmp_path):
+    import sqlite3
+
+    home = tmp_path / "home"
+    framework = ExternalFramework(home)
+    try:
+        bound = framework.send_batch([
+            {"type": "bind", "external_identity": label} for label in ("planner", "reviewer")
+        ])
+        agents = [reply["agent_id"] for reply in bound]
+        invoked = framework.send_batch([{"type": "invoke", "agent_id": agent} for agent in agents])
+        assert [reply["agent_id"] for reply in invoked] == agents
+        activations = [reply["invocation_id"] for reply in invoked]
+        first, second, ended = framework.send_batch([
+            *({"type": "call", "request_id": request_id, "invocation_id": activation,
+               "tool": "content_digest", "arguments": {"files": ["src/alpha.py"], "rounds": 5000}}
+              for request_id, activation in enumerate(activations)),
+            {"type": "end", "request_id": "end", "invocation_id": activations[0]},
+        ])
+        assert ended == {"type": "ended", "request_id": "end", "invocation_id": activations[0]}
+        assert {first["request_id"], second["request_id"]} == {0, 1}
+        assert first["type"] == second["type"] == "result"
+        assert first["logical_call_id"] != second["logical_call_id"]
+        assert first["output"] == second["output"]
+        assert first["result"]["physical_execution_id"] == second["result"]["physical_execution_id"]
+        framework.send({"type": "end", "invocation_id": activations[1]})
+    finally:
+        framework.close()
+    with sqlite3.connect(home / "db" / "agentfuse.sqlite3") as database:
+        assert database.execute("SELECT COUNT(*) FROM logical_tool_calls").fetchone() == (2,)
+        assert database.execute("SELECT COUNT(*) FROM physical_executions").fetchone() == (1,)
+
+
 def test_the_external_framework_cannot_invent_relations(tmp_path: Path):
     """An unknown invocation is refused and an unknown agent is not merged.
 
@@ -239,7 +279,7 @@ def test_an_automatically_bound_agent_is_undetermined(tmp_path: Path):
     framework = ExternalFramework(tmp_path / "home")
     try:
         framework.send({"type": "invoke", "agent_id": "unknown-one"})
-        framework.send({"type": "invoke", "agent_id": "unknown-two"})
+        framework.send({"type": "invoke", "agent_id": "unknown-one"})
     finally:
         framework.close()
 

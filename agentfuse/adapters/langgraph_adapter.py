@@ -15,10 +15,11 @@ class LangGraphAdapter(ExternalAdapter):
 
         async def node(state: dict, config: RunnableConfig):
             metadata = config.get('metadata', {})
-            identity = node_name or metadata.get('langgraph_node') or tool_name
+            identity = node_name or metadata.get('langgraph_node')
             parent = config.get('configurable', {}).get('agentfuse_parent_invocation_id')
             async with self.invocation(
                 identity, parent_invocation_id=parent, registration_source='langgraph',
+                identity_confirmed=identity is not None,
                 metadata={'framework': 'langgraph', 'node': identity,
                           'step': metadata.get('langgraph_step')},
             ) as invocation:

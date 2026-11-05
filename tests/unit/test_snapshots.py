@@ -75,6 +75,38 @@ def test_fork_creates_an_independent_branch(store, source):
     assert (base.tree_path / "src" / "a.py").read_text(encoding="utf-8") == "a = 1\n"
 
 
+def test_empty_directories_are_copied_compared_and_verified_after_reload(store, source):
+    base = store.create_workspace(source)
+    (source / "empty" / "nested").mkdir(parents=True)
+    snapshot = store.create_workspace(source)
+    reloaded = SnapshotStore(store.root)
+    assert reloaded.verify_integrity(snapshot.snapshot_id)
+    assert (snapshot.tree_path / "empty" / "nested").is_dir()
+    assert reloaded.compare_snapshots(base.snapshot_id, snapshot.snapshot_id)["added"] == [
+        "empty", "empty/nested",
+    ]
+    fork = reloaded.fork_snapshot(snapshot.snapshot_id)
+    assert reloaded.verify_integrity(fork.snapshot_id)
+    (snapshot.tree_path / "empty" / "nested").rmdir()
+    assert not reloaded.verify_integrity(snapshot.snapshot_id)
+    (base.tree_path / "extra").mkdir()
+    assert not reloaded.verify_integrity(base.snapshot_id)
+
+
+def test_legacy_manifest_remains_usable_but_rejects_new_empty_directories(store, source):
+    from agentfuse.workspace.manifest import write_manifest
+
+    info = store.create_workspace(source)
+    write_manifest(info.path / "manifest.json", snapshot_id=info.snapshot_id,
+                   workspace_id=info.workspace_id, parent_snapshot_id=None,
+                   creation_time=info.creation_time, manifest=info.manifest)
+    reopened = SnapshotStore(store.root)
+    assert reopened.verify_integrity(info.snapshot_id)
+    assert reopened.verify_integrity(reopened.fork_snapshot(info.snapshot_id).snapshot_id)
+    (info.tree_path / "new-empty").mkdir()
+    assert not reopened.verify_integrity(info.snapshot_id)
+
+
 def test_compare_snapshots_reports_the_differences(store, source, tmp_path):
     base = store.create_workspace(source)
     other = tmp_path / "other"

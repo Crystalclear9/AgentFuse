@@ -18,6 +18,7 @@ presented as an operating system level sandbox (see
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import time
 from contextlib import contextmanager
@@ -68,58 +69,64 @@ def in_controlled_access() -> bool:
     return bool(getattr(_ACCESS, "active", False))
 
 
-#: The CPython audit events of the file system calls that read the workspace.
-#: ``os.stat`` and ``os.lstat`` **do** raise an audit event, so a tool that
-#: only stats a file is detected as well.  (The earlier note claiming the
-#: opposite was wrong: the events are listed here and the hook reacts to
-#: them.)
-AUDITED_ACCESS_EVENTS = (
-    "open",
-    "os.open",
-    "os.scandir",
-    "os.listdir",
-    "os.stat",
-    "os.lstat",
-)
+AUDITED_ACCESS_EVENTS = {"open", "os.scandir", "os.listdir"}
+_audit_reporter: Callable[[Any], None] | None = None
+_audit_hook_installed = False
 
 
-def install_access_audit_hook(snapshot_root: str | os.PathLike[str]) -> list[str]:
-    """Detect workspace reads that bypass the controlled reader.
+def _access_audit_hook(event: str, args: tuple[Any, ...]) -> None:
+    reporter = _audit_reporter
+    if reporter is not None and event in AUDITED_ACCESS_EVENTS and args:
+        reporter(args[0])
 
-    The hook uses the CPython audit interface (``sys.addaudithook``): every
-    ``open`` **and every directory listing** of a file inside the snapshot
-    that does not happen inside :func:`controlled_access` is recorded.  The
-    returned list is filled while the tool runs.
 
-    This is what turns the declaration of a tool into an *enforced* contract:
-    a tool that reads the workspace directly is detected at runtime and its
-    execution is never shared.  A tool that only **lists** a directory would
-    otherwise produce an incomplete dependency ledger - and its result would
-    be shared although the runtime cannot know what it read.
-    """
+@contextmanager
+def audit_workspace_access(snapshot_root: str | os.PathLike[str]):
+    """Watch Python file access while a worker process executes its one active tool."""
 
-    import sys
-
-    root = os.path.realpath(str(snapshot_root)).lower()
+    global _audit_hook_installed, _audit_reporter
+    if not _audit_hook_installed:
+        sys.addaudithook(_access_audit_hook)
+        _audit_hook_installed = True
+    root = os.path.normcase(os.path.realpath(snapshot_root))
     violations: list[str] = []
 
-    def hook(event: str, args: tuple[Any, ...]) -> None:
-        if event not in AUDITED_ACCESS_EVENTS:
-            return
+    def report(target: Any, *, dir_fd: int | None = None) -> None:
         if in_controlled_access():
             return
-        target = args[0] if args else None
+        if dir_fd is not None:
+            violations.append("stat relative to a directory descriptor")
+            return
         if not isinstance(target, (str, bytes, os.PathLike)):
             return
+        path = os.fsdecode(target)
         try:
-            path = os.path.realpath(os.fsdecode(target)).lower()
-        except Exception:  # pragma: no cover - defensive
+            with controlled_access():
+                absolute = os.path.normcase(os.path.abspath(path))
+                resolved = os.path.normcase(os.path.realpath(path))
+        except (OSError, ValueError):
             return
-        if path.startswith(root + os.sep) or path == root:
-            violations.append(os.fsdecode(target))
+        prefix = root.rstrip(os.sep) + os.sep
+        if absolute == root or absolute.startswith(prefix) or resolved == root or resolved.startswith(prefix):
+            violations.append(path)
 
-    sys.addaudithook(hook)
-    return violations
+    def watch(stat_function):
+        def observed(path, *args, **kwargs):
+            report(path, dir_fd=kwargs.get("dir_fd"))
+            return stat_function(path, *args, **kwargs)
+        return observed
+
+    # CPython emits audit events for open and listings, but not stat/lstat.
+    # These wrappers catch ordinary os and pathlib calls during this execution.
+    previous_reporter = _audit_reporter
+    original_stat, original_lstat = os.stat, os.lstat
+    _audit_reporter = report
+    os.stat, os.lstat = watch(original_stat), watch(original_lstat)
+    try:
+        yield violations
+    finally:
+        os.stat, os.lstat = original_stat, original_lstat
+        _audit_reporter = previous_reporter
 
 
 class WorkspaceBoundaryError(RuntimeError):
@@ -195,7 +202,8 @@ class WorkspaceReader:
         relative = normalize_relative_path(path)
         target = self.root / relative if relative != "." else self.root
         if self.strict_boundary:
-            real = os.path.realpath(target)
+            with controlled_access():
+                real = os.path.realpath(target)
             if real != self._root_real and not real.startswith(self._root_real + os.sep):
                 raise WorkspaceBoundaryError(
                     f"path {relative!r} resolves outside of the workspace root"
@@ -266,20 +274,23 @@ class WorkspaceReader:
 
     def stat(self, path: str | os.PathLike[str]) -> dict[str, Any]:
         relative, target = self._resolve(path)
-        if not target.exists():
+        try:
+            with controlled_access():
+                info = target.stat()
+                is_dir = target.is_dir()
+        except FileNotFoundError:
             self._report(DependencyType.PATH_NOT_EXISTS, relative, fingerprint_existence(False))
-            raise FileNotFoundError(f"path not found in workspace: {relative}")
-        info = target.stat()
+            raise
         self._report(
             DependencyType.FILE_STAT,
             relative,
-            fingerprint_stat(info.st_size, info.st_mtime_ns, target.is_dir()),
+            fingerprint_stat(info.st_size, info.st_mtime_ns, is_dir),
         )
         return {
             "path": relative,
             "size": info.st_size,
             "mtime_ns": info.st_mtime_ns,
-            "is_dir": target.is_dir(),
+            "is_dir": is_dir,
         }
 
     def iter_files(self, root: str | os.PathLike[str] = ".") -> Iterable[str]:

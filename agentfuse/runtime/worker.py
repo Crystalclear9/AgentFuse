@@ -27,7 +27,7 @@ from typing import Any, Callable
 
 from ..tools.base import ToolContext, ToolError
 from ..tools.registry import build_default_registry
-from ..workspace.reader import WorkspaceReader, install_access_audit_hook
+from ..workspace.reader import WorkspaceReader, audit_workspace_access
 from .protocol import (
     ERROR_INTERNAL,
     ERROR_TOOL,
@@ -103,10 +103,9 @@ def execute_tool(payload: dict[str, Any], reporter: DependencyReporter) -> dict[
         arguments=payload.get("arguments") or {},
         rng=_call_random(payload),
     )
-    violations = install_access_audit_hook(payload["snapshot_root"])
-
     try:
-        result = spec.implementation(context)
+        with audit_workspace_access(payload["snapshot_root"]) as violations:
+            result = spec.implementation(context)
     except ToolError as exc:
         return error_message(
             ERROR_TOOL, str(exc), traceback.format_exc(), time.process_time() - cpu_start

@@ -13,30 +13,57 @@ let startupError;
 child.on('error', (error) => { startupError = error; });
 child.stdin.on('error', (error) => { startupError ??= error; });
 const closed = new Promise((resolve) => child.once('close', resolve));
-const lines = createInterface({ input: child.stdout })[Symbol.asyncIterator]();
+const lines = createInterface({ input: child.stdout });
+const waiting = new Map();
 let nextId = 0;
 
-async function request(message) {
+const responses = (async () => {
+  try {
+    for await (const line of lines) {
+      const reply = JSON.parse(line);
+      const pending = waiting.get(reply.request_id);
+      if (!pending) throw new Error(reply.message ?? 'unexpected response ID');
+      waiting.delete(reply.request_id);
+      if (reply.type === 'error') {
+        pending.reject(new Error(`${reply.code}: ${reply.message}`));
+      } else {
+        pending.resolve(reply);
+      }
+    }
+  } catch (error) {
+    startupError ??= error;
+  } finally {
+    startupError ??= new Error('AgentFuse closed the protocol stream');
+    for (const pending of waiting.values()) pending.reject(startupError);
+    waiting.clear();
+  }
+})();
+
+function request(message) {
+  if (startupError) return Promise.reject(startupError);
   const requestId = ++nextId;
-  child.stdin.write(`${JSON.stringify({ ...message, protocol_version: 1, request_id: requestId })}\n`);
-  const { value, done } = await lines.next();
-  if (done) throw startupError ?? new Error('AgentFuse closed the protocol stream');
-  const reply = JSON.parse(value);
-  if (reply.request_id !== requestId) throw new Error('unexpected response ID');
-  if (reply.type === 'error') throw new Error(`${reply.code}: ${reply.message}`);
-  return reply;
+  return new Promise((resolve, reject) => {
+    waiting.set(requestId, { resolve, reject });
+    child.stdin.write(`${JSON.stringify({ ...message, protocol_version: 1, request_id: requestId })}\n`);
+  });
 }
 
 try {
   const catalogue = await request({ type: 'discover' });
   const tool = catalogue.tools.find((item) => item.name === 'source_index');
-  const { invocation_id } = await request({ type: 'invoke', agent_id: 'node-source-inspector' });
-  const result = await request({ type: 'call', invocation_id, tool: tool.name,
-    tool_version: tool.version, arguments: { root: '.' } });
-  await request({ type: 'end', invocation_id });
-  console.log(JSON.stringify({ tool: tool.name, output: result.output, call: result.result }));
+  const invocations = await Promise.all(['planner', 'reviewer'].map(async (label) => {
+    const agent = await request({ type: 'bind', external_identity: label });
+    return request({ type: 'invoke', agent_id: agent.agent_id });
+  }));
+  const [first, second] = await Promise.all(invocations.map(({ invocation_id }) =>
+    request({ type: 'call', invocation_id, tool: tool.name,
+      tool_version: tool.version, arguments: { root: '.' } })));
+  await Promise.all(invocations.map(({ invocation_id }) => request({ type: 'end', invocation_id })));
+  console.log(JSON.stringify({ tool: tool.name, output: first.output,
+    call: first.result, second_call: second.result }));
 } finally {
   child.stdin.end();
   const code = await closed;
+  await responses;
   if (code !== 0) process.exitCode = 1;
 }
