@@ -294,7 +294,7 @@ MIT，见 [LICENSE](LICENSE)。
 
 ## 13. 可选 P2 扩展
 
-已提供远程 Worker 流式执行、参考注意力推理与 KV 前缀缓存、下一工具概率预测、Docker 第三方命令隔离。
+已提供远程 Worker、真实 GGUF 预训练模型 CPU/GPU 推理与原生 KV 管理、LangGraph 自动节点适配、Agent 路径预测和 Linux 容器原生系统调用审计。
 运行 `python -m agentfuse.extensions inference-demo` 可直接对比真实推理计算；其默认权重是未训练夹具。
 远程执行与隔离命令的配置、测试及支持边界见 [P2_EXTENSIONS.md](docs/P2_EXTENSIONS.md)。
-生产 LLM/GPU 推理、跨 Agent 全路径预测、任意程序完备追踪和绝对通用沙箱仍不能宣称全部完成。
+本轮 P2 按用户确认的支持范围交付：框架实接为 LangGraph，第三方工具为 Linux 容器命令；边界与实际验收见 [P2_COMPLETION.md](docs/P2_COMPLETION.md)。

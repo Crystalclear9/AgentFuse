@@ -1,0 +1,1728 @@
+{
+  "scenario": "shared",
+  "minutes": 10.0,
+  "workers": 2,
+  "iterations": 1215,
+  "physical_executions": 1215,
+  "errors": 0,
+  "samples": [
+    {
+      "label": "start",
+      "timestamp": 1793853905.8619437,
+      "workers": 0,
+      "worker_rss_mb": 0.0,
+      "processes": 595
+    },
+    {
+      "label": "iteration 5",
+      "timestamp": 1793853908.7038615,
+      "workers": 2,
+      "worker_rss_mb": 47.05,
+      "processes": 589
+    },
+    {
+      "label": "iteration 10",
+      "timestamp": 1793853911.651585,
+      "workers": 2,
+      "worker_rss_mb": 47.05,
+      "processes": 586
+    },
+    {
+      "label": "iteration 15",
+      "timestamp": 1793853914.3415053,
+      "workers": 2,
+      "worker_rss_mb": 47.06,
+      "processes": 613
+    },
+    {
+      "label": "iteration 20",
+      "timestamp": 1793853917.0019095,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 618
+    },
+    {
+      "label": "iteration 25",
+      "timestamp": 1793853919.9623475,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 584
+    },
+    {
+      "label": "iteration 30",
+      "timestamp": 1793853922.21853,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 584
+    },
+    {
+      "label": "iteration 35",
+      "timestamp": 1793853924.945685,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 599
+    },
+    {
+      "label": "iteration 40",
+      "timestamp": 1793853927.6055458,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 590
+    },
+    {
+      "label": "iteration 45",
+      "timestamp": 1793853930.5051644,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 592
+    },
+    {
+      "label": "iteration 50",
+      "timestamp": 1793853933.4464264,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 603
+    },
+    {
+      "label": "iteration 55",
+      "timestamp": 1793853935.9799814,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 598
+    },
+    {
+      "label": "iteration 60",
+      "timestamp": 1793853938.8352866,
+      "workers": 2,
+      "worker_rss_mb": 47.5,
+      "processes": 611
+    },
+    {
+      "label": "iteration 65",
+      "timestamp": 1793853941.6392868,
+      "workers": 2,
+      "worker_rss_mb": 47.5,
+      "processes": 629
+    },
+    {
+      "label": "iteration 70",
+      "timestamp": 1793853944.5179296,
+      "workers": 2,
+      "worker_rss_mb": 47.5,
+      "processes": 595
+    },
+    {
+      "label": "iteration 75",
+      "timestamp": 1793853947.3598936,
+      "workers": 2,
+      "worker_rss_mb": 47.5,
+      "processes": 599
+    },
+    {
+      "label": "iteration 80",
+      "timestamp": 1793853950.1628819,
+      "workers": 2,
+      "worker_rss_mb": 47.5,
+      "processes": 606
+    },
+    {
+      "label": "iteration 85",
+      "timestamp": 1793853953.161838,
+      "workers": 2,
+      "worker_rss_mb": 47.5,
+      "processes": 596
+    },
+    {
+      "label": "iteration 90",
+      "timestamp": 1793853956.3155434,
+      "workers": 2,
+      "worker_rss_mb": 47.5,
+      "processes": 605
+    },
+    {
+      "label": "iteration 95",
+      "timestamp": 1793853959.039289,
+      "workers": 2,
+      "worker_rss_mb": 47.51,
+      "processes": 592
+    },
+    {
+      "label": "iteration 100",
+      "timestamp": 1793853961.8787866,
+      "workers": 2,
+      "worker_rss_mb": 47.51,
+      "processes": 607
+    },
+    {
+      "label": "iteration 105",
+      "timestamp": 1793853964.6717672,
+      "workers": 2,
+      "worker_rss_mb": 47.51,
+      "processes": 605
+    },
+    {
+      "label": "iteration 110",
+      "timestamp": 1793853967.431354,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 597
+    },
+    {
+      "label": "iteration 115",
+      "timestamp": 1793853970.3114247,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 595
+    },
+    {
+      "label": "iteration 120",
+      "timestamp": 1793853973.306683,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 594
+    },
+    {
+      "label": "iteration 125",
+      "timestamp": 1793853976.5693195,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 591
+    },
+    {
+      "label": "iteration 130",
+      "timestamp": 1793853979.1851356,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 597
+    },
+    {
+      "label": "iteration 135",
+      "timestamp": 1793853982.6728053,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 610
+    },
+    {
+      "label": "iteration 140",
+      "timestamp": 1793853985.9492233,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 589
+    },
+    {
+      "label": "iteration 145",
+      "timestamp": 1793853988.7905018,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 591
+    },
+    {
+      "label": "iteration 150",
+      "timestamp": 1793853991.7766597,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 583
+    },
+    {
+      "label": "iteration 155",
+      "timestamp": 1793853994.6465206,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 603
+    },
+    {
+      "label": "iteration 160",
+      "timestamp": 1793853997.475995,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 589
+    },
+    {
+      "label": "iteration 165",
+      "timestamp": 1793854000.1697595,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 582
+    },
+    {
+      "label": "iteration 170",
+      "timestamp": 1793854002.9884937,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 607
+    },
+    {
+      "label": "iteration 175",
+      "timestamp": 1793854006.1467617,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 623
+    },
+    {
+      "label": "iteration 180",
+      "timestamp": 1793854009.4490533,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 609
+    },
+    {
+      "label": "iteration 185",
+      "timestamp": 1793854012.2594187,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 589
+    },
+    {
+      "label": "iteration 190",
+      "timestamp": 1793854015.257294,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 590
+    },
+    {
+      "label": "iteration 195",
+      "timestamp": 1793854018.810252,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 603
+    },
+    {
+      "label": "iteration 200",
+      "timestamp": 1793854021.7933898,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 596
+    },
+    {
+      "label": "iteration 205",
+      "timestamp": 1793854024.9522805,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 620
+    },
+    {
+      "label": "iteration 210",
+      "timestamp": 1793854028.3478265,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 605
+    },
+    {
+      "label": "iteration 215",
+      "timestamp": 1793854032.269322,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 605
+    },
+    {
+      "label": "iteration 220",
+      "timestamp": 1793854035.4918182,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 588
+    },
+    {
+      "label": "iteration 225",
+      "timestamp": 1793854038.3838987,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 590
+    },
+    {
+      "label": "iteration 230",
+      "timestamp": 1793854041.3789206,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 603
+    },
+    {
+      "label": "iteration 235",
+      "timestamp": 1793854043.984619,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 594
+    },
+    {
+      "label": "iteration 240",
+      "timestamp": 1793854046.7472634,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 592
+    },
+    {
+      "label": "iteration 245",
+      "timestamp": 1793854049.6687105,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 588
+    },
+    {
+      "label": "iteration 250",
+      "timestamp": 1793854052.8813834,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 589
+    },
+    {
+      "label": "iteration 255",
+      "timestamp": 1793854056.444852,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 612
+    },
+    {
+      "label": "iteration 260",
+      "timestamp": 1793854059.7764652,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 612
+    },
+    {
+      "label": "iteration 265",
+      "timestamp": 1793854063.1604998,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 586
+    },
+    {
+      "label": "iteration 270",
+      "timestamp": 1793854066.2356734,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 602
+    },
+    {
+      "label": "iteration 275",
+      "timestamp": 1793854068.9472635,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 589
+    },
+    {
+      "label": "iteration 280",
+      "timestamp": 1793854071.2077048,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 592
+    },
+    {
+      "label": "iteration 285",
+      "timestamp": 1793854074.0877025,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 600
+    },
+    {
+      "label": "iteration 290",
+      "timestamp": 1793854076.723964,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 588
+    },
+    {
+      "label": "iteration 295",
+      "timestamp": 1793854079.2254415,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 587
+    },
+    {
+      "label": "iteration 300",
+      "timestamp": 1793854082.1169405,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 592
+    },
+    {
+      "label": "iteration 305",
+      "timestamp": 1793854084.774425,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 610
+    },
+    {
+      "label": "iteration 310",
+      "timestamp": 1793854087.5438766,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 590
+    },
+    {
+      "label": "iteration 315",
+      "timestamp": 1793854090.0183313,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 588
+    },
+    {
+      "label": "iteration 320",
+      "timestamp": 1793854092.9981637,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 610
+    },
+    {
+      "label": "iteration 325",
+      "timestamp": 1793854095.7055457,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 595
+    },
+    {
+      "label": "iteration 330",
+      "timestamp": 1793854098.258304,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 584
+    },
+    {
+      "label": "iteration 335",
+      "timestamp": 1793854100.8941708,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 586
+    },
+    {
+      "label": "iteration 340",
+      "timestamp": 1793854103.137658,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 586
+    },
+    {
+      "label": "iteration 345",
+      "timestamp": 1793854105.2888598,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 585
+    },
+    {
+      "label": "iteration 350",
+      "timestamp": 1793854107.926951,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 586
+    },
+    {
+      "label": "iteration 355",
+      "timestamp": 1793854110.2264585,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 586
+    },
+    {
+      "label": "iteration 360",
+      "timestamp": 1793854112.6363323,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 586
+    },
+    {
+      "label": "iteration 365",
+      "timestamp": 1793854114.8373055,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 586
+    },
+    {
+      "label": "iteration 370",
+      "timestamp": 1793854117.017235,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 583
+    },
+    {
+      "label": "iteration 375",
+      "timestamp": 1793854119.3859751,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 588
+    },
+    {
+      "label": "iteration 380",
+      "timestamp": 1793854121.4259229,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 588
+    },
+    {
+      "label": "iteration 385",
+      "timestamp": 1793854123.4256103,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 588
+    },
+    {
+      "label": "iteration 390",
+      "timestamp": 1793854125.4827807,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 586
+    },
+    {
+      "label": "iteration 395",
+      "timestamp": 1793854127.712903,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 585
+    },
+    {
+      "label": "iteration 400",
+      "timestamp": 1793854130.003254,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 586
+    },
+    {
+      "label": "iteration 405",
+      "timestamp": 1793854132.45037,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 587
+    },
+    {
+      "label": "iteration 410",
+      "timestamp": 1793854134.838562,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 586
+    },
+    {
+      "label": "iteration 415",
+      "timestamp": 1793854137.4313505,
+      "workers": 2,
+      "worker_rss_mb": 47.37,
+      "processes": 588
+    },
+    {
+      "label": "iteration 420",
+      "timestamp": 1793854139.8451428,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 587
+    },
+    {
+      "label": "iteration 425",
+      "timestamp": 1793854142.1817365,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 596
+    },
+    {
+      "label": "iteration 430",
+      "timestamp": 1793854144.8141723,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 605
+    },
+    {
+      "label": "iteration 435",
+      "timestamp": 1793854147.143451,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 598
+    },
+    {
+      "label": "iteration 440",
+      "timestamp": 1793854149.5806549,
+      "workers": 2,
+      "worker_rss_mb": 47.4,
+      "processes": 611
+    },
+    {
+      "label": "iteration 445",
+      "timestamp": 1793854152.5252128,
+      "workers": 2,
+      "worker_rss_mb": 47.4,
+      "processes": 598
+    },
+    {
+      "label": "iteration 450",
+      "timestamp": 1793854155.611598,
+      "workers": 2,
+      "worker_rss_mb": 46.59,
+      "processes": 601
+    },
+    {
+      "label": "iteration 455",
+      "timestamp": 1793854158.5895908,
+      "workers": 2,
+      "worker_rss_mb": 46.59,
+      "processes": 602
+    },
+    {
+      "label": "iteration 460",
+      "timestamp": 1793854161.806333,
+      "workers": 2,
+      "worker_rss_mb": 46.65,
+      "processes": 605
+    },
+    {
+      "label": "iteration 465",
+      "timestamp": 1793854165.6444666,
+      "workers": 2,
+      "worker_rss_mb": 46.65,
+      "processes": 620
+    },
+    {
+      "label": "iteration 470",
+      "timestamp": 1793854173.8283188,
+      "workers": 2,
+      "worker_rss_mb": 46.65,
+      "processes": 617
+    },
+    {
+      "label": "iteration 475",
+      "timestamp": 1793854176.7176204,
+      "workers": 2,
+      "worker_rss_mb": 46.65,
+      "processes": 610
+    },
+    {
+      "label": "iteration 480",
+      "timestamp": 1793854179.2370033,
+      "workers": 2,
+      "worker_rss_mb": 46.65,
+      "processes": 612
+    },
+    {
+      "label": "iteration 485",
+      "timestamp": 1793854181.9284842,
+      "workers": 2,
+      "worker_rss_mb": 46.65,
+      "processes": 612
+    },
+    {
+      "label": "iteration 490",
+      "timestamp": 1793854184.4176462,
+      "workers": 2,
+      "worker_rss_mb": 46.65,
+      "processes": 612
+    },
+    {
+      "label": "iteration 495",
+      "timestamp": 1793854186.8792348,
+      "workers": 2,
+      "worker_rss_mb": 47.05,
+      "processes": 609
+    },
+    {
+      "label": "iteration 500",
+      "timestamp": 1793854190.0103917,
+      "workers": 2,
+      "worker_rss_mb": 47.05,
+      "processes": 606
+    },
+    {
+      "label": "iteration 505",
+      "timestamp": 1793854192.9388978,
+      "workers": 2,
+      "worker_rss_mb": 47.05,
+      "processes": 604
+    },
+    {
+      "label": "iteration 510",
+      "timestamp": 1793854195.335649,
+      "workers": 2,
+      "worker_rss_mb": 47.05,
+      "processes": 606
+    },
+    {
+      "label": "iteration 515",
+      "timestamp": 1793854197.654843,
+      "workers": 2,
+      "worker_rss_mb": 47.06,
+      "processes": 606
+    },
+    {
+      "label": "iteration 520",
+      "timestamp": 1793854199.8237352,
+      "workers": 2,
+      "worker_rss_mb": 47.07,
+      "processes": 603
+    },
+    {
+      "label": "iteration 525",
+      "timestamp": 1793854202.3464663,
+      "workers": 2,
+      "worker_rss_mb": 47.07,
+      "processes": 605
+    },
+    {
+      "label": "iteration 530",
+      "timestamp": 1793854204.7916074,
+      "workers": 2,
+      "worker_rss_mb": 47.07,
+      "processes": 606
+    },
+    {
+      "label": "iteration 535",
+      "timestamp": 1793854207.0770032,
+      "workers": 2,
+      "worker_rss_mb": 47.26,
+      "processes": 606
+    },
+    {
+      "label": "iteration 540",
+      "timestamp": 1793854209.398744,
+      "workers": 2,
+      "worker_rss_mb": 47.26,
+      "processes": 605
+    },
+    {
+      "label": "iteration 545",
+      "timestamp": 1793854211.5311909,
+      "workers": 2,
+      "worker_rss_mb": 47.26,
+      "processes": 602
+    },
+    {
+      "label": "iteration 550",
+      "timestamp": 1793854214.0429025,
+      "workers": 2,
+      "worker_rss_mb": 47.26,
+      "processes": 605
+    },
+    {
+      "label": "iteration 555",
+      "timestamp": 1793854216.6004643,
+      "workers": 2,
+      "worker_rss_mb": 47.26,
+      "processes": 603
+    },
+    {
+      "label": "iteration 560",
+      "timestamp": 1793854219.0092099,
+      "workers": 2,
+      "worker_rss_mb": 47.26,
+      "processes": 603
+    },
+    {
+      "label": "iteration 565",
+      "timestamp": 1793854221.5298214,
+      "workers": 2,
+      "worker_rss_mb": 47.26,
+      "processes": 606
+    },
+    {
+      "label": "iteration 570",
+      "timestamp": 1793854223.8055754,
+      "workers": 2,
+      "worker_rss_mb": 47.27,
+      "processes": 608
+    },
+    {
+      "label": "iteration 575",
+      "timestamp": 1793854226.0704808,
+      "workers": 2,
+      "worker_rss_mb": 47.27,
+      "processes": 605
+    },
+    {
+      "label": "iteration 580",
+      "timestamp": 1793854228.237167,
+      "workers": 2,
+      "worker_rss_mb": 47.27,
+      "processes": 604
+    },
+    {
+      "label": "iteration 585",
+      "timestamp": 1793854230.3177977,
+      "workers": 2,
+      "worker_rss_mb": 47.27,
+      "processes": 603
+    },
+    {
+      "label": "iteration 590",
+      "timestamp": 1793854232.4532413,
+      "workers": 2,
+      "worker_rss_mb": 47.27,
+      "processes": 603
+    },
+    {
+      "label": "iteration 595",
+      "timestamp": 1793854234.8339567,
+      "workers": 2,
+      "worker_rss_mb": 47.28,
+      "processes": 603
+    },
+    {
+      "label": "iteration 600",
+      "timestamp": 1793854237.2657256,
+      "workers": 2,
+      "worker_rss_mb": 47.28,
+      "processes": 602
+    },
+    {
+      "label": "iteration 605",
+      "timestamp": 1793854239.7339258,
+      "workers": 2,
+      "worker_rss_mb": 47.28,
+      "processes": 603
+    },
+    {
+      "label": "iteration 610",
+      "timestamp": 1793854241.92473,
+      "workers": 2,
+      "worker_rss_mb": 47.28,
+      "processes": 602
+    },
+    {
+      "label": "iteration 615",
+      "timestamp": 1793854244.3224049,
+      "workers": 2,
+      "worker_rss_mb": 47.29,
+      "processes": 606
+    },
+    {
+      "label": "iteration 620",
+      "timestamp": 1793854246.6980975,
+      "workers": 2,
+      "worker_rss_mb": 47.29,
+      "processes": 602
+    },
+    {
+      "label": "iteration 625",
+      "timestamp": 1793854248.871889,
+      "workers": 2,
+      "worker_rss_mb": 47.3,
+      "processes": 599
+    },
+    {
+      "label": "iteration 630",
+      "timestamp": 1793854251.1332617,
+      "workers": 2,
+      "worker_rss_mb": 47.3,
+      "processes": 602
+    },
+    {
+      "label": "iteration 635",
+      "timestamp": 1793854253.5071552,
+      "workers": 2,
+      "worker_rss_mb": 47.3,
+      "processes": 603
+    },
+    {
+      "label": "iteration 640",
+      "timestamp": 1793854255.8712506,
+      "workers": 2,
+      "worker_rss_mb": 47.3,
+      "processes": 602
+    },
+    {
+      "label": "iteration 645",
+      "timestamp": 1793854258.3211749,
+      "workers": 2,
+      "worker_rss_mb": 47.3,
+      "processes": 604
+    },
+    {
+      "label": "iteration 650",
+      "timestamp": 1793854260.4472756,
+      "workers": 2,
+      "worker_rss_mb": 47.3,
+      "processes": 600
+    },
+    {
+      "label": "iteration 655",
+      "timestamp": 1793854262.7644577,
+      "workers": 2,
+      "worker_rss_mb": 47.3,
+      "processes": 601
+    },
+    {
+      "label": "iteration 660",
+      "timestamp": 1793854265.2535934,
+      "workers": 2,
+      "worker_rss_mb": 47.3,
+      "processes": 602
+    },
+    {
+      "label": "iteration 665",
+      "timestamp": 1793854267.4889462,
+      "workers": 2,
+      "worker_rss_mb": 47.3,
+      "processes": 602
+    },
+    {
+      "label": "iteration 670",
+      "timestamp": 1793854270.0160599,
+      "workers": 2,
+      "worker_rss_mb": 47.31,
+      "processes": 602
+    },
+    {
+      "label": "iteration 675",
+      "timestamp": 1793854272.3317993,
+      "workers": 2,
+      "worker_rss_mb": 47.31,
+      "processes": 603
+    },
+    {
+      "label": "iteration 680",
+      "timestamp": 1793854274.8669367,
+      "workers": 2,
+      "worker_rss_mb": 47.31,
+      "processes": 602
+    },
+    {
+      "label": "iteration 685",
+      "timestamp": 1793854277.407347,
+      "workers": 2,
+      "worker_rss_mb": 47.31,
+      "processes": 603
+    },
+    {
+      "label": "iteration 690",
+      "timestamp": 1793854279.8291502,
+      "workers": 2,
+      "worker_rss_mb": 47.32,
+      "processes": 602
+    },
+    {
+      "label": "iteration 695",
+      "timestamp": 1793854282.151914,
+      "workers": 2,
+      "worker_rss_mb": 47.33,
+      "processes": 604
+    },
+    {
+      "label": "iteration 700",
+      "timestamp": 1793854284.5710533,
+      "workers": 2,
+      "worker_rss_mb": 47.33,
+      "processes": 603
+    },
+    {
+      "label": "iteration 705",
+      "timestamp": 1793854287.0494084,
+      "workers": 2,
+      "worker_rss_mb": 47.33,
+      "processes": 601
+    },
+    {
+      "label": "iteration 710",
+      "timestamp": 1793854289.5153694,
+      "workers": 2,
+      "worker_rss_mb": 47.33,
+      "processes": 601
+    },
+    {
+      "label": "iteration 715",
+      "timestamp": 1793854291.845428,
+      "workers": 2,
+      "worker_rss_mb": 47.33,
+      "processes": 602
+    },
+    {
+      "label": "iteration 720",
+      "timestamp": 1793854293.9123955,
+      "workers": 2,
+      "worker_rss_mb": 47.33,
+      "processes": 600
+    },
+    {
+      "label": "iteration 725",
+      "timestamp": 1793854296.0168157,
+      "workers": 2,
+      "worker_rss_mb": 47.35,
+      "processes": 600
+    },
+    {
+      "label": "iteration 730",
+      "timestamp": 1793854298.3797607,
+      "workers": 2,
+      "worker_rss_mb": 47.35,
+      "processes": 603
+    },
+    {
+      "label": "iteration 735",
+      "timestamp": 1793854300.9612987,
+      "workers": 2,
+      "worker_rss_mb": 47.35,
+      "processes": 604
+    },
+    {
+      "label": "iteration 740",
+      "timestamp": 1793854303.4098032,
+      "workers": 2,
+      "worker_rss_mb": 47.35,
+      "processes": 603
+    },
+    {
+      "label": "iteration 745",
+      "timestamp": 1793854306.044584,
+      "workers": 2,
+      "worker_rss_mb": 47.35,
+      "processes": 607
+    },
+    {
+      "label": "iteration 750",
+      "timestamp": 1793854308.323297,
+      "workers": 2,
+      "worker_rss_mb": 47.34,
+      "processes": 602
+    },
+    {
+      "label": "iteration 755",
+      "timestamp": 1793854310.908705,
+      "workers": 2,
+      "worker_rss_mb": 47.34,
+      "processes": 602
+    },
+    {
+      "label": "iteration 760",
+      "timestamp": 1793854313.2634754,
+      "workers": 2,
+      "worker_rss_mb": 47.34,
+      "processes": 602
+    },
+    {
+      "label": "iteration 765",
+      "timestamp": 1793854315.783438,
+      "workers": 2,
+      "worker_rss_mb": 47.34,
+      "processes": 603
+    },
+    {
+      "label": "iteration 770",
+      "timestamp": 1793854318.2464762,
+      "workers": 2,
+      "worker_rss_mb": 47.35,
+      "processes": 607
+    },
+    {
+      "label": "iteration 775",
+      "timestamp": 1793854321.1012251,
+      "workers": 2,
+      "worker_rss_mb": 47.35,
+      "processes": 602
+    },
+    {
+      "label": "iteration 780",
+      "timestamp": 1793854324.221105,
+      "workers": 2,
+      "worker_rss_mb": 47.35,
+      "processes": 604
+    },
+    {
+      "label": "iteration 785",
+      "timestamp": 1793854327.3851027,
+      "workers": 2,
+      "worker_rss_mb": 47.35,
+      "processes": 602
+    },
+    {
+      "label": "iteration 790",
+      "timestamp": 1793854329.9537692,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 597
+    },
+    {
+      "label": "iteration 795",
+      "timestamp": 1793854332.7304401,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 598
+    },
+    {
+      "label": "iteration 800",
+      "timestamp": 1793854334.9282587,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 588
+    },
+    {
+      "label": "iteration 805",
+      "timestamp": 1793854337.1791883,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 592
+    },
+    {
+      "label": "iteration 810",
+      "timestamp": 1793854339.4186428,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 593
+    },
+    {
+      "label": "iteration 815",
+      "timestamp": 1793854341.6757634,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 597
+    },
+    {
+      "label": "iteration 820",
+      "timestamp": 1793854343.357419,
+      "workers": 2,
+      "worker_rss_mb": 47.36,
+      "processes": 596
+    },
+    {
+      "label": "iteration 825",
+      "timestamp": 1793854345.5851424,
+      "workers": 2,
+      "worker_rss_mb": 47.38,
+      "processes": 593
+    },
+    {
+      "label": "iteration 830",
+      "timestamp": 1793854348.4774826,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 591
+    },
+    {
+      "label": "iteration 835",
+      "timestamp": 1793854350.6514988,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 588
+    },
+    {
+      "label": "iteration 840",
+      "timestamp": 1793854353.1718204,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 590
+    },
+    {
+      "label": "iteration 845",
+      "timestamp": 1793854356.019079,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 591
+    },
+    {
+      "label": "iteration 850",
+      "timestamp": 1793854359.0080287,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 593
+    },
+    {
+      "label": "iteration 855",
+      "timestamp": 1793854361.231988,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 590
+    },
+    {
+      "label": "iteration 860",
+      "timestamp": 1793854363.3249404,
+      "workers": 2,
+      "worker_rss_mb": 47.39,
+      "processes": 594
+    },
+    {
+      "label": "iteration 865",
+      "timestamp": 1793854366.6014917,
+      "workers": 2,
+      "worker_rss_mb": 47.4,
+      "processes": 591
+    },
+    {
+      "label": "iteration 870",
+      "timestamp": 1793854369.4974499,
+      "workers": 2,
+      "worker_rss_mb": 47.4,
+      "processes": 591
+    },
+    {
+      "label": "iteration 875",
+      "timestamp": 1793854372.3976164,
+      "workers": 2,
+      "worker_rss_mb": 47.4,
+      "processes": 589
+    },
+    {
+      "label": "iteration 880",
+      "timestamp": 1793854375.161152,
+      "workers": 2,
+      "worker_rss_mb": 47.4,
+      "processes": 589
+    },
+    {
+      "label": "iteration 885",
+      "timestamp": 1793854377.7467234,
+      "workers": 2,
+      "worker_rss_mb": 47.4,
+      "processes": 590
+    },
+    {
+      "label": "iteration 890",
+      "timestamp": 1793854379.5725908,
+      "workers": 2,
+      "worker_rss_mb": 47.4,
+      "processes": 591
+    },
+    {
+      "label": "iteration 895",
+      "timestamp": 1793854381.5162497,
+      "workers": 2,
+      "worker_rss_mb": 47.41,
+      "processes": 591
+    },
+    {
+      "label": "iteration 900",
+      "timestamp": 1793854383.1662028,
+      "workers": 2,
+      "worker_rss_mb": 47.41,
+      "processes": 589
+    },
+    {
+      "label": "iteration 905",
+      "timestamp": 1793854386.2669232,
+      "workers": 2,
+      "worker_rss_mb": 47.41,
+      "processes": 592
+    },
+    {
+      "label": "iteration 910",
+      "timestamp": 1793854389.6998112,
+      "workers": 2,
+      "worker_rss_mb": 47.41,
+      "processes": 591
+    },
+    {
+      "label": "iteration 915",
+      "timestamp": 1793854392.797803,
+      "workers": 2,
+      "worker_rss_mb": 47.41,
+      "processes": 589
+    },
+    {
+      "label": "iteration 920",
+      "timestamp": 1793854395.2055423,
+      "workers": 2,
+      "worker_rss_mb": 47.41,
+      "processes": 591
+    },
+    {
+      "label": "iteration 925",
+      "timestamp": 1793854397.2751281,
+      "workers": 2,
+      "worker_rss_mb": 47.42,
+      "processes": 591
+    },
+    {
+      "label": "iteration 930",
+      "timestamp": 1793854399.324155,
+      "workers": 2,
+      "worker_rss_mb": 47.43,
+      "processes": 587
+    },
+    {
+      "label": "iteration 935",
+      "timestamp": 1793854400.9143643,
+      "workers": 2,
+      "worker_rss_mb": 47.43,
+      "processes": 586
+    },
+    {
+      "label": "iteration 940",
+      "timestamp": 1793854402.6062987,
+      "workers": 2,
+      "worker_rss_mb": 47.43,
+      "processes": 586
+    },
+    {
+      "label": "iteration 945",
+      "timestamp": 1793854404.3163044,
+      "workers": 2,
+      "worker_rss_mb": 47.43,
+      "processes": 582
+    },
+    {
+      "label": "iteration 950",
+      "timestamp": 1793854406.1762314,
+      "workers": 2,
+      "worker_rss_mb": 47.43,
+      "processes": 584
+    },
+    {
+      "label": "iteration 955",
+      "timestamp": 1793854408.0466337,
+      "workers": 2,
+      "worker_rss_mb": 47.43,
+      "processes": 584
+    },
+    {
+      "label": "iteration 960",
+      "timestamp": 1793854409.9898193,
+      "workers": 2,
+      "worker_rss_mb": 47.44,
+      "processes": 584
+    },
+    {
+      "label": "iteration 965",
+      "timestamp": 1793854411.9435627,
+      "workers": 2,
+      "worker_rss_mb": 47.44,
+      "processes": 583
+    },
+    {
+      "label": "iteration 970",
+      "timestamp": 1793854413.6408389,
+      "workers": 2,
+      "worker_rss_mb": 47.44,
+      "processes": 582
+    },
+    {
+      "label": "iteration 975",
+      "timestamp": 1793854415.4817152,
+      "workers": 2,
+      "worker_rss_mb": 47.45,
+      "processes": 584
+    },
+    {
+      "label": "iteration 980",
+      "timestamp": 1793854417.5040298,
+      "workers": 2,
+      "worker_rss_mb": 47.45,
+      "processes": 584
+    },
+    {
+      "label": "iteration 985",
+      "timestamp": 1793854419.0930061,
+      "workers": 2,
+      "worker_rss_mb": 47.45,
+      "processes": 582
+    },
+    {
+      "label": "iteration 990",
+      "timestamp": 1793854420.847234,
+      "workers": 2,
+      "worker_rss_mb": 47.45,
+      "processes": 586
+    },
+    {
+      "label": "iteration 995",
+      "timestamp": 1793854422.3824072,
+      "workers": 2,
+      "worker_rss_mb": 47.45,
+      "processes": 587
+    },
+    {
+      "label": "iteration 1000",
+      "timestamp": 1793854424.1143057,
+      "workers": 2,
+      "worker_rss_mb": 47.45,
+      "processes": 588
+    },
+    {
+      "label": "iteration 1005",
+      "timestamp": 1793854425.7014217,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 593
+    },
+    {
+      "label": "iteration 1010",
+      "timestamp": 1793854427.646783,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 593
+    },
+    {
+      "label": "iteration 1015",
+      "timestamp": 1793854429.340345,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 595
+    },
+    {
+      "label": "iteration 1020",
+      "timestamp": 1793854431.7058356,
+      "workers": 2,
+      "worker_rss_mb": 47.46,
+      "processes": 596
+    },
+    {
+      "label": "iteration 1025",
+      "timestamp": 1793854433.9483862,
+      "workers": 2,
+      "worker_rss_mb": 47.47,
+      "processes": 594
+    },
+    {
+      "label": "iteration 1030",
+      "timestamp": 1793854436.380595,
+      "workers": 2,
+      "worker_rss_mb": 47.48,
+      "processes": 599
+    },
+    {
+      "label": "iteration 1035",
+      "timestamp": 1793854439.0224643,
+      "workers": 2,
+      "worker_rss_mb": 47.48,
+      "processes": 598
+    },
+    {
+      "label": "iteration 1040",
+      "timestamp": 1793854440.9824789,
+      "workers": 2,
+      "worker_rss_mb": 47.48,
+      "processes": 598
+    },
+    {
+      "label": "iteration 1045",
+      "timestamp": 1793854443.4603658,
+      "workers": 2,
+      "worker_rss_mb": 47.49,
+      "processes": 598
+    },
+    {
+      "label": "iteration 1050",
+      "timestamp": 1793854446.2298896,
+      "workers": 2,
+      "worker_rss_mb": 47.49,
+      "processes": 596
+    },
+    {
+      "label": "iteration 1055",
+      "timestamp": 1793854448.240797,
+      "workers": 2,
+      "worker_rss_mb": 47.49,
+      "processes": 594
+    },
+    {
+      "label": "iteration 1060",
+      "timestamp": 1793854450.1046934,
+      "workers": 2,
+      "worker_rss_mb": 47.49,
+      "processes": 596
+    },
+    {
+      "label": "iteration 1065",
+      "timestamp": 1793854452.0425506,
+      "workers": 2,
+      "worker_rss_mb": 47.49,
+      "processes": 594
+    },
+    {
+      "label": "iteration 1070",
+      "timestamp": 1793854454.042756,
+      "workers": 2,
+      "worker_rss_mb": 47.49,
+      "processes": 594
+    },
+    {
+      "label": "iteration 1075",
+      "timestamp": 1793854455.6487741,
+      "workers": 2,
+      "worker_rss_mb": 47.49,
+      "processes": 580
+    },
+    {
+      "label": "iteration 1080",
+      "timestamp": 1793854457.5647044,
+      "workers": 2,
+      "worker_rss_mb": 47.5,
+      "processes": 584
+    },
+    {
+      "label": "iteration 1085",
+      "timestamp": 1793854459.4956408,
+      "workers": 2,
+      "worker_rss_mb": 47.51,
+      "processes": 580
+    },
+    {
+      "label": "iteration 1090",
+      "timestamp": 1793854461.3329651,
+      "workers": 2,
+      "worker_rss_mb": 47.51,
+      "processes": 580
+    },
+    {
+      "label": "iteration 1095",
+      "timestamp": 1793854463.344993,
+      "workers": 2,
+      "worker_rss_mb": 47.51,
+      "processes": 580
+    },
+    {
+      "label": "iteration 1100",
+      "timestamp": 1793854465.188233,
+      "workers": 2,
+      "worker_rss_mb": 47.51,
+      "processes": 582
+    },
+    {
+      "label": "iteration 1105",
+      "timestamp": 1793854467.3630624,
+      "workers": 2,
+      "worker_rss_mb": 46.36,
+      "processes": 584
+    },
+    {
+      "label": "iteration 1110",
+      "timestamp": 1793854469.2814586,
+      "workers": 2,
+      "worker_rss_mb": 46.36,
+      "processes": 578
+    },
+    {
+      "label": "iteration 1115",
+      "timestamp": 1793854470.893472,
+      "workers": 2,
+      "worker_rss_mb": 46.36,
+      "processes": 576
+    },
+    {
+      "label": "iteration 1120",
+      "timestamp": 1793854472.4630177,
+      "workers": 2,
+      "worker_rss_mb": 46.36,
+      "processes": 578
+    },
+    {
+      "label": "iteration 1125",
+      "timestamp": 1793854474.0474486,
+      "workers": 2,
+      "worker_rss_mb": 46.36,
+      "processes": 588
+    },
+    {
+      "label": "iteration 1130",
+      "timestamp": 1793854475.6418107,
+      "workers": 2,
+      "worker_rss_mb": 46.36,
+      "processes": 578
+    },
+    {
+      "label": "iteration 1135",
+      "timestamp": 1793854477.4634976,
+      "workers": 2,
+      "worker_rss_mb": 46.38,
+      "processes": 584
+    },
+    {
+      "label": "iteration 1140",
+      "timestamp": 1793854479.3401933,
+      "workers": 2,
+      "worker_rss_mb": 46.38,
+      "processes": 586
+    },
+    {
+      "label": "iteration 1145",
+      "timestamp": 1793854481.091739,
+      "workers": 2,
+      "worker_rss_mb": 46.38,
+      "processes": 586
+    },
+    {
+      "label": "iteration 1150",
+      "timestamp": 1793854482.9470506,
+      "workers": 2,
+      "worker_rss_mb": 46.38,
+      "processes": 586
+    },
+    {
+      "label": "iteration 1155",
+      "timestamp": 1793854484.7902417,
+      "workers": 2,
+      "worker_rss_mb": 46.38,
+      "processes": 586
+    },
+    {
+      "label": "iteration 1160",
+      "timestamp": 1793854486.5178902,
+      "workers": 2,
+      "worker_rss_mb": 46.39,
+      "processes": 589
+    },
+    {
+      "label": "iteration 1165",
+      "timestamp": 1793854488.3090367,
+      "workers": 2,
+      "worker_rss_mb": 46.39,
+      "processes": 585
+    },
+    {
+      "label": "iteration 1170",
+      "timestamp": 1793854489.9173615,
+      "workers": 2,
+      "worker_rss_mb": 46.39,
+      "processes": 583
+    },
+    {
+      "label": "iteration 1175",
+      "timestamp": 1793854491.576,
+      "workers": 2,
+      "worker_rss_mb": 46.39,
+      "processes": 582
+    },
+    {
+      "label": "iteration 1180",
+      "timestamp": 1793854493.0969768,
+      "workers": 2,
+      "worker_rss_mb": 46.39,
+      "processes": 588
+    },
+    {
+      "label": "iteration 1185",
+      "timestamp": 1793854494.7153566,
+      "workers": 2,
+      "worker_rss_mb": 46.39,
+      "processes": 589
+    },
+    {
+      "label": "iteration 1190",
+      "timestamp": 1793854496.312862,
+      "workers": 2,
+      "worker_rss_mb": 46.39,
+      "processes": 586
+    },
+    {
+      "label": "iteration 1195",
+      "timestamp": 1793854498.1223457,
+      "workers": 2,
+      "worker_rss_mb": 46.39,
+      "processes": 586
+    },
+    {
+      "label": "iteration 1200",
+      "timestamp": 1793854500.1135821,
+      "workers": 2,
+      "worker_rss_mb": 46.39,
+      "processes": 586
+    },
+    {
+      "label": "iteration 1205",
+      "timestamp": 1793854502.121128,
+      "workers": 2,
+      "worker_rss_mb": 46.39,
+      "processes": 595
+    },
+    {
+      "label": "iteration 1210",
+      "timestamp": 1793854504.3147154,
+      "workers": 2,
+      "worker_rss_mb": 46.4,
+      "processes": 610
+    },
+    {
+      "label": "iteration 1215",
+      "timestamp": 1793854506.3265312,
+      "workers": 2,
+      "worker_rss_mb": 46.48,
+      "processes": 591
+    },
+    {
+      "label": "end",
+      "timestamp": 1793854506.7833564,
+      "workers": 0,
+      "worker_rss_mb": 0.0,
+      "processes": 587
+    }
+  ],
+  "worker_growth": 0,
+  "rss_growth_mb": 0.0,
+  "problems": []
+}

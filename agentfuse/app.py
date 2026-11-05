@@ -56,6 +56,14 @@ class AgentFuseApp:
             weights = reference_weights()
         self.inference_model = AttentionModel(weights)
         self.inference = InferenceRuntime(int(inference_options.get("max_cache_bytes", 8 * 1024 * 1024)))
+        self.llm = None
+        if inference_options.get('backend') == 'llama.cpp':
+            from .runtime.llama_backend import LlamaBackend
+            self.llm = LlamaBackend(inference_options['executable'], inference_options['model_path'],
+                context_size=int(inference_options.get('context_size', 2048)),
+                gpu_layers=int(inference_options.get('gpu_layers', 0)),
+                device=inference_options.get('device'),
+                log_path=self.settings.logs_dir / 'llama.log')
 
         self._log_handler = configure_logging(self.settings.logs_dir)
         self.database = Database(self.settings.db_path)
@@ -177,7 +185,11 @@ class AgentFuseApp:
     # ------------------------------------------------------------------
     async def close(self) -> None:
         try:
-            await self.coordinator.shutdown()
+            try:
+                await self.coordinator.shutdown()
+            finally:
+                if self.llm is not None:
+                    await asyncio.to_thread(self.llm.close)
         finally:
             self.scheduler.stop()
             for workflow in self._workflows:

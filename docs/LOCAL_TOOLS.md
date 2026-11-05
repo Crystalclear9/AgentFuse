@@ -27,7 +27,7 @@ Python 依赖版本和哈希锁定在 `requirements-dev.lock`；已验证可执�
 Engine 的系统服务、内核能力与虚拟磁盘不能靠复制可执行文件在普通目录内安装。
 本轮 Docker 测试使用现有 Linux Engine；测试结束后已停止本次启动的 Docker Desktop。
 恢复镜像可用 `.tools/docker/docker.exe load -i .tools/images/python-3.11-alpine.tar`。
-生产模型与推理服务按用户选择未下载，生产 LLM / GPU KV 优化仍待真实后端验证。
+本轮按用户要求补齐：`.tools/llama` 为固定版本 llama.cpp Vulkan 后端，`.tools/models` 为哈希固定的预训练 GGUF 模型，`requirements-p2.lock` 锁定 LangGraph 依赖。安装与验证见 P2_COMPLETION.md。
 
 清理通过 `scripts/clean_intermediates.py` 的显式路径清单执行；它先校验路径位于项目内，
 独立保护源码、Git、已安装工具、活动环境及工作区/数据库/备份/结果/日志。

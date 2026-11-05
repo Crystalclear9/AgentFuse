@@ -1,0 +1,8 @@
+# Run from the project root. Confirm the NVIDIA device with --list-devices.
+[inference]
+backend = "llama.cpp"
+executable = ".tools/llama/llama-server.exe"
+model_path = ".tools/models/SmolLM2-135M-Instruct-Q4_K_M.gguf"
+device = "Vulkan1"
+gpu_layers = 99
+context_size = 2048

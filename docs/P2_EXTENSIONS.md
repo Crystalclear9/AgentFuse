@@ -1,5 +1,7 @@
 # P2 扩展：配置、执行与验收边界
 
+本轮新增的真实预训练模型/GPU KV、LangGraph 和原生审计见 [P2_COMPLETION.md](P2_COMPLETION.md)。本页参考数值推理部分保留为无模型夹具说明。
+
 2026-11-04 用户授权扩大首版范围。所有扩展保持可选，原 CLI 与本地共享语义继续可用。
 
 ## 1. 远程 Worker
@@ -60,7 +62,7 @@ Python 数值表示以及末端 logits。以不可变权重的 SHA-256 和完整
 预算按 Python 对象大小保守计费、LRU 淘汰，模型不同不能复用。缓存前后 tokens / logits 必须逐值一致。
 
 默认权重为确定性、**未训练**的测试夹具，无语言理解或推理质量保证；自定义权重是否经过训练由提供者决定。
-这实现了真实数值计算复用，**尚未实现生产 LLM 或 GPU 推理优化**。
+该夹具用于数值正确性对照；真实预训练模型与 GPU 推理通过新增 llama.cpp 后端运行，见 P2_COMPLETION.md。
 `agentfuse.adapters.inference_agent.InferenceAgent` 用模型输出选择已声明的工具动作，
 经普通适配器创建 Invocation、记录 INFERENCE_COMPLETED 并发起真实工具调用；缓存前后的动作与工具结果保持一致。
 支持 JSON 权重字段：embeddings、query、key、value、output；词表 2..256，隐藏维度 1..64，最多 1024 token。

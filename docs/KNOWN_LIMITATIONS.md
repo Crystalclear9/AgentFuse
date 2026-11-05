@@ -1,6 +1,6 @@
 # Known Limitations
 
-本文档明确说明 AgentFuse 首版**不做什么**以及**不保证什么**。
+本轮已补齐用户确认支持范围内的 P2。框架实接选择 LangGraph；第三方工具追踪与隔离限定 Linux 容器命令。原始需求保留不变，本文件记录实现范围及验证边界。
 这些是设计边界，不是隐藏的缺陷。
 
 ---
@@ -20,14 +20,14 @@
 |---|---|---|
 | 跨会话持久化结果缓存 | ✅ 已实现 | `agentfuse/sharing/persistent_cache.py`：结果进 SQLite，**跨重启生效**；命中前必须用**调用方的快照**逐项复验依赖（与在途分享同一套校验）；**默认关闭**（`persistent_cache_entries = 0`） |
 | GPU 资源调度 | ✅ 已实现 | `agentfuse/runtime/scheduler.py`：工具可以声明需要加速器（`requires_gpu`），调度器为它保留机器的加速器槽位（由 `nvidia-smi` 探测）；机器没有加速器时不阻塞（声明只是提示）；属于槽位准入，不分配 GPU 显存或管理生产模型张量 |
-| KV Cache 管理 | ⚠️ 部分实现 | `agentfuse/runtime/inference.py`：参考因果注意力后端的真实 K/V 前缀缓存，按模型指纹隔离、按实际对象大小限额、LRU 淘汰；未对接生产 LLM / GPU 张量缓存 |
-| 真正的 Agent 推理执行优化 | ⚠️ 部分实现 | `agentfuse/runtime/inference.py`：离线自回归数值推理复用真实前缀计算，输出与独立推理逐值比对；默认权重为未训练夹具，不宣称具备语言理解或真实 LLM 推理能力 |
+| KV Cache 管理 | ✅ 已实现 | `agentfuse/runtime/llama_backend.py`：真实 GGUF 模型的 CPU/GPU 原生 K/V 缓存；固定上下文与单槽位预算、按模型进程隔离、前缀复用、显式清空与退出释放；参考数值后端继续保留作离线夹具。 |
+| 真正的 Agent 推理执行优化 | ✅ 已实现 | `agentfuse/adapters/language_model_agent.py`：本地预训练模型生成受约束工具决策，经正常 Invocation 执行真实工具；GPU 冷/热推理 token、决策及工具结果比对，前缀计算量减少。模型质量不作通用保证。 |
 | 多节点分布式执行 | ✅ 已实现 | `agentfuse/runtime/remote.py`：可配置多个 Worker 地址，轮询分配物理执行，传输不可变快照，实时回传依赖与真实计算结果；令牌认证，非回环地址强制 TLS；本机多服务端验证不等同于多台物理机验证 |
 | 复杂的可抢占任务调度 | ✅ 已实现 | `agentfuse/runtime/strategy.py` 的 `preemptive` 策略：优先先靠高优先级的执行，并且可以抢占**低优先级**的运行中执行；被抢占的逻辑调用按超时重试一次，**结果不变**（只变顺序）；**默认关闭**（`runtime.scheduling_strategy = "fifo"`） |
 | 自动预测未来 Agent 路径 | ✅ 已实现 | `agentfuse/runtime/prediction.py`：依据明确 parent/child Invocation 边学习 Agent 标签转移并给出多步路径概率，另提供下一工具概率；预测只作建议，不推断身份或添加执行图因果边，不投机执行 |
-| 框架无关的高级自动适配 | ⚠️ 部分实现 | `agentfuse/adapters/external_adapter.py`：外部框架**不需要知道内部 id**，第一次出现的未知身份由适配器自动绑定（`identity_status = UNDETERMINED`，绝不与其他 Agent 合并）；部分未确认的身份不得直接合并；这是通用协议适配，尚无对所有第三方框架的自动发现与专用集成 |
-| 对任意第三方工具进行完备依赖追踪 | ⚠️ 部分实现 | `agentfuse/runtime/sandbox.py`：对第三方命令的完整声明输入树记录指纹并隔离执行；不声称完整动态追踪任意程序，返回 dependency_complete=False，禁止共享这类结果 |
-| 具备安全隔离保证的通用沙箱 | ⚠️ 部分实现 | `agentfuse/runtime/sandbox.py`：可选 Docker Linux 隔离后端，非 root、无网络、只读输入与根文件系统、撤销 capabilities、禁止提权、内存/CPU/PID 限额；环境不可用时拒绝执行，不提供跨内核漏洞的绝对安全保证 |
+| 框架无关的高级自动适配 | ✅ 已实现 | `agentfuse/adapters/external_adapter.py` 保留通用进程协议；`agentfuse/adapters/langgraph_adapter.py` 按用户指定实接 LangGraph，从注册表自动生成节点、读取真实节点元数据、绑定身份并提交工具调用。自动适配已注册工具，不自动解释任意框架内部函数。 |
+| 对任意第三方工具进行完备依赖追踪 | ✅ 已实现 | 按用户确认的 Linux 容器命令范围：`agentfuse/runtime/native_trace.py` 跟踪本地程序及其子进程的原生系统调用，记录全部声明输入树与固定镜像指纹；监视器与工具分 UID，记录不完整拒收。系统调用字符串上限 4096 字节、审计上限 4 MiB；任意命令的确定性仍不可证明，dependency_complete=False / shareable=False，禁止自动共享。 |
+| 具备安全隔离保证的通用沙箱 | ✅ 已实现 | 按用户确认的 Linux 容器命令范围：`agentfuse/runtime/sandbox.py` 限制网络、根文件系统与输入写入、CPU/内存/PID/运行时长及权限；原生审计工具以 nobody 运行，监视器仅保留跨 UID 跟踪必要能力。已验证越权及记录篡改被拒，不声称防御宿主内核漏洞或支持任意操作系统。 |
 
 ### 0.1 已交付但**不属于** §19 P2 清单的能力
 
@@ -150,7 +150,7 @@
 |---|---|---|
 | `reserved_estimate_mb` | 工具注册时声明的**预估**内存，用于**准入控制** | 否（只是估算） |
 | `observed_rss_mb` | psutil 采样到的**实测** RSS，用于**报告与告警** | 否 |
-| OS 硬限制 | 操作系统层面的内存/进程限制 | **首版未实现** |
+| OS 硬限制 | Linux 容器命令的 cgroup 内存/CPU/PID 限制 | 已实现；默认可信本地 Worker 仍仅准入与监控 |
 
 当实测 RSS 超出预算时，资源控制器会**阻止新的任务进入执行**并发出告警，
 但**不会**杀掉正在运行的超额进程。
@@ -216,7 +216,7 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 
 * **Scripted Agent 不是 LLM Agent。** 它是按照真实结果动态选择下一步的本地程序，
   不具备语言模型的推理能力，也不宣称具备。
-* AgentFuse 不训练模型、不提供完整 Agent Framework 或生产 LLM 推理引擎；扩展中的参考数值注意力后端使用未训练权重，能力与验证范围见 P2_EXTENSIONS.md。
+* AgentFuse 不训练模型；本轮接入 llama.cpp 运行真实预训练 GGUF 模型，参考数值后端仅作无模型夹具。LangGraph 负责图编排，AgentFuse 负责执行与共享边界。
 * AgentFuse **不依赖**任何特定框架的内部 Scheduler 或状态对象。
 * Agent 实体运行在宿主进程的 asyncio 事件循环中；**只有工具计算**运行在独立进程中。
   Agent 本身不做重 CPU 计算。
@@ -226,7 +226,7 @@ worker 自测的 `time.process_time()` 在 Windows 上以约 15.6 ms 的量子�
 ## 6. 其它
 
 * **快照不包含进程内存**（不保存进程内存、寄存器或正在运行的线程状态）。
-* GPU 槽位调度、跨会话缓存、远程 Worker 已提供；参考注意力后端支持 CPU KV 缓存，尚无生产 LLM 的 GPU KV 管理。
+* GPU 槽位调度、跨会话缓存、远程 Worker 与真实模型原生 GPU KV 管理已提供；KV 使用固定上下文和单槽位预算，模型/驱动仍需与硬件兼容。
 * 本机实测通过的平台是 **Windows 11** 与 **WSL2 / Ubuntu-22.04**。CI 配置包含 macOS 矩阵，
   远端状态以对应提交的 Actions 为准。本机没有 macOS，无法把远端 CI 结果称作本机验证。
 * **同一个 home 目录不能同时被两个 AgentFuse 实例使用**（例如一边跑 Web 服务、
@@ -265,4 +265,4 @@ Baseline 6.2810s（旧参考 3.2882s）、Online 4.7045s（3.0665s）、Deferred
 本轮定位并修复取消与最终回收重复终止同一进程、Windows venv 启动器多出一层进程，以及空闲预热 Worker 持续扫描进程树的问题。
 原基线、原 30% 容差、5 次重复的全部场景已通过；取消场景中位数为 Baseline 3.861796s、Online 3.499842s、Deferred 3.582819s。
 没有修改基线或扩大容差。性能结果受机器负载影响，不能把本机通过解释成任意机器上的固定时延保证。
-失败历史与最终测量保留在 docs/verification，当前结果见 current/performance.txt；生产 LLM / GPU KV 依用户选择保留缺口。
+失败历史与最终测量保留在 docs/verification，历史结果见 current/performance.txt；本轮新增的真实模型与 GPU KV 验证见 P2_COMPLETION.md。

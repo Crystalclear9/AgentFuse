@@ -1,6 +1,26 @@
 [
   {
-    "path": ".agentfuse/prediction-wheel",
+    "path": ".agentfuse/p2-install.py",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-download.py",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-summary.py",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-wheel-check.py",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-guard",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-wheel",
     "status": "deleted"
   },
   {
@@ -38,6 +58,10 @@
     "status": "absent"
   },
   {
+    "path": ".tools/downloads",
+    "status": "deleted"
+  },
+  {
     "path": ".tools/cache",
     "status": "deleted"
   },
@@ -47,6 +71,30 @@
   },
   {
     "path": "agentfuse.egg-info",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-review/owner-container-input",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-review/alpine-index.html",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-review/gpu-smoke.txt",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-review/gpu.log",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-review/install.log",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/p2-review/trace-build.log",
     "status": "deleted"
   }
 ]

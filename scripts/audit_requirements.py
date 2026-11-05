@@ -569,20 +569,29 @@ def audit_core() -> None:
         "依赖追踪的边界由用例证明",
     )
     # §21.5 the runtime must not depend on the internals of a framework
-    framework_imports = []
-    for path in sorted((ROOT / "agentfuse").rglob("*.py")):
-        text = path.read_text(encoding="utf-8")
-        if "agentfuse/runtime" in str(path.relative_to(ROOT)).replace("\\", "/"):
-            continue
-        for marker in ("langchain", "autogen", "crewai", "semantic_kernel"):
-            if marker in text.lower():
-                framework_imports.append(f"{path.name}:{marker}")
+    framework_imports = _framework_imports(ROOT)
     record(
         "21.5",
         "Runtime 不依赖任何 Agent 框架的内部对象",
         not framework_imports,
         str(framework_imports),
     )
+
+
+def _framework_imports(root):
+    """Optional adapters may use public framework APIs; the core may not."""
+    import ast
+    offenders = []
+    for path in sorted((root / 'agentfuse').rglob('*.py')):
+        if path.relative_to(root).as_posix() == 'agentfuse/adapters/langgraph_adapter.py':
+            continue
+        for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
+            names = ([node.module or ''] if isinstance(node, ast.ImportFrom) else
+                     [alias.name for alias in node.names] if isinstance(node, ast.Import) else [])
+            for name in names:
+                if name.startswith(('langchain', 'langgraph', 'autogen', 'crewai', 'semantic_kernel')):
+                    offenders.append(f'{path.relative_to(root).as_posix()}:{name}')
+    return offenders
 
 
 # ----------------------------------------------------------------------

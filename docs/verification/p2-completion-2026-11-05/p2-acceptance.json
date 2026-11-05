@@ -1,0 +1,27 @@
+{
+  "full_p2_completed": true,
+  "scope": {
+    "framework": "LangGraph + generic external protocol",
+    "third_party_tools": "Linux container native commands",
+    "sharing": "incomplete or nondeterministic dependencies never auto-shared"
+  },
+  "total": 38,
+  "passed": 38,
+  "device": "Vulkan1",
+  "devices": "Available devices:\n  Vulkan0: Intel(R) Iris(R) Xe Graphics (16196 MiB, 15428 MiB free)\n  Vulkan1: NVIDIA GeForce RTX 4060 Laptop GPU (7956 MiB, 7188 MiB free)\n",
+  "model_sha256": "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d",
+  "immutable_trace_image": "sha256:c701dff85ddd715128065f60e5fc2e3f829eef87c7f9692c096fcb419536aa31",
+  "source_sha256": "4d03a0efaacb726de3dc97e6b105c49b4b14283c5bbd380c4611855fe08b451f",
+  "acceptance_areas": [
+    "persistent cache",
+    "GPU scheduling",
+    "native model KV management",
+    "pretrained agent inference",
+    "distributed workers",
+    "preemptive scheduling",
+    "path prediction",
+    "LangGraph automatic adaptation",
+    "native descendant syscall audit",
+    "hardened Linux command sandbox"
+  ]
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "path": ".tools\\downloads\\llama-b12121-bin-win-vulkan-x64.zip",
+    "sha256": "73111d348dcbfa86050611c28b8bef523c849d80a6e5529e25b67f1b2055e918",
+    "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12121/llama-b12121-bin-win-vulkan-x64.zip"
+  },
+  {
+    "path": ".tools\\models\\SmolLM2-135M-Instruct-Q4_K_M.gguf",
+    "sha256": "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d",
+    "url": "https://hf-mirror.com/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/09816acd5d99df7be770d85ea30822623dab342c/SmolLM2-135M-Instruct-Q4_K_M.gguf"
+  }
+]

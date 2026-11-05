@@ -17,6 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+frameworks = ["langgraph==1.2.20"]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.23",

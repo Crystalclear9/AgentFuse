@@ -27,14 +27,15 @@ def input_manifest(root: Path):
     return result
 
 
-def run_isolated(snapshot, command, *, image, timeout=60, memory_mb=256, cpus=1.0):
+def run_isolated(snapshot, command, *, image, timeout=60, memory_mb=256, cpus=1.0,
+                 _native_monitor=False):
     """Run a command in a pinned local Linux image, without network or host writes.
 
     No shell interpolation. No Docker socket, host PID namespace or devices.
     The caller chooses the image; only an immutable sha256 digest is accepted.
     """
     root = Path(snapshot).resolve(strict=True)
-    if not root.is_dir() or not command or any(not isinstance(x, str) for x in command):
+    if not root.is_dir() or not isinstance(command, (list, tuple)) or not command or any(not isinstance(x, str) for x in command):
         raise ValueError("a snapshot directory and argv list are required")
     import re
     if not re.fullmatch(r"sha256:[0-9a-f]{64}|[^\s]+@sha256:[0-9a-f]{64}", image):
@@ -62,6 +63,12 @@ def run_isolated(snapshot, command, *, image, timeout=60, memory_mb=256, cpus=1.
                 "--tmpfs", "/tmp:rw,noexec,nosuid,size=16m",
                 "--mount", f"type=bind,source={staged},target=/workspace,readonly",
                 "--workdir", "/workspace", "--entrypoint", command[0], image, *command[1:]]
+        if _native_monitor:
+            # Only the fixed native-audit monitor uses this profile. It traces
+            # a different, unprivileged UID; tools cannot alter its audit files.
+            argv[argv.index('65534:65534')] = '0:0'
+            index = argv.index('--network=none')
+            argv[index:index] = ['--cap-add=SETUID', '--cap-add=SETGID', '--cap-add=SYS_PTRACE']
         try:
             import threading
             import time

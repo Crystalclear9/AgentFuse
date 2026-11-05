@@ -30,6 +30,8 @@ def source_digest():
         files.extend(path for path in (ROOT / directory).rglob("*")
                      if path.suffix in (".py", ".js", ".mjs", ".html", ".css", ".toml", ".ps1", ".sh", ".json", ".yml", ".yaml"))
     files.extend([ROOT / "pyproject.toml", ROOT / "requirements-dev.lock", ROOT / "README.md", ROOT / "LICENSE", ROOT / ".gitattributes"])
+    if (ROOT / 'requirements-p2.lock').exists():
+        files.append(ROOT / 'requirements-p2.lock')
     for path in sorted(files, key=lambda item: item.relative_to(ROOT).as_posix()):
         digest.update(path.relative_to(ROOT).as_posix().encode())
         digest.update(path.read_bytes().replace(b"\r\n", b"\n"))

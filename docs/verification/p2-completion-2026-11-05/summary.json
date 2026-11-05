@@ -1,0 +1,117 @@
+{
+  "full": {
+    "total": 359,
+    "passed": 358,
+    "skipped": 1,
+    "skip_reasons": [
+      "symlinks are not supported on this platform"
+    ]
+  },
+  "p2": {
+    "full_p2_completed": true,
+    "scope": {
+      "framework": "LangGraph + generic external protocol",
+      "third_party_tools": "Linux container native commands",
+      "sharing": "incomplete or nondeterministic dependencies never auto-shared"
+    },
+    "total": 38,
+    "passed": 38,
+    "device": "Vulkan1",
+    "devices": "Available devices:\n  Vulkan0: Intel(R) Iris(R) Xe Graphics (16196 MiB, 15428 MiB free)\n  Vulkan1: NVIDIA GeForce RTX 4060 Laptop GPU (7956 MiB, 7188 MiB free)\n",
+    "model_sha256": "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d",
+    "immutable_trace_image": "sha256:c701dff85ddd715128065f60e5fc2e3f829eef87c7f9692c096fcb419536aa31",
+    "source_sha256": "4d03a0efaacb726de3dc97e6b105c49b4b14283c5bbd380c4611855fe08b451f",
+    "acceptance_areas": [
+      "persistent cache",
+      "GPU scheduling",
+      "native model KV management",
+      "pretrained agent inference",
+      "distributed workers",
+      "preemptive scheduling",
+      "path prediction",
+      "LangGraph automatic adaptation",
+      "native descendant syscall audit",
+      "hardened Linux command sandbox"
+    ]
+  },
+  "mapped_requirement_sections": 78,
+  "original_requirements_sha256": "6c73f8ab0e680ac5eabda6d11f0dec7ba41659f66d5fc46c07f680d45b1acbe5",
+  "audit": {
+    "total": 325,
+    "failed": 0,
+    "behavioural": 110,
+    "structural": 215
+  },
+  "acceptance": "44/44",
+  "matrix": {
+    "0/1": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "0/2": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "1/1": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "1/2": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "2/1": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "2/2": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    }
+  },
+  "local_core_mutation_guards": 58,
+  "soak": {
+    "minutes": 10.0,
+    "iterations": 1215,
+    "errors": 0,
+    "worker_growth": 0,
+    "rss_growth_mb": 0.0
+  },
+  "wheel": {
+    "installed_wheel": true,
+    "source_files_matched": 104,
+    "baseline_executions": 2,
+    "online_executions": 1,
+    "real_langgraph": true,
+    "real_pretrained_gpu_kv": true
+  },
+  "performance_passed": true,
+  "full_p2_completed": true,
+  "post_full_regressions": {
+    "p2": {
+      "total": 38,
+      "passed": 38,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "windows_job": {
+      "total": 2,
+      "passed": 2,
+      "skipped": 0,
+      "skip_reasons": []
+    }
+  },
+  "source_sha256": "4d03a0efaacb726de3dc97e6b105c49b4b14283c5bbd380c4611855fe08b451f"
+}

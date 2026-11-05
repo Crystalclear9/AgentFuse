@@ -1,0 +1,21 @@
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            BuildKit is currently disabled; enable it by removing the DOCKER_BUILDKIT=0
+            environment-variable.
+
+Sending build context to Docker daemon  2.048kB
+
+Step 1/2 : FROM agentfuse-base:local
+ ---> 09d17d5e4c16
+Step 2/2 : RUN apk add --no-cache strace
+ ---> Running in b40c4fb1f389
+(1/5) Installing zstd-libs (1.5.7-r2)
+(2/5) Installing libelf (0.195-r0)
+(3/5) Installing musl-fts (1.2.7-r7)
+(4/5) Installing libdw (0.195-r0)
+(5/5) Installing strace (6.19-r1)
+Executing busybox-1.37.0-r31.trigger
+OK: 16.0 MiB in 43 packages
+ ---> Removed intermediate container b40c4fb1f389
+ ---> 3abaa515d93b
+Successfully built 3abaa515d93b
+Successfully tagged agentfuse-trace:local

@@ -9,10 +9,14 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     inference = commands.add_parser("inference-demo", help="compare real cached and uncached attention inference")
     inference.add_argument("--weights", help="JSON weights; defaults to the untrained reference fixture")
+    language = commands.add_parser('llm-demo', help='compare pretrained local model KV reuse')
+    language.add_argument('--config', default='config/p2-local.toml')
+    language.add_argument('--prompt', default='The capital of France is')
     sandbox = commands.add_parser("sandbox", help="run an argv list in an immutable Linux container")
     sandbox.add_argument("--snapshot", required=True)
     sandbox.add_argument("--image", required=True)
     sandbox.add_argument("--timeout", type=float, default=60)
+    sandbox.add_argument('--trace', action='store_true', help='audit native Linux descendant syscalls')
     sandbox.add_argument("argv", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     if args.command == "inference-demo":
@@ -34,10 +38,26 @@ def main():
                       correct=baseline["tokens"] == shared["tokens"] and baseline["logits"] == shared["logits"])
         # Supplying weights does not imply they were trained.
         result["pretrained"] = "unknown" if args.weights else False
+    elif args.command == 'llm-demo':
+        from .app import AgentFuseApp
+        from .settings import load_settings
+        app = AgentFuseApp(settings=load_settings(args.config))
+        try:
+            if app.llm is None:
+                raise ValueError('configure inference.backend = llama.cpp')
+            cold = app.llm.generate(args.prompt, 16, use_cache=False)
+            warm = app.llm.generate(args.prompt, 16)
+            result = dict(backend='llama.cpp', baseline=cold, cached=warm,
+                          correct=cold['tokens'] == warm['tokens'],
+                          reduced_prompt_work=warm['evaluated_tokens'] < cold['evaluated_tokens'])
+        finally:
+            app.close_sync()
     else:
         from .runtime.sandbox import run_isolated
+        from .runtime.native_trace import run_traced
         argv = args.argv[1:] if args.argv[:1] == ["--"] else args.argv
-        result = run_isolated(args.snapshot, argv, image=args.image, timeout=args.timeout)
+        runner = run_traced if args.trace else run_isolated
+        result = runner(args.snapshot, argv, image=args.image, timeout=args.timeout)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("correct", result.get("exit_code", 1) == 0) else 1
 

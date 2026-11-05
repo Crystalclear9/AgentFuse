@@ -83,4 +83,4 @@
 | 21.4 | 实验真实性 | `test_the_comparison_reports_a_real_reduction` |
 | 21.5 | Agent Framework 无关性 | `test_a_foreign_framework_can_run_a_tool_call` |
 
-首版必需验收与已约定扩展完成；全文中所有 P2 尚不能宣称完成。生产 LLM/GPU KV 按用户选择保留，框架高级自动适配、任意程序完备追踪及绝对通用沙箱仍有明确边界。详见 KNOWN_LIMITATIONS.md。
+P0/P1 原计划验收与 P2 扩展分别核验。P2 按用户进一步确认的 LangGraph、Linux 容器命令范围交付，见 P2_COMPLETION.md；原始需求未改写。

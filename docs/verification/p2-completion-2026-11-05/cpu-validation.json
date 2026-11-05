@@ -1,0 +1,64 @@
+{
+  "cold": {
+    "text": " Paris. Paris is a city known for",
+    "tokens": [
+      7042,
+      30,
+      7042,
+      314,
+      253,
+      2240,
+      1343,
+      327
+    ],
+    "model_id": "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d",
+    "reused_tokens": 0,
+    "evaluated_tokens": 5,
+    "timings": {
+      "cache_n": 0,
+      "prompt_n": 5,
+      "prompt_ms": 17.872,
+      "prompt_per_token_ms": 3.5744,
+      "prompt_per_second": 279.76723366159354,
+      "predicted_n": 8,
+      "predicted_ms": 121.737,
+      "predicted_per_token_ms": 17.391,
+      "predicted_per_second": 57.50100626760969
+    },
+    "context_budget": 1024,
+    "backend": "llama.cpp",
+    "gpu_layers_requested": 0,
+    "device": "none"
+  },
+  "warm": {
+    "text": " Paris. Paris is a city known for",
+    "tokens": [
+      7042,
+      30,
+      7042,
+      314,
+      253,
+      2240,
+      1343,
+      327
+    ],
+    "model_id": "2e8040ceae7815abe0dcb3540b9995eaa1fa0d2ca9e797d0a635ae4433c68c2d",
+    "reused_tokens": 4,
+    "evaluated_tokens": 1,
+    "timings": {
+      "cache_n": 4,
+      "prompt_n": 1,
+      "prompt_ms": 19.081,
+      "prompt_per_token_ms": 19.081,
+      "prompt_per_second": 52.4081547088727,
+      "predicted_n": 8,
+      "predicted_ms": 138.281,
+      "predicted_per_token_ms": 19.754428571428573,
+      "predicted_per_second": 50.621560445758995
+    },
+    "context_budget": 1024,
+    "backend": "llama.cpp",
+    "gpu_layers_requested": 0,
+    "device": "none"
+  }
+}
