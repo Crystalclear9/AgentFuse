@@ -2,9 +2,40 @@
 
 from __future__ import annotations
 
+import pytest
 
 from agentfuse.core.state import EventType
+from agentfuse.runtime.coordinator import ToolExecutionError
 from agentfuse.scenarios.common import DEMO_FILES, create_branch, mutate_variant_source
+
+
+async def test_cross_workflow_cache_delivery_preserves_source_provenance(app, snapshot):
+    coordinator = app.coordinator
+    coordinator.result_cache.max_entries = 4
+    source, consumer = [app.create_workflow(label) for label in ("source", "consumer")]
+    for workflow in (source, consumer):
+        workflow.start()
+    request = dict(tool_name="ast_analyzer", arguments={"files": ["src/alpha.py"]},
+                   snapshot_id=snapshot.snapshot_id)
+    first = await coordinator.submit_tool_call(workflow_id=source.workflow_id, **request)
+    execution = coordinator.get_execution(first.physical_execution_id)
+    original_reference = execution.result_reference
+
+    blocker = app.result_store.root / consumer.workflow_id
+    blocker.write_text("blocked", encoding="utf-8")
+    with pytest.raises(ToolExecutionError, match="could not persist tool result"):
+        await coordinator.submit_tool_call(workflow_id=consumer.workflow_id, **request)
+    blocker.unlink()
+    second = await coordinator.submit_tool_call(workflow_id=consumer.workflow_id, **request)
+    assert second.physical_execution_id == first.physical_execution_id
+    assert app.repository.list_executions(consumer.workflow_id) == []
+    assert execution.result_reference == original_reference
+    events = app.event_bus.history(consumer.workflow_id)
+    delivered = next(event for event in events if event.event_type == EventType.TOOL_RESULT_DELIVERED)
+    request_event = next(event for event in events if event.event_id == delivered.parent_event_id)
+    assert request_event.event_type == EventType.TOOL_CALL_REQUESTED
+    assert request_event.logical_call_id == second.logical_call_id
+    assert delivered.physical_execution_id == first.physical_execution_id
 
 
 async def test_an_identical_request_is_served_from_the_cache(app, snapshot):

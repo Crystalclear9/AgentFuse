@@ -44,7 +44,7 @@ from ..sharing.candidate import compute_candidate_key
 from ..sharing.dependency import DependencyLedger, DependencyRecord
 from ..sharing.persistent_cache import PersistentResultCache
 from ..sharing.result_cache import ResultCache
-from ..sharing.result_delivery import ResultStore
+from ..sharing.result_delivery import ResultStore, compute_result_hash
 from ..sharing.share_group import Participant, ShareGroup
 from ..monitoring.resource_monitor import ResourceMonitor
 from ..sharing.validator import DependencyValidator
@@ -656,7 +656,7 @@ class RuntimeCoordinator:
                 entry.execution_id,
                 cached=True,
             )
-            return delivered
+            return delivered or call.future.done()
 
     def _persistent_entry(self, call: LogicalCall, snapshot_hash: str) -> Any:
         """The durable entry for the call - ``None`` when there is none.
@@ -1607,6 +1607,18 @@ class RuntimeCoordinator:
         execution = self._executions.get(execution_id)
         if execution is None or execution.outcome.done():
             return
+        payload = message.get("payload")
+        result_hash = message.get("result_hash")
+        try:
+            verified = "payload" in message and compute_result_hash(payload) == result_hash
+        except (ValueError, TypeError, RecursionError):
+            verified = False
+        if not verified:
+            execution.outcome.set_result(ExecutionOutcome(
+                ok=False, kind=ERROR_INTERNAL, message="worker result payload failed hash verification",
+                exit_status="invalid_result",
+            ))
+            return
         if execution.worker_handle and execution.worker_handle.endpoint is not None:
             rss = int(message.get("remote_peak_rss", message.get("rss_end", 0)))
             execution.peak_rss = max(execution.peak_rss, rss)
@@ -1628,8 +1640,8 @@ class RuntimeCoordinator:
         execution.outcome.set_result(
             ExecutionOutcome(
                 ok=True,
-                payload=message.get("payload"),
-                result_hash=message.get("result_hash"),
+                payload=payload,
+                result_hash=result_hash,
                 cpu_time=float(message.get("cpu_time") or 0.0),
                 exit_status="0",
                 dependency_complete=not bypass and message.get("dependency_complete") is True,
@@ -1847,10 +1859,10 @@ class RuntimeCoordinator:
                 continue
             if participant.is_leader:
                 call = self._calls.get(participant.logical_call_id)
-                if call is not None:
-                    self._deliver_locked(
-                        call, outcome.payload, outcome.result_hash, execution.execution_id
-                    )
+                if call is None or not self._deliver_locked(
+                    call, outcome.payload, outcome.result_hash, execution.execution_id
+                ):
+                    continue
                 completed = self._complete_participant(group, participant)
                 # the call row and the participant row describe the same state
                 self._persist_share_state(
@@ -1918,10 +1930,10 @@ class RuntimeCoordinator:
                 )
                 continue
             call = self._calls.get(participant.logical_call_id)
-            if call is not None:
-                self._deliver_locked(
-                    call, outcome.payload, outcome.result_hash, execution.execution_id
-                )
+            if call is None or not self._deliver_locked(
+                call, outcome.payload, outcome.result_hash, execution.execution_id
+            ):
+                continue
             completed = self._complete_participant(group, participant)
             # the call row and the participant row describe the same state
             self._persist_share_state(
@@ -1937,7 +1949,8 @@ class RuntimeCoordinator:
         group.close()
         self._unindex_group(group)
         self._persist_group(group)
-        if (not incomplete_ledger and (self.result_cache.enabled or self.persistent_cache.enabled)
+        if (execution.result_reference is not None and not incomplete_ledger
+                and (self.result_cache.enabled or self.persistent_cache.enabled)
                 and trustworthy(execution.snapshot_id)):
             self._cache_result(execution, outcome)
 
@@ -2253,18 +2266,23 @@ class RuntimeCoordinator:
         ) or call.future.done():
             # Idempotency guard: a call is never delivered twice.
             return False
-        stored = self.result_store.store(
-            payload,
-            workflow_id=call.workflow_id,
-            execution_id=execution_id,
-            logical_call_id=call.logical_call_id,
-        )
+        try:
+            stored = self.result_store.store(
+                payload,
+                workflow_id=call.workflow_id,
+                execution_id=execution_id,
+                logical_call_id=call.logical_call_id,
+            )
+        except OSError as exc:
+            call.physical_execution_id = execution_id
+            self._fail_call_locked(call, f"could not persist tool result: {exc}", ERROR_INTERNAL)
+            return False
         call.status = LogicalCallStatus.COMPLETED
         call.result = payload
         call.result_hash = result_hash or stored.result_hash
         call.result_reference = stored.payload_path
         execution = self._executions.get(execution_id)
-        if execution is not None:
+        if execution is not None and not cached:
             execution.result_reference = stored.payload_path
             # the execution row was written before the result existed
             self._persist_execution(execution)
@@ -2279,7 +2297,7 @@ class RuntimeCoordinator:
             invocation_id=call.invocation_id,
             logical_call_id=call.logical_call_id,
             physical_execution_id=execution_id,
-            parent_event_id=execution.start_event_id if execution else call.request_event_id,
+            parent_event_id=execution.start_event_id if execution and not cached else call.request_event_id,
             metadata={
                 "result_hash": call.result_hash,
                 "result_reference": stored.payload_path,

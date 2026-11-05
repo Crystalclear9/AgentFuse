@@ -23,6 +23,6 @@ Windows 新终端在仓库根目录运行 `. ./scripts/enter-local.ps1`，WSL Ba
 
 `python scripts/acceptance_check.py` 每次使用独立的临时工作区，运行结束自动清理，保留 `.agentfuse/reports/acceptance.json` 结果。
 
-`python scripts/clean_intermediates.py --plan <清单>` 检查显式路径清单。添加 `--apply` 后执行并写入 `.agentfuse/verification/cleanup.json`。删除失败时尝试移入 `_manual_delete`，无法移动的锁定路径记录于该目录的清单。
+`python scripts/clean_intermediates.py --plan <清单>` 检查显式路径清单。添加 `--apply` 后执行并写入 `.agentfuse/verification/cleanup.json`。只读重试会先检查符号链接、重解析点和硬链接，避免通过别名修改其他文件的权限。删除失败时尝试移入 `_manual_delete`，无法移动的锁定路径记录于该目录的清单。
 
 `python scripts/finalize_report.py --reports <原始证据目录>` 验证发布所需的测试证据，默认将汇总写到 `.agentfuse/verification/current`。原始文件留在输入目录。

@@ -4,7 +4,7 @@
 
 | 内容 | 入口 |
 |---|---|
-| 最近一次运行时代码验证及对应 CI | [latest.json](latest.json) |
+| 当前验证结果与最近一次含可选框架的完整证据 | [测试报告](../TEST_REPORT.md) · [latest.json](latest.json) |
 | 2026-11-04 性能基线实测 | [汇总](baseline-2026-11-04/summary.json) · [原始性能报告](baseline-2026-11-04/performance.txt) |
 | P2 模型、GPU 和原生审计实测 | [验收说明](../P2_COMPLETION.md) · [原始专项汇总](p2-completion-2026-11-05/summary.json) |
 | 较早的完整 JUnit、失败日志和复核记录 | [清理前的 Git 版本](https://github.com/Crystalclear9/AgentFuse/tree/d1e10a5e73c07b00cb977244ed763e57f8ea83d1/docs) |

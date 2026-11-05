@@ -48,7 +48,13 @@ def checked(relative):
 
 def readonly_retry(function, path, exc):
     target = Path(path)
-    target.resolve().relative_to(ROOT)
+    resolved = target.resolve()
+    resolved.relative_to(ROOT)
+    info = target.lstat()
+    if (resolved != target or stat.S_ISLNK(info.st_mode)
+            or getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT
+            or (stat.S_ISREG(info.st_mode) and info.st_nlink > 1)):
+        raise exc[1]
     target.chmod(stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC)
     function(path)
 

@@ -9,8 +9,66 @@ import sys
 import httpx
 import pytest
 
-from agentfuse.core.state import EventType
+from agentfuse.core.state import EventType, RuntimeMode
+from agentfuse.runtime.coordinator import ToolExecutionError
 from agentfuse.scenarios.common import wait_for_event
+
+
+@pytest.mark.parametrize(("mode", "calls"), [(RuntimeMode.BASELINE, 1), (RuntimeMode.ONLINE, 2)])
+async def test_result_storage_failure_settles_calls_and_releases_the_worker(app, snapshot, mode, calls):
+    workflow = app.create_workflow("blocked-result-store", mode=mode)
+    workflow.start()
+    coordinator = app.coordinator
+    coordinator.result_cache.max_entries = 4
+    blocker = app.result_store.root / workflow.workflow_id
+    blocker.write_text("a file blocks creation of the result directory", encoding="utf-8")
+    request = dict(workflow_id=workflow.workflow_id, tool_name="ast_analyzer",
+                   arguments={"files": ["src/alpha.py"]}, snapshot_id=snapshot.snapshot_id)
+    failures = await asyncio.wait_for(asyncio.gather(*(
+        coordinator.submit_tool_call(**request) for _ in range(calls)
+    ), return_exceptions=True), timeout=20)
+    assert all(isinstance(failure, ToolExecutionError) and failure.kind == "internal_error"
+               and "could not persist tool result" in str(failure) for failure in failures)
+    assert len({failure.execution_id for failure in failures}) == 1
+    execution = coordinator.get_execution(failures[0].execution_id)
+    assert execution.finalized and execution.status == "COMPLETED"
+    assert execution.result_reference is None
+    assert coordinator.scheduler.snapshot()["running"] == 0
+    assert coordinator.result_cache.snapshot()["entries"] == 0
+    assert all(call["status"] == "FAILED" for call in app.repository.list_logical_calls(workflow.workflow_id))
+    participants = app.repository.list_participants(workflow.workflow_id)
+    assert len(participants) == (calls if mode is RuntimeMode.ONLINE else 0)
+    assert all(participant["status"] == "FAILED" and participant["delivered_time"] is None
+               for participant in participants)
+    assert not any(event.event_type == EventType.TOOL_RESULT_DELIVERED
+                   for event in app.event_bus.history(workflow.workflow_id))
+
+    blocker.unlink()
+    recovered = await coordinator.submit_tool_call(**request)
+    assert recovered.physical_execution_id != execution.execution_id
+    assert recovered.result["files"][0]["path"] == "src/alpha.py"
+
+
+async def test_worker_payload_with_the_wrong_hash_is_not_delivered(app, snapshot, monkeypatch):
+    workflow = app.create_workflow("invalid-worker-result")
+    workflow.start()
+    coordinator = app.coordinator
+    coordinator.result_cache.max_entries = 4
+    handle = coordinator._handle_result
+
+    async def corrupt(execution_id, message):
+        await handle(execution_id, {**message, "result_hash": "0" * 64})
+
+    monkeypatch.setattr(coordinator, "_handle_result", corrupt)
+    with pytest.raises(ToolExecutionError, match="failed hash verification") as failure:
+        await asyncio.wait_for(coordinator.submit_tool_call(
+            workflow_id=workflow.workflow_id, tool_name="ast_analyzer",
+            arguments={"files": ["src/alpha.py"]}, snapshot_id=snapshot.snapshot_id,
+        ), timeout=20)
+    execution = coordinator.get_execution(failure.value.execution_id)
+    assert execution.finalized and execution.status == "RUNTIME_ERROR"
+    assert coordinator.result_cache.snapshot()["entries"] == 0
+    assert not list(app.result_store.root.glob("*/*.json"))
 
 
 async def test_idle_warm_workers_do_not_scan_process_trees(app, monkeypatch):
