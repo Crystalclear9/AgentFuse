@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="14" skipped="0" tests="15" time="0.378" timestamp="2026-11-05T09:57:34.979506+08:00" hostname="Crystalclear9"><testcase classname="tests.unit.test_remote_snapshot" name="test_noncanonical_snapshot_paths_are_rejected_before_writes[./a]" time="0.011"><failure message="Failed: DID NOT RAISE ValueError">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat0')
+name = './a'
+
+    @pytest.mark.parametrize("name", ["./a", "a//b", "a/./b", "a/", ".", "", "a/../b"])
+    def test_noncanonical_snapshot_paths_are_rejected_before_writes(tmp_path, name):
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE ValueError
+
+tests\unit\test_remote_snapshot.py:9: Failed</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_noncanonical_snapshot_paths_are_rejected_before_writes[a//b]" time="0.005"><failure message="Failed: DID NOT RAISE ValueError">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat1')
+name = 'a//b'
+
+    @pytest.mark.parametrize("name", ["./a", "a//b", "a/./b", "a/", ".", "", "a/../b"])
+    def test_noncanonical_snapshot_paths_are_rejected_before_writes(tmp_path, name):
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE ValueError
+
+tests\unit\test_remote_snapshot.py:9: Failed</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_noncanonical_snapshot_paths_are_rejected_before_writes[a/./b]" time="0.005"><failure message="Failed: DID NOT RAISE ValueError">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat2')
+name = 'a/./b'
+
+    @pytest.mark.parametrize("name", ["./a", "a//b", "a/./b", "a/", ".", "", "a/../b"])
+    def test_noncanonical_snapshot_paths_are_rejected_before_writes(tmp_path, name):
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE ValueError
+
+tests\unit\test_remote_snapshot.py:9: Failed</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_noncanonical_snapshot_paths_are_rejected_before_writes[a/]" time="0.007"><failure message="Failed: DID NOT RAISE ValueError">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat3')
+name = 'a/'
+
+    @pytest.mark.parametrize("name", ["./a", "a//b", "a/./b", "a/", ".", "", "a/../b"])
+    def test_noncanonical_snapshot_paths_are_rejected_before_writes(tmp_path, name):
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE ValueError
+
+tests\unit\test_remote_snapshot.py:9: Failed</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_noncanonical_snapshot_paths_are_rejected_before_writes[.]" time="0.004"><failure message="PermissionError: [Errno 13] Permission denied: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\tmp\\pytest-of-70454\\pytest-0\\test_noncanonical_snapshot_pat4'">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat4')
+name = '.'
+
+    @pytest.mark.parametrize("name", ["./a", "a//b", "a/./b", "a/", ".", "", "a/../b"])
+    def test_noncanonical_snapshot_paths_are_rejected_before_writes(tmp_path, name):
+        with pytest.raises(ValueError):
+&gt;           remote.unpack_tree({"files": {"valid": "eA==", name: "eQ=="}, "directories": []}, tmp_path)
+
+tests\unit\test_remote_snapshot.py:10: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+agentfuse\runtime\remote.py:66: in unpack_tree
+    path.write_bytes(content)
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1067: in write_bytes
+    with self.open(mode='wb') as f:
+         ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat4')
+mode = 'wb', buffering = -1, encoding = None, errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+&gt;       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       PermissionError: [Errno 13] Permission denied: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\tmp\\pytest-of-70454\\pytest-0\\test_noncanonical_snapshot_pat4'
+
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1044: PermissionError</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_noncanonical_snapshot_paths_are_rejected_before_writes[]" time="0.004"><failure message="AssertionError: assert [WindowsPath(..._pat5/valid')] == []&#10;  &#10;  Left contains one more item: WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat5/valid')&#10;  Use -v to get more diff">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat5')
+name = ''
+
+    @pytest.mark.parametrize("name", ["./a", "a//b", "a/./b", "a/", ".", "", "a/../b"])
+    def test_noncanonical_snapshot_paths_are_rejected_before_writes(tmp_path, name):
+        with pytest.raises(ValueError):
+            remote.unpack_tree({"files": {"valid": "eA==", name: "eQ=="}, "directories": []}, tmp_path)
+&gt;       assert list(tmp_path.iterdir()) == []
+E       AssertionError: assert [WindowsPath(..._pat5/valid')] == []
+E         
+E         Left contains one more item: WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat5/valid')
+E         Use -v to get more diff
+
+tests\unit\test_remote_snapshot.py:11: AssertionError</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_noncanonical_snapshot_paths_are_rejected_before_writes[a/../b]" time="0.004"><failure message="AssertionError: assert [WindowsPath(..._pat6/valid')] == []&#10;  &#10;  Left contains one more item: WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat6/valid')&#10;  Use -v to get more diff">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat6')
+name = 'a/../b'
+
+    @pytest.mark.parametrize("name", ["./a", "a//b", "a/./b", "a/", ".", "", "a/../b"])
+    def test_noncanonical_snapshot_paths_are_rejected_before_writes(tmp_path, name):
+        with pytest.raises(ValueError):
+            remote.unpack_tree({"files": {"valid": "eA==", name: "eQ=="}, "directories": []}, tmp_path)
+&gt;       assert list(tmp_path.iterdir()) == []
+E       AssertionError: assert [WindowsPath(..._pat6/valid')] == []
+E         
+E         Left contains one more item: WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_noncanonical_snapshot_pat6/valid')
+E         Use -v to get more diff
+
+tests\unit\test_remote_snapshot.py:11: AssertionError</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_invalid_snapshot_is_rejected_without_partial_materialization[tree0]" time="0.004"><failure message="AssertionError: assert [WindowsPath(...ejec0/valid')] == []&#10;  &#10;  Left contains one more item: WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_invalid_snapshot_is_rejec0/valid')&#10;  Use -v to get more diff">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_invalid_snapshot_is_rejec0')
+tree = {'files': {'valid': 'eA==', 'bad': '!'}, 'directories': []}
+
+    @pytest.mark.parametrize("tree", [
+        {"files": {"valid": "eA==", "bad": "!"}, "directories": []},
+        {"files": {"a": "eA==", "a/b": "eQ=="}, "directories": []},
+        {"files": {"a": "eA=="}, "directories": ["a"]},
+        {"files": {"a": "eA=="}, "directories": ["a/b"]},
+        {"files": {}, "directories": ["a", "a"]},
+    ])
+    def test_invalid_snapshot_is_rejected_without_partial_materialization(tmp_path, tree):
+        with pytest.raises(ValueError):
+            remote.unpack_tree(tree, tmp_path)
+&gt;       assert list(tmp_path.iterdir()) == []
+E       AssertionError: assert [WindowsPath(...ejec0/valid')] == []
+E         
+E         Left contains one more item: WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_invalid_snapshot_is_rejec0/valid')
+E         Use -v to get more diff
+
+tests\unit\test_remote_snapshot.py:24: AssertionError</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_invalid_snapshot_is_rejected_without_partial_materialization[tree1]" time="0.004"><failure message="FileExistsError: [WinError 183] 当文件已存在时，无法创建该文件。: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\tmp\\pytest-of-70454\\pytest-0\\test_invalid_snapshot_is_rejec1\\a'">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_invalid_snapshot_is_rejec1')
+tree = {'files': {'a': 'eA==', 'a/b': 'eQ=='}, 'directories': []}
+
+    @pytest.mark.parametrize("tree", [
+        {"files": {"valid": "eA==", "bad": "!"}, "directories": []},
+        {"files": {"a": "eA==", "a/b": "eQ=="}, "directories": []},
+        {"files": {"a": "eA=="}, "directories": ["a"]},
+        {"files": {"a": "eA=="}, "directories": ["a/b"]},
+        {"files": {}, "directories": ["a", "a"]},
+    ])
+    def test_invalid_snapshot_is_rejected_without_partial_materialization(tmp_path, tree):
+        with pytest.raises(ValueError):
+&gt;           remote.unpack_tree(tree, tmp_path)
+
+tests\unit\test_remote_snapshot.py:23: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+agentfuse\runtime\remote.py:65: in unpack_tree
+    path.parent.mkdir(parents=True, exist_ok=True)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_invalid_snapshot_is_rejec1/a')
+mode = 511, parents = True, exist_ok = True
+
+    def mkdir(self, mode=0o777, parents=False, exist_ok=False):
+        """
+        Create a new directory at this given path.
+        """
+        try:
+&gt;           os.mkdir(self, mode)
+E           FileExistsError: [WinError 183] 当文件已存在时，无法创建该文件。: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\tmp\\pytest-of-70454\\pytest-0\\test_invalid_snapshot_is_rejec1\\a'
+
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1116: FileExistsError</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_invalid_snapshot_is_rejected_without_partial_materialization[tree2]" time="0.004"><failure message="PermissionError: [Errno 13] Permission denied: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\tmp\\pytest-of-70454\\pytest-0\\test_invalid_snapshot_is_rejec2\\a'">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_invalid_snapshot_is_rejec2')
+tree = {'files': {'a': 'eA=='}, 'directories': ['a']}
+
+    @pytest.mark.parametrize("tree", [
+        {"files": {"valid": "eA==", "bad": "!"}, "directories": []},
+        {"files": {"a": "eA==", "a/b": "eQ=="}, "directories": []},
+        {"files": {"a": "eA=="}, "directories": ["a"]},
+        {"files": {"a": "eA=="}, "directories": ["a/b"]},
+        {"files": {}, "directories": ["a", "a"]},
+    ])
+    def test_invalid_snapshot_is_rejected_without_partial_materialization(tmp_path, tree):
+        with pytest.raises(ValueError):
+&gt;           remote.unpack_tree(tree, tmp_path)
+
+tests\unit\test_remote_snapshot.py:23: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+agentfuse\runtime\remote.py:66: in unpack_tree
+    path.write_bytes(content)
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1067: in write_bytes
+    with self.open(mode='wb') as f:
+         ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_invalid_snapshot_is_rejec2/a')
+mode = 'wb', buffering = -1, encoding = None, errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+&gt;       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       PermissionError: [Errno 13] Permission denied: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\tmp\\pytest-of-70454\\pytest-0\\test_invalid_snapshot_is_rejec2\\a'
+
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1044: PermissionError</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_invalid_snapshot_is_rejected_without_partial_materialization[tree3]" time="0.004"><failure message="PermissionError: [Errno 13] Permission denied: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\tmp\\pytest-of-70454\\pytest-0\\test_invalid_snapshot_is_rejec3\\a'">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_invalid_snapshot_is_rejec3')
+tree = {'files': {'a': 'eA=='}, 'directories': ['a/b']}
+
+    @pytest.mark.parametrize("tree", [
+        {"files": {"valid": "eA==", "bad": "!"}, "directories": []},
+        {"files": {"a": "eA==", "a/b": "eQ=="}, "directories": []},
+        {"files": {"a": "eA=="}, "directories": ["a"]},
+        {"files": {"a": "eA=="}, "directories": ["a/b"]},
+        {"files": {}, "directories": ["a", "a"]},
+    ])
+    def test_invalid_snapshot_is_rejected_without_partial_materialization(tmp_path, tree):
+        with pytest.raises(ValueError):
+&gt;           remote.unpack_tree(tree, tmp_path)
+
+tests\unit\test_remote_snapshot.py:23: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+agentfuse\runtime\remote.py:66: in unpack_tree
+    path.write_bytes(content)
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1067: in write_bytes
+    with self.open(mode='wb') as f:
+         ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_invalid_snapshot_is_rejec3/a')
+mode = 'wb', buffering = -1, encoding = None, errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+&gt;       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       PermissionError: [Errno 13] Permission denied: 'C:\\Users\\70454\\Desktop\\AgentFuse\\.agentfuse\\tmp\\pytest-of-70454\\pytest-0\\test_invalid_snapshot_is_rejec3\\a'
+
+.tools\python\cpython-3.11-windows-x86_64-none\Lib\pathlib.py:1044: PermissionError</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_invalid_snapshot_is_rejected_without_partial_materialization[tree4]" time="0.004"><failure message="Failed: DID NOT RAISE ValueError">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_invalid_snapshot_is_rejec4')
+tree = {'files': {}, 'directories': ['a', 'a']}
+
+    @pytest.mark.parametrize("tree", [
+        {"files": {"valid": "eA==", "bad": "!"}, "directories": []},
+        {"files": {"a": "eA==", "a/b": "eQ=="}, "directories": []},
+        {"files": {"a": "eA=="}, "directories": ["a"]},
+        {"files": {"a": "eA=="}, "directories": ["a/b"]},
+        {"files": {}, "directories": ["a", "a"]},
+    ])
+    def test_invalid_snapshot_is_rejected_without_partial_materialization(tmp_path, tree):
+&gt;       with pytest.raises(ValueError):
+E       Failed: DID NOT RAISE ValueError
+
+tests\unit\test_remote_snapshot.py:22: Failed</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_snapshot_sender_rejects_missing_root" time="0.003"><failure message="Failed: DID NOT RAISE any of (ValueError, FileNotFoundError)">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_snapshot_sender_rejects_m0')
+
+    def test_snapshot_sender_rejects_missing_root(tmp_path):
+&gt;       with pytest.raises((ValueError, FileNotFoundError)):
+E       Failed: DID NOT RAISE any of (ValueError, FileNotFoundError)
+
+tests\unit\test_remote_snapshot.py:28: Failed</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_snapshot_sender_enforces_directory_limit" time="0.005"><failure message="Failed: DID NOT RAISE ValueError">tmp_path = WindowsPath('C:/Users/70454/Desktop/AgentFuse/.agentfuse/tmp/pytest-of-70454/pytest-0/test_snapshot_sender_enforces_0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x0000017E112462D0&gt;
+
+    def test_snapshot_sender_enforces_directory_limit(tmp_path, monkeypatch):
+        monkeypatch.setattr(remote, "MAX_FILES", 2)
+        for name in ("a", "b", "c"):
+            (tmp_path / name).mkdir()
+&gt;       with pytest.raises(ValueError, match="limit"):
+E       Failed: DID NOT RAISE ValueError
+
+tests\unit\test_remote_snapshot.py:36: Failed</failure></testcase><testcase classname="tests.unit.test_remote_snapshot" name="test_snapshot_roundtrip_preserves_files_and_empty_directories" time="0.012" /></testsuite></testsuites>

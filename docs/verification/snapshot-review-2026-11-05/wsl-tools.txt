@@ -1,0 +1,4 @@
+/mnt/c/Users/70454/Desktop/AgentFuse/.venv-wsl/bin/python
+/mnt/c/Users/70454/Desktop/AgentFuse/.venv-wsl/lib/python3.11/site-packages/playwright/driver/node
+/mnt/c/Users/70454/Desktop/AgentFuse/.tools/uv-linux/uv-x86_64-unknown-linux-gnu/uv
+Python 3.11.18

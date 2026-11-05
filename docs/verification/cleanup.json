@@ -1,18 +1,18 @@
 [
   {
-    "path": ".agentfuse/final-guard",
+    "path": ".agentfuse/snapshot-guard",
     "status": "deleted"
   },
   {
-    "path": ".agentfuse/final-wheel",
+    "path": ".agentfuse/snapshot-wheel",
     "status": "deleted"
   },
   {
-    "path": ".agentfuse/wheel-check.py",
+    "path": ".agentfuse/snapshot-wheel-smoke.py",
     "status": "deleted"
   },
   {
-    "path": ".agentfuse/final-report.py",
+    "path": ".agentfuse/snapshot-report.py",
     "status": "deleted"
   },
   {
@@ -40,18 +40,18 @@
     "status": "deleted"
   },
   {
+    "path": ".agentfuse/tmp-linux",
+    "status": "absent"
+  },
+  {
     "path": ".agentfuse/tmp",
     "status": "empty_directory_retained",
     "remaining_files": 0,
     "error": "[WinError 32] 另一个程序正在使用此文件，进程无法访问。: 'C:\\\\Users\\\\70454\\\\Desktop\\\\AgentFuse\\\\.agentfuse\\\\tmp'"
   },
   {
-    "path": ".agentfuse/tmp-linux",
-    "status": "deleted"
-  },
-  {
     "path": ".pytest_cache",
-    "status": "deleted"
+    "status": "absent"
   },
   {
     "path": ".tools/cache",

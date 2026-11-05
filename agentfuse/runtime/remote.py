@@ -25,7 +25,9 @@ MAX_FILES = 5000
 
 
 def pack_tree(root: str) -> dict:
-    root = Path(root).resolve()
+    root = Path(root).resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError("snapshot root must be a directory")
     files, directories, size = {}, [], 0
     for path in sorted(root.rglob("*")):
         if path.is_symlink():
@@ -33,6 +35,8 @@ def pack_tree(root: str) -> dict:
         name = path.relative_to(root).as_posix()
         if path.is_dir():
             directories.append(name)
+            if len(directories) > MAX_FILES:
+                raise ValueError("remote snapshot exceeds directory limit")
         elif path.is_file():
             content = path.read_bytes()
             size += len(content)
@@ -44,24 +48,48 @@ def pack_tree(root: str) -> dict:
 
 def unpack_tree(tree: dict, root: Path) -> None:
     files, directories = tree["files"], tree["directories"]
+    if not isinstance(files, dict) or not isinstance(directories, list):
+        raise ValueError("invalid snapshot entry collections")
     if len(files) > MAX_FILES or len(directories) > MAX_FILES:
         raise ValueError("too many snapshot entries")
+    root = root.resolve()
     def target(name):
-        path = PurePosixPath(name)
-        if not name or path.is_absolute() or ".." in path.parts or "\\" in name or ":" in name:
+        if not isinstance(name, str) or any(part in ("", ".", "..") for part in name.split("/")):
             raise ValueError("unsafe snapshot path")
+        path = PurePosixPath(name)
+        if path.is_absolute() or "\\" in name or ":" in name or "\x00" in name:
+            raise ValueError("unsafe snapshot path")
+        if os.name == "nt":
+            devices = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+            devices.update(prefix + digit for prefix in ("COM", "LPT") for digit in "123456789¹²³")
+            if any(part.endswith((".", " ")) or part.split(".")[0].upper() in devices
+                   or any(ord(char) < 32 or char in '<>"|?*' for char in part)
+                   for part in path.parts):
+                raise ValueError("unsafe Windows snapshot path")
         result = root.joinpath(*path.parts)
-        result.resolve().relative_to(root.resolve())
+        result.resolve().relative_to(root)
         return result
-    for name in directories:
-        target(name).mkdir(parents=True, exist_ok=True)
+    # Validate the whole tree before touching the destination. Path equality
+    # also catches case aliases on Windows, where remote workers are supported.
+    directory_paths = [target(name) for name in directories]
+    file_paths = [target(name) for name in files]
+    all_paths = directory_paths + file_paths
+    if len(set(all_paths)) != len(all_paths):
+        raise ValueError("duplicate snapshot path")
+    file_set = set(file_paths)
+    if any(parent in file_set for path in all_paths for parent in path.parents):
+        raise ValueError("snapshot file conflicts with a directory")
     size = 0
-    for name, encoded in files.items():
+    decoded = []
+    for encoded in files.values():
         content = base64.b64decode(encoded, validate=True)
         size += len(content)
         if size > MAX_BYTES:
             raise ValueError("snapshot too large")
-        path = target(name)
+        decoded.append(content)
+    for path in directory_paths:
+        path.mkdir(parents=True, exist_ok=True)
+    for path, content in zip(file_paths, decoded):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
 

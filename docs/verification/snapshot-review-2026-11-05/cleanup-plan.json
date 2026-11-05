@@ -1,0 +1,18 @@
+[
+  ".agentfuse/snapshot-guard",
+  ".agentfuse/snapshot-wheel",
+  ".agentfuse/snapshot-wheel-smoke.py",
+  ".agentfuse/snapshot-report.py",
+  ".agentfuse/audit-runs",
+  ".agentfuse/soak",
+  ".agentfuse/regression",
+  ".agentfuse/acceptance",
+  ".agentfuse/acceptance-api",
+  ".agentfuse/frontend-capture",
+  ".agentfuse/tmp-linux",
+  ".agentfuse/tmp",
+  ".pytest_cache",
+  ".tools/cache",
+  "build",
+  "agentfuse.egg-info"
+]
