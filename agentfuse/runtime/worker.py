@@ -133,5 +133,5 @@ def execute_tool(payload: dict[str, Any], reporter: DependencyReporter) -> dict[
         message["dependency_bypass"] = sorted(set(violations))
         message["dependency_complete"] = False
     else:
-        message["dependency_complete"] = True
+        message["dependency_complete"] = reader.dependencies_stable
     return message

@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from agentfuse.core.state import ValidationStatus
 from agentfuse.sharing.dependency import DependencyRecord
 from agentfuse.sharing.validator import DependencyValidator
+from agentfuse.workspace.fingerprint import fingerprint_directory_listing
+from agentfuse.workspace.reader import WorkspaceReader
 
 
 class _FakeSnapshots:
@@ -124,3 +128,24 @@ def test_the_prefix_validation_reports_a_mismatch(tree):
     assert status is ValidationStatus.MISMATCH
     assert matched == 0
     assert reason and "differs" in reason
+
+
+def test_directory_fingerprints_do_not_confuse_delimiters_with_filenames():
+    assert fingerprint_directory_listing([("a\tfile\nb", "file")]) != fingerprint_directory_listing(
+        [("a", "file"), ("b", "file")]
+    )
+
+
+def test_stat_validates_only_the_metadata_exposed_to_the_tool(tree):
+    relative = "src/main.py"
+    target = tree / relative
+    reader = WorkspaceReader(tree)
+    metadata = reader.stat(relative)
+    assert "mtime_ns" not in reader.stat(relative, include_mtime=False)
+    os.utime(target, ns=(metadata["mtime_ns"], metadata["mtime_ns"] - 2_000_000_000))
+    validator = DependencyValidator(_FakeSnapshots(tree))
+    results = [
+        validator.compare("snap", DependencyRecord(execution_id="exec", **observation.to_dict()))[0]
+        for observation in reader.observed
+    ]
+    assert results == [ValidationStatus.MISMATCH, ValidationStatus.MATCH]

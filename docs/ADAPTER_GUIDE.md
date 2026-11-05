@@ -103,6 +103,8 @@ python -m agentfuse.adapters.external_adapter --home .agentfuse/framework-demo -
 
 旧客户端可继续读取 result 元数据字段。新客户端用 output 获取工具输出。错误回复包含 type=error、code、message。工具执行失败额外带 kind 和 execution_id。请求错误和工具失败后，客户端仍可在同一连接发起下一次请求。客户端完成工作后关闭 stdin，服务端会记录尚未结束的 Invocation 为 CANCELLED 并关闭应用。
 
+运行时主动取消已受理的工具调用时，返回 code 为 tool_cancelled 的错误，并保留原 request_id。timeout_seconds 是单次物理执行的运行上限。一个调用不会加入上限比它更长的在途执行，已有的失败重试规则仍适用。
+
 ```powershell
 node examples/external_framework/client.mjs python .agentfuse/framework-demo agentfuse/resources/sample_repository
 ```

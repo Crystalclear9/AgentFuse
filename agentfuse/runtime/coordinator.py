@@ -26,11 +26,12 @@ import threading
 import time
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Iterator
 
 from ..core.events import EventBus
 from ..core.ids import new_id
 from ..core.state import (
+    DependencyType,
     EventType,
     ExecutionStatus,
     LogicalCallStatus,
@@ -240,7 +241,7 @@ class RuntimeCoordinator:
         self._calls: dict[str, LogicalCall] = {}
         self._executions: dict[str, PhysicalExecution] = {}
         self._groups: dict[str, ShareGroup] = {}
-        self._groups_by_key: dict[str, list[str]] = {}
+        self._groups_by_key: dict[tuple[str, str], dict[str, None]] = {}
         self._workflow_modes: dict[str, RuntimeMode] = {}
         self._workflow_seeds: dict[str, int | None] = {}
         self._tasks: set[asyncio.Task] = set()
@@ -367,6 +368,7 @@ class RuntimeCoordinator:
         normalized = self._normalize_arguments(spec, arguments)
         arguments_hash = hash_arguments(normalized)
         candidate_key = compute_candidate_key(spec, normalized)
+        mode = self.mode_for(workflow_id)
 
         call = LogicalCall(
             logical_call_id=new_id("call"),
@@ -395,13 +397,12 @@ class RuntimeCoordinator:
                 "candidate_key": candidate_key,
                 "snapshot_id": snapshot_id,
                 "shareable": spec.shareable,
-                "mode": str(self.mode),
+                "mode": str(mode),
             },
         )
         # everything that happens for this call is a child of the request
         call.request_event_id = requested_event.event_id
 
-        mode = self.mode_for(workflow_id)
         sharing_enabled = mode is not RuntimeMode.BASELINE and spec.shareable
         try:
             if sharing_enabled:
@@ -706,14 +707,7 @@ class RuntimeCoordinator:
                 # would no longer describe the state the tool actually read.
                 self._start_independent_locked(call)
                 return
-            group_ids = list(self._groups_by_key.get(call.candidate_key, ()))
-            for group_id in reversed(group_ids):
-                group = self._groups.get(group_id)
-                if group is None or group.status not in (
-                    ShareGroupStatus.CREATED,
-                    ShareGroupStatus.EXECUTING,
-                ):
-                    continue
+            for group in self._share_candidates(call):
                 if mode is RuntimeMode.DEFERRED:
                     self._publish_candidate_found(call, group, joinable=True, matched=0)
                     self._attach_participant(group, call, validated_prefix=0)
@@ -849,6 +843,30 @@ class RuntimeCoordinator:
             },
         )
 
+    def _execution_timeout(self, call: LogicalCall) -> float:
+        return float(self.default_timeout_seconds if call.timeout_seconds is None else call.timeout_seconds)
+
+    def _share_candidates(self, call: LogicalCall) -> Iterator[ShareGroup]:
+        key = (call.workflow_id, call.candidate_key)
+        timeout = self._execution_timeout(call)
+        for group_id in reversed(self._groups_by_key.get(key, ())):
+            group = self._groups[group_id]
+            if group.status not in (ShareGroupStatus.CREATED, ShareGroupStatus.EXECUTING):
+                continue
+            execution = self._executions.get(group.leader_execution_id or "")
+            if (execution is not None and not execution.outcome.done()
+                    and group.has_live_participants() and execution.timeout_seconds <= timeout):
+                yield group
+
+    def _unindex_group(self, group: ShareGroup) -> None:
+        key = (group.workflow_id, group.candidate_key)
+        group_ids = self._groups_by_key.get(key)
+        if group_ids is None:
+            return
+        group_ids.pop(group.share_group_id, None)
+        if not group_ids:
+            del self._groups_by_key[key]
+
     def _create_group_locked(self, call: LogicalCall) -> None:
         # A logical call belongs to at most **one** running physical execution
         # (requirement 8.2).  The guard is checked here as well - not only in
@@ -878,7 +896,8 @@ class RuntimeCoordinator:
         )
         group.add_participant(leader)
         self._groups[group.share_group_id] = group
-        self._groups_by_key.setdefault(call.candidate_key, []).append(group.share_group_id)
+        key = (call.workflow_id, call.candidate_key)
+        self._groups_by_key.setdefault(key, {})[group.share_group_id] = None
         call.share_group_id = group.share_group_id
         call.status = LogicalCallStatus.RUNNING_INDEPENDENTLY
         # the call, the group and its leader describe the same state
@@ -966,11 +985,9 @@ class RuntimeCoordinator:
             snapshot_id=call.snapshot_id,
             share_group_id=share_group_id,
             leader_call_id=call.logical_call_id,
-            timeout_seconds=float(self.default_timeout_seconds),
+            timeout_seconds=self._execution_timeout(call),
             attempt=call.retry_count + 1,
         )
-        if call.timeout_seconds is not None:
-            execution.timeout_seconds = float(call.timeout_seconds)
         execution.ledger = DependencyLedger(execution.execution_id, call.snapshot_id)
         self._executions[execution.execution_id] = execution
         call.physical_execution_id = execution.execution_id
@@ -1807,15 +1824,17 @@ class RuntimeCoordinator:
             group.transition(ShareGroupStatus.VALIDATING)
 
         ledger = self._ledger_of(group)
-        # A tool that read the workspace without the controlled reader produced
-        # an incomplete dependency ledger.  Its result must not be shared with
-        # anybody - the participants run independently instead.
+        # A bypass or a changing input makes the execution ineligible for reuse.
         incomplete_ledger = not outcome.dependency_complete
         integrity: dict[str, bool] = {}
+        stat_observations = [record for record in ledger if record.dependency_type == DependencyType.FILE_STAT]
 
         def trustworthy(snapshot_id: str) -> bool:
             if snapshot_id not in integrity:
                 integrity[snapshot_id] = self._snapshot_is_trustworthy(snapshot_id, force=True)
+                if integrity[snapshot_id] and stat_observations:
+                    status, _, _ = self.validator.validate_prefix(snapshot_id, stat_observations)
+                    integrity[snapshot_id] = status is ValidationStatus.MATCH
             return integrity[snapshot_id]
 
         for participant in list(group.participants.values()):
@@ -1844,7 +1863,7 @@ class RuntimeCoordinator:
                 self._detach_participant_locked(
                     group,
                     participant,
-                    "the tool read the workspace without the controlled reader",
+                    "the tool did not produce a complete, stable dependency ledger",
                 )
                 continue
             if not trustworthy(execution.snapshot_id):
@@ -1916,6 +1935,7 @@ class RuntimeCoordinator:
         self._persist_group(group)
         # the group has served its purpose - it is closed (requirement 4.8)
         group.close()
+        self._unindex_group(group)
         self._persist_group(group)
         if (not incomplete_ledger and (self.result_cache.enabled or self.persistent_cache.enabled)
                 and trustworthy(execution.snapshot_id)):
@@ -1977,6 +1997,7 @@ class RuntimeCoordinator:
             self._persist_group(group)
             # the group is closed - a later call starts a new one
             group.close()
+            self._unindex_group(group)
             self._persist_group(group)
         elif execution.leader_call_id:
             affected.append(execution.leader_call_id)
@@ -2197,14 +2218,8 @@ class RuntimeCoordinator:
 
         mode = self.mode_for(call.workflow_id)
         if mode is not RuntimeMode.BASELINE:
-            for group_id in reversed(self._groups_by_key.get(call.candidate_key, ())):
-                group = self._groups.get(group_id)
-                if group is None or group is left_group:
-                    continue
-                if group.status not in (
-                    ShareGroupStatus.CREATED,
-                    ShareGroupStatus.EXECUTING,
-                ):
+            for group in self._share_candidates(call):
+                if group is left_group:
                     continue
                 if mode is RuntimeMode.DEFERRED:
                     self._attach_participant(group, call, validated_prefix=0)

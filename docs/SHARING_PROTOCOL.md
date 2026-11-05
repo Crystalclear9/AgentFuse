@@ -41,6 +41,8 @@ CandidateKey = SHA256(
 
 真正决定共享正确性的是工具**实际读取过的依赖**。
 
+在途候选组按工作流和候选键查找，防止不同工作流的事件、统计和验证模式混用。候选物理执行的单次超时上限必须小于或等于新调用的上限，已结束或无活跃参与者的组停止接收新调用。显式启用的已完成结果缓存仍可按缓存规则跨工作流复用。
+
 ### 参数规范化
 
 工具可以通过 `argument_normalizer` 规范化参数。内置的三个文件类工具都使用
@@ -57,14 +59,15 @@ CandidateKey = SHA256(
 | 依赖类型 | 指纹定义 |
 |---|---|
 | `FILE_READ` | 文件原始字节的 SHA-256 |
-| `DIRECTORY_LIST` | 规范化直接子项清单（`"<name>\t<kind>"` 按名字排序，kind ∈ file/dir/symlink）的 SHA-256 |
+| `DIRECTORY_LIST` | 直接子项的名称与类型组成有序 JSON 对，转义后取 SHA-256 |
 | `PATH_EXISTS` | `SHA256("exists")` |
 | `PATH_NOT_EXISTS` | `SHA256("not_exists")` |
-| `FILE_STAT` | `SHA256("<size>|<is_dir>")`（不含 mtime，见下） |
+| `FILE_STAT` | 文件大小、纳秒修改时间和目录标志的 SHA-256 |
+| `FILE_STAT_SIZE` | 文件大小和目录标志的 SHA-256 |
 
-> **为什么 `FILE_STAT` 不包含 mtime？**
-> fork 出来的快照内容相同但时间戳可能不同；时间戳对只读工具的结果没有影响。
-> 内容层面的差异由同一路径上的 `FILE_READ` 依赖负责表达。
+`WorkspaceReader.stat()` 默认向工具提供修改时间，因此必须把它纳入验证。只需要大小的工具可传
+`include_mtime=False`，例如源码索引。提交前复验涉及修改时间的观测；远程 Worker 传输并还原修改时间。
+同一依赖重复读取时，等值观测去重，变化观测继续写入账本，并禁止本次执行进入共享或缓存。
 
 所有路径都是**相对工作区根目录**的规范化 POSIX 路径。`../`、绝对路径、
 越界的符号链接一律被 `WorkspaceReader` 与 `DependencyValidator` 拒绝。

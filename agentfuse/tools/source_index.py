@@ -2,7 +2,7 @@
 
 Walks a source directory through the controlled reader and reports a real
 inventory of the source files it found.  Every directory listing produces a
-``DIRECTORY_LIST`` dependency, every inspected file a ``FILE_STAT`` dependency.
+``DIRECTORY_LIST`` dependency, every inspected file a ``FILE_STAT_SIZE`` dependency.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def source_file_index(context: ToolContext) -> dict[str, Any]:
             continue
         if len(files) >= max_files:
             break
-        info = context.reader.stat(relative)
+        info = context.reader.stat(relative, include_mtime=False)
         size = int(info["size"])
         extension = relative.rsplit(".", 1)[-1] if "." in relative.rsplit("/", 1)[-1] else "<none>"
         extension_stats[extension] += 1

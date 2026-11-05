@@ -10,13 +10,11 @@ drift apart.
 Fingerprint definitions
 -----------------------
 ``FILE_READ``      SHA-256 over the raw file bytes.
-``DIRECTORY_LIST`` SHA-256 over the canonical listing of the *direct* children
-                   of a directory: ``"<name>\\t<kind>"`` lines, sorted by name,
-                   where kind is ``file`` / ``dir`` / ``symlink``.
+``DIRECTORY_LIST`` SHA-256 over sorted JSON pairs of direct child names and kinds.
 ``PATH_EXISTS``    SHA-256 of the literal string ``exists``.
 ``PATH_NOT_EXISTS``SHA-256 of the literal string ``not_exists``.
-``FILE_STAT``      SHA-256 over ``"<size>|<is_dir>"`` (the modification time is
-                   intentionally excluded, see :func:`fingerprint_stat`).
+``FILE_STAT``      SHA-256 over size, modification time and directory flag.
+``FILE_STAT_SIZE`` SHA-256 over size and directory flag only.
 """
 
 from __future__ import annotations
@@ -64,8 +62,7 @@ def entry_kind(name: str, is_dir: bool, is_symlink: bool) -> str:
 def canonical_directory_listing(entries: Iterable[tuple[str, str]]) -> str:
     """Build the canonical listing payload for a directory."""
 
-    lines = sorted(f"{name}\t{kind}" for name, kind in entries)
-    return "\n".join(lines)
+    return canonical_json(sorted(entries))
 
 
 def fingerprint_directory_listing(entries: Iterable[tuple[str, str]]) -> str:
@@ -76,16 +73,14 @@ def fingerprint_existence(exists: bool) -> str:
     return sha256_hex(b"exists" if exists else b"not_exists")
 
 
-def fingerprint_stat(size: int, mtime_ns: int, is_dir: bool) -> str:
+def fingerprint_stat(size: int, mtime_ns: int | None, is_dir: bool) -> str:
     """Fingerprint of a stat observation.
 
-    The modification time is deliberately *not* part of the fingerprint: a
-    fork of a snapshot keeps the content but the timestamp is irrelevant for
-    the (read only) result of a tool.  Content level differences are captured
-    by the ``FILE_READ`` dependency of the same path.
+    Omit the modification time only when the reader omitted it from the value
+    exposed to the tool.
     """
 
-    payload = f"{size}|{'1' if is_dir else '0'}"
+    payload = canonical_json([size, mtime_ns, is_dir])
     return sha256_hex(payload.encode("utf-8"))
 
 

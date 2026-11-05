@@ -18,6 +18,7 @@ presented as an operating system level sandbox (see
 from __future__ import annotations
 
 import os
+import stat
 import sys
 import threading
 import time
@@ -193,7 +194,8 @@ class WorkspaceReader:
         self.snapshot_id = snapshot_id
         self.strict_boundary = strict_boundary
         self._sequence = 0
-        self._seen: set[tuple[str, str]] = set()
+        self._seen: dict[tuple[str, str], str] = {}
+        self.dependencies_stable = True
         self.observed: list[ObservedDependency] = []
 
     # ------------------------------------------------------------------
@@ -212,10 +214,14 @@ class WorkspaceReader:
         return relative, target
 
     def _report(self, dependency_type: str, relative_path: str, fingerprint: str) -> None:
-        key = (dependency_type, relative_path)
-        if key in self._seen:
+        family = DependencyType.PATH_EXISTS if dependency_type == DependencyType.PATH_NOT_EXISTS else dependency_type
+        key = (family, relative_path)
+        previous = self._seen.get(key)
+        if previous == fingerprint:
             return
-        self._seen.add(key)
+        if previous is not None:
+            self.dependencies_stable = False
+        self._seen[key] = fingerprint
         self._sequence += 1
         observed = ObservedDependency(
             dependency_type=dependency_type,
@@ -273,26 +279,22 @@ class WorkspaceReader:
         )
         return present
 
-    def stat(self, path: str | os.PathLike[str]) -> dict[str, Any]:
+    def stat(self, path: str | os.PathLike[str], *, include_mtime: bool = True) -> dict[str, Any]:
         relative, target = self._resolve(path)
         try:
             with controlled_access():
                 info = target.stat()
-                is_dir = target.is_dir()
+                is_dir = stat.S_ISDIR(info.st_mode)
         except FileNotFoundError:
             self._report(DependencyType.PATH_NOT_EXISTS, relative, fingerprint_existence(False))
             raise
-        self._report(
-            DependencyType.FILE_STAT,
-            relative,
-            fingerprint_stat(info.st_size, info.st_mtime_ns, is_dir),
-        )
-        return {
-            "path": relative,
-            "size": info.st_size,
-            "mtime_ns": info.st_mtime_ns,
-            "is_dir": is_dir,
-        }
+        mtime_ns = info.st_mtime_ns if include_mtime else None
+        kind = DependencyType.FILE_STAT if include_mtime else DependencyType.FILE_STAT_SIZE
+        self._report(kind, relative, fingerprint_stat(info.st_size, mtime_ns, is_dir))
+        result = {"path": relative, "size": info.st_size, "is_dir": is_dir}
+        if include_mtime:
+            result["mtime_ns"] = mtime_ns
+        return result
 
     def iter_files(self, root: str | os.PathLike[str] = ".") -> Iterable[str]:
         """Recursively list regular files below ``root`` (reporting every list)."""

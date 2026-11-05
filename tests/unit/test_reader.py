@@ -69,6 +69,19 @@ def test_the_same_dependency_is_only_reported_once(reader):
     assert len([item for item in reader.observed_list if item[1] == "src/a.py"]) == 1
 
 
+def test_changed_fingerprint_on_a_repeated_read_is_observed(reader):
+    first = reader.read_text("src/a.py")
+    target = reader.root / "src/a.py"
+    target.write_text("changed", encoding="utf-8")
+    assert reader.read_text("src/a.py") == "changed"
+    target.write_bytes(first.encode("utf-8"))
+    assert reader.read_text("src/a.py") == first
+    assert not reader.dependencies_stable
+    hashes = [observation.fingerprint for observation in reader.observed]
+    assert len(hashes) == 3
+    assert hashes[0] == hashes[2] != hashes[1]
+
+
 @pytest.mark.parametrize("path", ["../secret.txt", "src/../../secret.txt", "/etc/passwd"])
 def test_paths_escaping_the_workspace_are_rejected(reader, path):
     with pytest.raises(WorkspaceBoundaryError):

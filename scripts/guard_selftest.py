@@ -519,6 +519,7 @@ _LEGACY_MUTATIONS: list[dict[str, Any]] = [
         "file": "agentfuse/runtime/coordinator.py",
         "old": """        # the group has served its purpose - it is closed (requirement 4.8)
         group.close()
+        self._unindex_group(group)
         self._persist_group(group)""",
         "new": """        pass""",
         "guards": [

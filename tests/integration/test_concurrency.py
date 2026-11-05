@@ -9,7 +9,7 @@ import pytest
 
 from tests.support import wait_for_process_exit, wait_until
 
-from agentfuse.core.state import EventType
+from agentfuse.core.state import EventType, RuntimeMode
 from agentfuse.scenarios.common import (
     DEMO_FILES,
     create_branch,
@@ -32,6 +32,67 @@ def _process_alive(pid: int | None) -> bool:
         return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
     except Exception:
         return False
+
+
+async def test_live_sharing_does_not_mix_workflows_or_their_modes(app, snapshot):
+    workflows = [app.create_workflow(str(mode), mode=mode)
+                 for mode in (RuntimeMode.ONLINE, RuntimeMode.DEFERRED)]
+    for workflow in workflows:
+        workflow.start()
+    results = await asyncio.gather(*(app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id, tool_name="ast_analyzer",
+        arguments={"files": ["src/alpha.py"]}, snapshot_id=snapshot.snapshot_id,
+    ) for workflow in workflows))
+    assert len({result.physical_execution_id for result in results}) == 2
+    for workflow, mode in zip(workflows, (RuntimeMode.ONLINE, RuntimeMode.DEFERRED)):
+        events = app.event_bus.history(workflow.workflow_id)
+        assert next(event for event in events if event.event_type == EventType.TOOL_CALL_REQUESTED).metadata["mode"] == str(mode)
+
+
+async def test_a_shorter_execution_limit_cannot_inherit_a_longer_one(app, snapshot):
+    workflow = app.create_workflow("different-timeout")
+    workflow.start()
+    results = await asyncio.gather(*(app.coordinator.submit_tool_call(
+        workflow_id=workflow.workflow_id, tool_name="ast_analyzer",
+        arguments={"files": ["src/alpha.py"]}, snapshot_id=snapshot.snapshot_id,
+        timeout_seconds=timeout,
+    ) for timeout in (60.0, 10.0)))
+    assert results[0].result == results[1].result
+    assert len({result.physical_execution_id for result in results}) == 2
+    assert not app.coordinator._groups_by_key
+
+
+async def test_a_new_call_cannot_join_a_group_whose_last_participant_cancelled(app, snapshot, monkeypatch):
+    workflow = app.create_workflow("closing-group")
+    workflow.start()
+    coordinator = app.coordinator
+    request = dict(workflow_id=workflow.workflow_id, tool_name="ast_analyzer",
+                   arguments={"files": ["src/alpha.py"]}, snapshot_id=snapshot.snapshot_id)
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    terminate = coordinator._terminate_execution
+
+    async def delayed_termination(execution, reason, **kwargs):
+        if reason == "all participants cancelled":
+            entered.set()
+            await release.wait()
+        await terminate(execution, reason, **kwargs)
+
+    monkeypatch.setattr(coordinator, "_terminate_execution", delayed_termination)
+    leader = asyncio.create_task(coordinator.submit_tool_call(**request))
+    requested = await wait_for_event(app.event_bus, EventType.TOOL_CALL_REQUESTED,
+                                     workflow_id=workflow.workflow_id)
+    cancel = asyncio.create_task(coordinator.cancel_logical_call(requested.logical_call_id))
+    await asyncio.wait_for(entered.wait(), timeout=5)
+    try:
+        follower = asyncio.create_task(coordinator.submit_tool_call(**request))
+        await asyncio.sleep(0)
+    finally:
+        release.set()
+    assert await cancel
+    with pytest.raises(asyncio.CancelledError):
+        await leader
+    assert (await follower).result["files"][0]["path"] == "src/alpha.py"
 
 
 async def test_many_concurrent_identical_calls_create_one_execution(app, snapshot):

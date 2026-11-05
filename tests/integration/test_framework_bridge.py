@@ -8,6 +8,7 @@ import sys
 import pytest
 
 from agentfuse.adapters.external_adapter import ExternalAdapter, ProtocolError
+from agentfuse.scenarios.common import wait_for_running_execution
 from agentfuse.sharing.result_delivery import compute_result_hash
 
 
@@ -70,6 +71,22 @@ async def test_framework_activation_records_failure_cancellation_and_explicit_pa
         assert failed.status == 'FAILED'
         assert cancelled.status == 'CANCELLED'
     workflow.finish()
+
+
+async def test_protocol_call_cancelled_by_runtime_gets_a_reply(app, snapshot):
+    workflow = app.create_workflow("framework", default_snapshot_id=snapshot.snapshot_id)
+    workflow.start()
+    adapter = ExternalAdapter(workflow)
+    async with adapter.invocation() as invocation:
+        call = asyncio.create_task(adapter._reply({
+            "type": "call", "request_id": 7, "invocation_id": invocation.invocation_id,
+            "tool": "fault_injector", "arguments": {"mode": "sleep", "seconds": 15},
+        }))
+        execution = await wait_for_running_execution(app.event_bus, workflow.workflow_id)
+        assert await app.coordinator.cancel_logical_call(execution.logical_call_id, "test cancellation")
+        assert await call == {"type": "error", "request_id": 7, "code": "tool_cancelled",
+                              "message": "test cancellation"}
+        assert (await adapter._reply({"type": "discover"}))["type"] == "catalogue"
 
 
 def test_node_client_discovers_and_runs_tools_on_its_own_workspace(tmp_path):

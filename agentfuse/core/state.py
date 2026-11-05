@@ -107,6 +107,7 @@ class DependencyType(StrEnum):
     PATH_EXISTS = "PATH_EXISTS"
     PATH_NOT_EXISTS = "PATH_NOT_EXISTS"
     FILE_STAT = "FILE_STAT"
+    FILE_STAT_SIZE = "FILE_STAT_SIZE"
 
 
 class RuntimeMode(StrEnum):

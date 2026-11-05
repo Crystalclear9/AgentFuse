@@ -11,6 +11,7 @@ on what "the same dependency" means.
 from __future__ import annotations
 
 import os
+import stat
 from pathlib import Path
 
 from ..core.state import DependencyType, ValidationStatus
@@ -93,11 +94,12 @@ class DependencyValidator:
                 return fingerprint_existence(os.path.exists(target)), None
             if kind == DependencyType.PATH_NOT_EXISTS:
                 return fingerprint_existence(os.path.exists(target)), None
-            if kind == DependencyType.FILE_STAT:
+            if kind in (DependencyType.FILE_STAT, DependencyType.FILE_STAT_SIZE):
                 if not target.exists():
                     return None, f"{relative} does not exist in snapshot {snapshot_id}"
                 info = target.stat()
-                return fingerprint_stat(info.st_size, info.st_mtime_ns, target.is_dir()), None
+                mtime_ns = info.st_mtime_ns if kind == DependencyType.FILE_STAT else None
+                return fingerprint_stat(info.st_size, mtime_ns, stat.S_ISDIR(info.st_mode)), None
         except OSError as exc:
             return None, f"cannot evaluate {relative}: {exc}"
 

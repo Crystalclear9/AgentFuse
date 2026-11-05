@@ -49,6 +49,26 @@ def test_snapshot_roundtrip_preserves_files_and_empty_directories(tmp_path):
     assert remote.pack_tree(str(target)) == tree
 
 
+def test_worker_snapshot_can_roundtrip_modification_times(tmp_path):
+    source, target = tmp_path / "source", tmp_path / "target"
+    (source / "empty").mkdir(parents=True)
+    (source / "data").write_bytes(b"contents")
+    target.mkdir()
+    for offset, path in enumerate((source, source / "empty", source / "data")):
+        instant = 1_700_000_000_000_000_000 + offset * 2_000_000_000
+        os.utime(path, ns=(instant, instant))
+    tree = remote.pack_tree(str(source), preserve_mtime=True)
+    remote.unpack_tree(tree, target)
+    assert remote.pack_tree(str(target), preserve_mtime=True) == tree
+
+
+def test_invalid_worker_metadata_is_rejected_before_writes(tmp_path):
+    tree = {"files": {"file": "eA=="}, "directories": [], "mtimes_ns": {".": 0, "file": True}}
+    with pytest.raises(ValueError, match="modification times"):
+        remote.unpack_tree(tree, tmp_path)
+    assert list(tmp_path.iterdir()) == []
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows path alias semantics")
 @pytest.mark.parametrize("name", ["a.", "a ", "NUL.txt", "dir/COM1", "a?b", "a|b"])
 def test_windows_snapshot_aliases_are_rejected(tmp_path, name):

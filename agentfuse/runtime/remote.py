@@ -24,11 +24,12 @@ MAX_BYTES = 64 * 1024 * 1024
 MAX_FILES = 5000
 
 
-def pack_tree(root: str) -> dict:
+def pack_tree(root: str, *, preserve_mtime: bool = False) -> dict:
     root = Path(root).resolve(strict=True)
     if not root.is_dir():
         raise ValueError("snapshot root must be a directory")
     files, directories, size = {}, [], 0
+    mtimes = {".": root.stat().st_mtime_ns} if preserve_mtime else None
     for path in sorted(root.rglob("*")):
         if path.is_symlink():
             raise ValueError("remote snapshots cannot contain symlinks")
@@ -43,7 +44,14 @@ def pack_tree(root: str) -> dict:
             if size > MAX_BYTES or len(files) >= MAX_FILES:
                 raise ValueError("remote snapshot exceeds limits")
             files[name] = base64.b64encode(content).decode("ascii")
-    return dict(files=files, directories=directories)
+        else:
+            raise ValueError("remote snapshots require regular files and directories")
+        if mtimes is not None:
+            mtimes[name] = path.stat().st_mtime_ns
+    tree = dict(files=files, directories=directories)
+    if mtimes is not None:
+        tree["mtimes_ns"] = mtimes
+    return tree
 
 
 def unpack_tree(tree: dict, root: Path) -> None:
@@ -79,6 +87,13 @@ def unpack_tree(tree: dict, root: Path) -> None:
     file_set = set(file_paths)
     if any(parent in file_set for path in all_paths for parent in path.parents):
         raise ValueError("snapshot file conflicts with a directory")
+    mtimes = tree.get("mtimes_ns")
+    if "mtimes_ns" in tree and (
+        not isinstance(mtimes, dict)
+        or mtimes.keys() != set(files).union(directories, {"."})
+        or any(type(value) is not int or not -(2**63) <= value < 2**63 for value in mtimes.values())
+    ):
+        raise ValueError("invalid snapshot modification times")
     size = 0
     decoded = []
     for encoded in files.values():
@@ -92,6 +107,13 @@ def unpack_tree(tree: dict, root: Path) -> None:
     for path, content in zip(file_paths, decoded):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
+    if mtimes is not None:
+        paths = dict(zip([*directories, *files], all_paths))
+        paths["."] = root
+        # Creating a child changes its parent's timestamp. Apply metadata last.
+        for name, path in paths.items():
+            mtime = mtimes[name]
+            os.utime(path, ns=(mtime, mtime))
 
 
 def environment() -> dict:
@@ -112,7 +134,8 @@ def forward(payload: dict, endpoint: dict, emit) -> None:
     host, port = endpoint["host"], int(endpoint["port"])
     if not endpoint.get("tls") and host not in ("127.0.0.1", "::1", "localhost"):
         raise ValueError("TLS is required for non-loopback workers")
-    request = dict(payload=payload, tree=pack_tree(payload["snapshot_root"]), timeout=endpoint.get("timeout", 60))
+    request = dict(payload=payload, tree=pack_tree(payload["snapshot_root"], preserve_mtime=True),
+                   timeout=endpoint.get("timeout", 60))
     request["payload"] = {k: v for k, v in payload.items() if k != "snapshot_root"}
     data = json.dumps(request).encode()
     if len(data) > MAX_FRAME:

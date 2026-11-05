@@ -373,6 +373,10 @@ class ExternalAdapter(AgentAdapter):
         except ToolExecutionError as exc:
             answer = {"type": "error", "code": "tool_failed", "kind": exc.kind,
                       "execution_id": exc.execution_id, "message": str(exc)}
+        except asyncio.CancelledError as exc:
+            if asyncio.current_task().cancelling():
+                raise
+            answer = {"type": "error", "code": "tool_cancelled", "message": str(exc)}
         if request_id is not None:
             answer["request_id"] = request_id
         return answer
