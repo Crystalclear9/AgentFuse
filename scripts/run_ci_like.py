@@ -62,6 +62,7 @@ def run(python: str, pool: int | None, workers: int | None, extra: list[str], fo
         "tests/integration/test_worker_lifecycle.py", "tests/integration/test_concurrency.py",
         "tests/integration/test_divergent.py",
         "tests/integration/test_cancellation_review.py",
+        "tests/integration/test_admission_cancellation.py",
     ]
     command = [
         python,

@@ -628,6 +628,8 @@ class RuntimeCoordinator:
         if snapshot_hash is None:
             return False
         async with self._lock:
+            if call.future.done() or self._closing:
+                return False
             entry = self.result_cache.get(call.candidate_key, snapshot_hash)
             if entry is None:
                 entry = self._persistent_entry(call, snapshot_hash)
@@ -688,6 +690,10 @@ class RuntimeCoordinator:
 
         mode = self.mode_for(call.workflow_id)
         async with self._lock:
+            # Cancellation/shutdown may have settled this call while dispatch
+            # was waiting for cache lookup or the coordinator lock.
+            if call.future.done() or self._closing:
+                return
             if not self._snapshot_is_trustworthy(call.snapshot_id):
                 # A snapshot that was modified outside of AgentFuse must not
                 # take part in a shared execution - the dependency fingerprints
@@ -966,6 +972,8 @@ class RuntimeCoordinator:
         return execution
 
     def _start_independent_locked(self, call: LogicalCall) -> None:
+        if call.future.done() or self._closing:
+            return
         call.status = LogicalCallStatus.RUNNING_INDEPENDENTLY
         execution = self._create_execution_locked(call, share_group_id=None)
         self._persist_call(call)

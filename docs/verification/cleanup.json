@@ -1,6 +1,18 @@
 [
   {
-    "path": ".agentfuse/recheck-guard",
+    "path": ".agentfuse/final-guard",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/final-wheel",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/wheel-check.py",
+    "status": "deleted"
+  },
+  {
+    "path": ".agentfuse/final-report.py",
     "status": "deleted"
   },
   {
@@ -43,6 +55,14 @@
   },
   {
     "path": ".tools/cache",
-    "status": "absent"
+    "status": "deleted"
+  },
+  {
+    "path": "build",
+    "status": "deleted"
+  },
+  {
+    "path": "agentfuse.egg-info",
+    "status": "deleted"
   }
 ]

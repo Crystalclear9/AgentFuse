@@ -1,0 +1,18 @@
+[
+  ".agentfuse/final-guard",
+  ".agentfuse/final-wheel",
+  ".agentfuse/wheel-check.py",
+  ".agentfuse/final-report.py",
+  ".agentfuse/audit-runs",
+  ".agentfuse/soak",
+  ".agentfuse/regression",
+  ".agentfuse/acceptance",
+  ".agentfuse/acceptance-api",
+  ".agentfuse/frontend-capture",
+  ".agentfuse/tmp",
+  ".agentfuse/tmp-linux",
+  ".pytest_cache",
+  ".tools/cache",
+  "build",
+  "agentfuse.egg-info"
+]

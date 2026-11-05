@@ -1,0 +1,115 @@
+{
+  "date": "2026-11-05",
+  "full": {
+    "windows": {
+      "total": 323,
+      "passed": 321,
+      "skipped": 2,
+      "skip_reasons": [
+        "set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image",
+        "symlinks are not supported on this platform"
+      ]
+    },
+    "py312": {
+      "total": 323,
+      "passed": 321,
+      "skipped": 2,
+      "skip_reasons": [
+        "set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image",
+        "symlinks are not supported on this platform"
+      ]
+    },
+    "py313": {
+      "total": 323,
+      "passed": 321,
+      "skipped": 2,
+      "skip_reasons": [
+        "set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image",
+        "symlinks are not supported on this platform"
+      ]
+    },
+    "wsl": {
+      "total": 323,
+      "passed": 321,
+      "skipped": 2,
+      "skip_reasons": [
+        "the browser test only runs where a browser is requested",
+        "set AGENTFUSE_SANDBOX_TEST_IMAGE to a local immutable Linux image"
+      ]
+    }
+  },
+  "matrix": {
+    "0/1": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "0/2": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "1/1": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "1/2": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "2/1": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    },
+    "2/2": {
+      "total": 70,
+      "passed": 70,
+      "skipped": 0,
+      "skip_reasons": []
+    }
+  },
+  "audit": {
+    "total": 325,
+    "failed": 0,
+    "behavioural": 110,
+    "structural": 215
+  },
+  "guards": 58,
+  "acceptance": "44/44",
+  "extensions": {
+    "total": 14,
+    "passed": 14,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "cancellation": {
+    "total": 10,
+    "passed": 10,
+    "skipped": 0,
+    "skip_reasons": []
+  },
+  "soak": {
+    "minutes": 10.0,
+    "iterations": 1003,
+    "errors": 0,
+    "worker_growth": 0,
+    "rss_growth_mb": 0.0
+  },
+  "installed_wheel": {
+    "installed_wheel": true,
+    "baseline_executions": 2,
+    "online_executions": 1,
+    "identical_results": true
+  },
+  "performance_passed": true,
+  "source_sha256": "e26fd6c69fedfd2569ef5a0ed264464779649113a19a4db4ec842e7142f4ce05",
+  "full_p2_completed": false
+}

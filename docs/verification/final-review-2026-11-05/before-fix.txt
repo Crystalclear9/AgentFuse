@@ -1,0 +1,20 @@
+FF                                                                       [100%]
+================================== FAILURES ===================================
+_________ test_cancelled_request_cannot_resume_into_execution[False] __________
+tests\integration\test_admission_cancellation.py:32: in test_cancelled_request_cannot_resume_into_execution
+    assert app.repository.list_executions(workflow.workflow_id) == []
+E   AssertionError: assert [{'execution_...'1.0.0', ...}] == []
+E     
+E     Left contains one more item: {'execution_id': 'exec-d2e7108595f64d83abd4ccad38fa6905', 'workflow_id': 'wf-6405c5c707ce4e82b9ea6257787dbe44', 'tool_name': 'ast_analyzer', 'tool_version': '1.0.0', ...}
+E     Use -v to get more diff
+__________ test_cancelled_request_cannot_resume_into_execution[True] __________
+tests\integration\test_admission_cancellation.py:32: in test_cancelled_request_cannot_resume_into_execution
+    assert app.repository.list_executions(workflow.workflow_id) == []
+E   AssertionError: assert [{'execution_...'1.0.0', ...}] == []
+E     
+E     Left contains one more item: {'execution_id': 'exec-53b50964a41a4095b8c74e36b925b74a', 'workflow_id': 'wf-7e05cbfd0ebb488fb25d3832aa0356c6', 'tool_name': 'ast_analyzer', 'tool_version': '1.0.0', ...}
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED tests/integration/test_admission_cancellation.py::test_cancelled_request_cannot_resume_into_execution[False]
+FAILED tests/integration/test_admission_cancellation.py::test_cancelled_request_cannot_resume_into_execution[True]
+2 failed in 0.81s
